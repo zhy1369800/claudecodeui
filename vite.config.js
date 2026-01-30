@@ -11,13 +11,13 @@ export default defineConfig(({ command, mode }) => {
     server: {
       port: parseInt(env.VITE_PORT) || 5173,
       proxy: {
-        '/api': `http://127.0.0.1:${env.PORT || 3001}`,
+        '/api': `http://localhost:${env.PORT || 3001}`,
         '/ws': {
-          target: `ws://127.0.0.1:${env.PORT || 3001}`,
+          target: `ws://localhost:${env.PORT || 3001}`,
           ws: true
         },
         '/shell': {
-          target: `ws://127.0.0.1:${env.PORT || 3001}`,
+          target: `ws://localhost:${env.PORT || 3001}`,
           ws: true
         }
       }
@@ -38,8 +38,8 @@ export default defineConfig(({ command, mode }) => {
               '@codemirror/lang-markdown',
               '@codemirror/lang-python',
               '@codemirror/theme-one-dark'
-            ]
-            // 'vendor-xterm': ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-clipboard', '@xterm/addon-webgl']
+            ],
+            'vendor-xterm': ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-clipboard', '@xterm/addon-webgl']
           }
         }
       }

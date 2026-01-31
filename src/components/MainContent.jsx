@@ -363,8 +363,8 @@ function MainContent({
                 <button
                   onClick={() => setActiveTab('chat')}
                   className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'chat'
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                 >
                   <span className="flex items-center gap-1 sm:gap-1.5">
@@ -379,8 +379,8 @@ function MainContent({
                 <button
                   onClick={() => setActiveTab('shell')}
                   className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'shell'
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                 >
                   <span className="flex items-center gap-1 sm:gap-1.5">
@@ -395,8 +395,8 @@ function MainContent({
                 <button
                   onClick={() => setActiveTab('files')}
                   className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'files'
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                 >
                   <span className="flex items-center gap-1 sm:gap-1.5">
@@ -411,8 +411,8 @@ function MainContent({
                 <button
                   onClick={() => setActiveTab('git')}
                   className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'git'
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                 >
                   <span className="flex items-center gap-1 sm:gap-1.5">
@@ -428,8 +428,8 @@ function MainContent({
                   <button
                     onClick={() => setActiveTab('tasks')}
                     className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'tasks'
-                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
+                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
                   >
                     <span className="flex items-center gap-1 sm:gap-1.5">
@@ -473,6 +473,7 @@ function MainContent({
                 ws={ws}
                 sendMessage={sendMessage}
                 messages={messages}
+                isMobile={isMobile}
                 onFileOpen={handleFileOpen}
                 onInputFocusChange={onInputFocusChange}
                 onSessionActive={onSessionActive}

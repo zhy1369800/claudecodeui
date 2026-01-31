@@ -1844,7 +1844,19 @@ const ImageAttachment = ({ file, onRemove, uploadProgress, error }) => {
 // - onReplaceTemporarySession: Called to replace temporary session ID with real WebSocket session ID
 //
 // This ensures uninterrupted chat experience by pausing sidebar refreshes during conversations.
-function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, messages, onFileOpen, onInputFocusChange, onSessionActive, onSessionInactive, onSessionProcessing, onSessionNotProcessing, processingSessions, onReplaceTemporarySession, onNavigateToSession, onShowSettings, autoExpandTools, showRawParameters, showThinking, autoScrollToBottom, sendByCtrlEnter, externalMessageUpdate, onTaskClick, onShowAllTasks }) {
+function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, messages, onFileOpen, onInputFocusChange, onSessionActive, onSessionInactive, onSessionProcessing, onSessionNotProcessing, processingSessions, onReplaceTemporarySession,
+  onNavigateToSession,
+  onShowSettings,
+  autoExpandTools,
+  showRawParameters,
+  showThinking,
+  autoScrollToBottom,
+  sendByCtrlEnter,
+  externalMessageUpdate,
+  onTaskClick,
+  onShowAllTasks,
+  isMobile
+}) {
   const { tasksEnabled, isTaskMasterInstalled } = useTasksSettings();
   const { t } = useTranslation('chat');
   const [input, setInput] = useState(() => {
@@ -5470,7 +5482,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                   }}
                   placeholder={t('input.placeholder', { provider: provider === 'cursor' ? t('messageTypes.cursor') : provider === 'codex' ? t('messageTypes.codex') : t('messageTypes.claude') })}
                   disabled={isLoading}
-                  className="chat-input-placeholder block w-full pl-3 pr-20 sm:pr-24 pt-3 pb-12 sm:pb-14 bg-transparent rounded-2xl focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:opacity-50 resize-y min-h-[100px] sm:min-h-[120px] max-h-[60vh] sm:max-h-[500px] overflow-y-auto text-base leading-6 transition-all duration-200"
+                  className="chat-input-placeholder block w-full pl-3 pr-4 sm:pr-6 pt-3 pb-12 sm:pb-14 bg-transparent rounded-2xl focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:opacity-50 resize-y min-h-[100px] sm:min-h-[120px] max-h-[60vh] sm:max-h-[500px] overflow-y-auto text-base leading-6 transition-all duration-200"
                   style={{ height: '100px' }}
                 />
                 {/* Bottom controls row */}
@@ -5512,10 +5524,10 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                               : 'bg-blue-500'
                           }`} />
                         <span>
-                          {permissionMode === 'default' && t('codex.modes.default')}
-                          {permissionMode === 'acceptEdits' && t('codex.modes.acceptEdits')}
-                          {permissionMode === 'bypassPermissions' && t('codex.modes.bypassPermissions')}
-                          {permissionMode === 'plan' && t('codex.modes.plan')}
+                          {permissionMode === 'default' && (isMobile ? t('codex.modes_mobile.default') : t('codex.modes.default'))}
+                          {permissionMode === 'acceptEdits' && (isMobile ? t('codex.modes_mobile.acceptEdits') : t('codex.modes.acceptEdits'))}
+                          {permissionMode === 'bypassPermissions' && (isMobile ? t('codex.modes_mobile.bypassPermissions') : t('codex.modes.bypassPermissions'))}
+                          {permissionMode === 'plan' && (isMobile ? t('codex.modes_mobile.plan') : t('codex.modes.plan'))}
                         </span>
                       </div>
                     </button>

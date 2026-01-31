@@ -225,13 +225,10 @@ const QuickSettingsPanel = ({
           // Start drag on touchstart
           handleDragStart(e);
         }}
-        className={`fixed ${
-          localIsOpen ? 'right-64' : 'right-0'
-        } z-50 ${isDragging ? '' : 'transition-all duration-150 ease-out'} bg-white dark:bg-gray-800 border ${
-          isDragging ? 'border-blue-500 dark:border-blue-400' : 'border-gray-200 dark:border-gray-700'
-        } rounded-l-md p-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shadow-lg ${
-          isDragging ? 'cursor-grabbing' : 'cursor-pointer'
-        } touch-none`}
+        className={`fixed ${localIsOpen ? 'right-64' : 'right-0'
+          } z-50 ${isDragging ? '' : 'transition-all duration-150 ease-out'} bg-white dark:bg-gray-800 border ${isDragging ? 'border-blue-500 dark:border-blue-400' : 'border-gray-200 dark:border-gray-700'
+          } rounded-l-md p-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shadow-lg ${isDragging ? 'cursor-grabbing' : 'cursor-pointer'
+          } touch-none`}
         style={{ ...getPositionStyle(), touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
         aria-label={isDragging ? t('quickSettings.dragHandle.dragging') : localIsOpen ? t('quickSettings.dragHandle.closePanel') : t('quickSettings.dragHandle.openPanel')}
         title={isDragging ? t('quickSettings.dragHandle.draggingStatus') : t('quickSettings.dragHandle.toggleAndMove')}
@@ -247,9 +244,8 @@ const QuickSettingsPanel = ({
 
       {/* Panel */}
       <div
-        className={`fixed top-0 right-0 h-full w-64 bg-background border-l border-border shadow-xl transform transition-transform duration-150 ease-out z-40 ${
-          localIsOpen ? 'translate-x-0' : 'translate-x-full'
-        } ${isMobile ? 'h-screen' : ''}`}
+        className={`fixed top-0 right-0 h-full w-64 bg-background border-l border-border shadow-xl transform transition-transform duration-150 ease-out z-40 ${localIsOpen ? 'translate-x-0' : 'translate-x-full'
+          } ${isMobile ? 'h-screen' : ''}`}
       >
         <div className="h-full flex flex-col">
           {/* Header */}
@@ -261,7 +257,7 @@ const QuickSettingsPanel = ({
           </div>
 
           {/* Settings Content */}
-          <div className={`flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6 bg-background ${isMobile ? 'pb-mobile-nav' : ''}`}>
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6 bg-background">
             {/* Appearance Settings */}
             <div className="space-y-2">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">{t('quickSettings.sections.appearance')}</h4>
@@ -365,7 +361,7 @@ const QuickSettingsPanel = ({
             {/* Whisper Dictation Settings - HIDDEN */}
             <div className="space-y-2" style={{ display: 'none' }}>
               <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">{t('quickSettings.sections.whisperDictation')}</h4>
-              
+
               <div className="space-y-2">
                 <label className="flex items-start p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
                   <input

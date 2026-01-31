@@ -67,17 +67,17 @@ function MainContent({
   const [isResizing, setIsResizing] = useState(false);
   const [editorExpanded, setEditorExpanded] = useState(false);
   const resizeRef = useRef(null);
-  
+
   // PRD Editor state
   const [showPRDEditor, setShowPRDEditor] = useState(false);
   const [selectedPRD, setSelectedPRD] = useState(null);
   const [existingPRDs, setExistingPRDs] = useState([]);
   const [prdNotification, setPRDNotification] = useState(null);
-  
+
   // TaskMaster context
   const { tasks, currentProject, refreshTasks, setCurrentProject } = useTaskMaster();
   const { tasksEnabled, isTaskMasterInstalled, isTaskMasterReady } = useTasksSettings();
-  
+
   // Only show tasks tab if TaskMaster is installed and enabled
   const shouldShowTasksTab = tasksEnabled && isTaskMasterInstalled;
 
@@ -102,7 +102,7 @@ function MainContent({
         setExistingPRDs([]);
         return;
       }
-      
+
       try {
         const response = await api.get(`/taskmaster/prd/${encodeURIComponent(currentProject.name)}`);
         if (response.ok) {
@@ -231,13 +231,13 @@ function MainContent({
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center text-gray-500 dark:text-gray-400">
             <div className="w-12 h-12 mx-auto mb-4">
-              <div 
-                className="w-full h-full rounded-full border-4 border-gray-200 border-t-blue-500" 
-                style={{ 
+              <div
+                className="w-full h-full rounded-full border-4 border-gray-200 border-t-blue-500"
+                style={{
                   animation: 'spin 1s linear infinite',
                   WebkitAnimation: 'spin 1s linear infinite',
                   MozAnimation: 'spin 1s linear infinite'
-                }} 
+                }}
               />
             </div>
             <h2 className="text-xl font-semibold mb-2">{t('mainContent.loading')}</h2>
@@ -343,9 +343,9 @@ function MainContent({
                   <div className="min-w-0">
                     <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
                       {activeTab === 'files' ? t('mainContent.projectFiles') :
-                       activeTab === 'git' ? t('tabs.git') :
-                       (activeTab === 'tasks' && shouldShowTasksTab) ? 'TaskMaster' :
-                       'Project'}
+                        activeTab === 'git' ? t('tabs.git') :
+                          (activeTab === 'tasks' && shouldShowTasksTab) ? 'TaskMaster' :
+                            'Project'}
                     </h2>
                     <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       {selectedProject.displayName}
@@ -355,75 +355,71 @@ function MainContent({
               </div>
             </div>
           </div>
-          
-          {/* Modern Tab Navigation - Right Side */}
-          <div className="flex-shrink-0 hidden sm:block">
-            <div className="relative flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+
+          {/* Modern Tab Navigation - Integrated for both Mobile and Desktop */}
+          <div className="flex-shrink-0">
+            <div className="relative flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 sm:p-1">
               <Tooltip content={t('tabs.chat')} position="bottom">
                 <button
                   onClick={() => setActiveTab('chat')}
-                  className={`relative px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md ${
-                    activeTab === 'chat'
+                  className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'chat'
                       ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
-                  }`}
+                    }`}
                 >
                   <span className="flex items-center gap-1 sm:gap-1.5">
-                    <svg className="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3.5 sm:w-3.5 h-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
-                    <span className="hidden md:hidden lg:inline">{t('tabs.chat')}</span>
+                    <span className="hidden lg:inline">{t('tabs.chat')}</span>
                   </span>
                 </button>
               </Tooltip>
               <Tooltip content={t('tabs.shell')} position="bottom">
                 <button
                   onClick={() => setActiveTab('shell')}
-                  className={`relative px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
-                    activeTab === 'shell'
+                  className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'shell'
                       ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
-                  }`}
+                    }`}
                 >
                   <span className="flex items-center gap-1 sm:gap-1.5">
-                    <svg className="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3.5 sm:w-3.5 h-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
-                    <span className="hidden md:hidden lg:inline">{t('tabs.shell')}</span>
+                    <span className="hidden lg:inline">{t('tabs.shell')}</span>
                   </span>
                 </button>
               </Tooltip>
               <Tooltip content={t('tabs.files')} position="bottom">
                 <button
                   onClick={() => setActiveTab('files')}
-                  className={`relative px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
-                    activeTab === 'files'
+                  className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'files'
                       ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
-                  }`}
+                    }`}
                 >
                   <span className="flex items-center gap-1 sm:gap-1.5">
-                    <svg className="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3.5 sm:w-3.5 h-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-5l-2-2H5a2 2 0 00-2 2z" />
                     </svg>
-                    <span className="hidden md:hidden lg:inline">{t('tabs.files')}</span>
+                    <span className="hidden lg:inline">{t('tabs.files')}</span>
                   </span>
                 </button>
               </Tooltip>
               <Tooltip content={t('tabs.git')} position="bottom">
                 <button
                   onClick={() => setActiveTab('git')}
-                  className={`relative px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
-                    activeTab === 'git'
+                  className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'git'
                       ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
-                  }`}
+                    }`}
                 >
                   <span className="flex items-center gap-1 sm:gap-1.5">
-                    <svg className="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3.5 sm:w-3.5 h-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    <span className="hidden md:hidden lg:inline">{t('tabs.git')}</span>
+                    <span className="hidden lg:inline">{t('tabs.git')}</span>
                   </span>
                 </button>
               </Tooltip>
@@ -431,22 +427,21 @@ function MainContent({
                 <Tooltip content={t('tabs.tasks')} position="bottom">
                   <button
                     onClick={() => setActiveTab('tasks')}
-                    className={`relative px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
-                      activeTab === 'tasks'
+                    className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'tasks'
                         ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
-                    }`}
+                      }`}
                   >
                     <span className="flex items-center gap-1 sm:gap-1.5">
-                      <svg className="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3.5 sm:w-3.5 h-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                       </svg>
-                      <span className="hidden md:hidden lg:inline">{t('tabs.tasks')}</span>
+                      <span className="hidden lg:inline">{t('tabs.tasks')}</span>
                     </span>
                   </button>
                 </Tooltip>
               )}
-               {/* <button
+              {/* <button
                 onClick={() => setActiveTab('preview')}
                 className={`relative px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
                   activeTab === 'preview'
@@ -473,86 +468,86 @@ function MainContent({
           <div className={`h-full ${activeTab === 'chat' ? 'block' : 'hidden'}`}>
             <ErrorBoundary showDetails={true}>
               <ChatInterface
-              selectedProject={selectedProject}
-              selectedSession={selectedSession}
-              ws={ws}
-              sendMessage={sendMessage}
-              messages={messages}
-              onFileOpen={handleFileOpen}
-              onInputFocusChange={onInputFocusChange}
-              onSessionActive={onSessionActive}
-              onSessionInactive={onSessionInactive}
-              onSessionProcessing={onSessionProcessing}
-              onSessionNotProcessing={onSessionNotProcessing}
-              processingSessions={processingSessions}
-              onReplaceTemporarySession={onReplaceTemporarySession}
-              onNavigateToSession={onNavigateToSession}
-              onShowSettings={onShowSettings}
-              autoExpandTools={autoExpandTools}
-              showRawParameters={showRawParameters}
-              showThinking={showThinking}
-              autoScrollToBottom={autoScrollToBottom}
-              sendByCtrlEnter={sendByCtrlEnter}
-              externalMessageUpdate={externalMessageUpdate}
-              onShowAllTasks={tasksEnabled ? () => setActiveTab('tasks') : null}
-            />
-          </ErrorBoundary>
-        </div>
-        {activeTab === 'files' && (
-          <div className="h-full overflow-hidden">
-            <FileTree selectedProject={selectedProject} />
+                selectedProject={selectedProject}
+                selectedSession={selectedSession}
+                ws={ws}
+                sendMessage={sendMessage}
+                messages={messages}
+                onFileOpen={handleFileOpen}
+                onInputFocusChange={onInputFocusChange}
+                onSessionActive={onSessionActive}
+                onSessionInactive={onSessionInactive}
+                onSessionProcessing={onSessionProcessing}
+                onSessionNotProcessing={onSessionNotProcessing}
+                processingSessions={processingSessions}
+                onReplaceTemporarySession={onReplaceTemporarySession}
+                onNavigateToSession={onNavigateToSession}
+                onShowSettings={onShowSettings}
+                autoExpandTools={autoExpandTools}
+                showRawParameters={showRawParameters}
+                showThinking={showThinking}
+                autoScrollToBottom={autoScrollToBottom}
+                sendByCtrlEnter={sendByCtrlEnter}
+                externalMessageUpdate={externalMessageUpdate}
+                onShowAllTasks={tasksEnabled ? () => setActiveTab('tasks') : null}
+              />
+            </ErrorBoundary>
           </div>
-        )}
-        {activeTab === 'shell' && (
-          <div className="h-full w-full overflow-hidden">
-            <StandaloneShell
-              project={selectedProject}
-              session={selectedSession}
-              showHeader={false}
-            />
-          </div>
-        )}
-        {activeTab === 'git' && (
-          <div className="h-full overflow-hidden">
-            <GitPanel selectedProject={selectedProject} isMobile={isMobile} onFileOpen={handleFileOpen} />
-          </div>
-        )}
-        {shouldShowTasksTab && (
-          <div className={`h-full ${activeTab === 'tasks' ? 'block' : 'hidden'}`}>
-            <div className="h-full flex flex-col overflow-hidden">
-              <TaskList
-                tasks={tasks || []}
-                onTaskClick={handleTaskClick}
-                showParentTasks={true}
-                className="flex-1 overflow-y-auto p-4"
-                currentProject={currentProject}
-                onTaskCreated={refreshTasks}
-                onShowPRDEditor={(prd = null) => {
-                  setSelectedPRD(prd);
-                  setShowPRDEditor(true);
-                }}
-                existingPRDs={existingPRDs}
-                onRefreshPRDs={(showNotification = false) => {
-                  // Reload existing PRDs
-                  if (currentProject?.name) {
-                    api.get(`/taskmaster/prd/${encodeURIComponent(currentProject.name)}`)
-                      .then(response => response.ok ? response.json() : Promise.reject())
-                      .then(data => {
-                        setExistingPRDs(data.prdFiles || []);
-                        if (showNotification) {
-                          setPRDNotification('PRD saved successfully!');
-                          setTimeout(() => setPRDNotification(null), 3000);
-                        }
-                      })
-                      .catch(error => console.error('Failed to refresh PRDs:', error));
-                  }
-                }}
+          {activeTab === 'files' && (
+            <div className="h-full overflow-hidden">
+              <FileTree selectedProject={selectedProject} />
+            </div>
+          )}
+          {activeTab === 'shell' && (
+            <div className="h-full w-full overflow-hidden">
+              <StandaloneShell
+                project={selectedProject}
+                session={selectedSession}
+                showHeader={false}
               />
             </div>
-          </div>
-        )}
-        <div className={`h-full overflow-hidden ${activeTab === 'preview' ? 'block' : 'hidden'}`}>
-          {/* <LivePreviewPanel
+          )}
+          {activeTab === 'git' && (
+            <div className="h-full overflow-hidden">
+              <GitPanel selectedProject={selectedProject} isMobile={isMobile} onFileOpen={handleFileOpen} />
+            </div>
+          )}
+          {shouldShowTasksTab && (
+            <div className={`h-full ${activeTab === 'tasks' ? 'block' : 'hidden'}`}>
+              <div className="h-full flex flex-col overflow-hidden">
+                <TaskList
+                  tasks={tasks || []}
+                  onTaskClick={handleTaskClick}
+                  showParentTasks={true}
+                  className="flex-1 overflow-y-auto p-4"
+                  currentProject={currentProject}
+                  onTaskCreated={refreshTasks}
+                  onShowPRDEditor={(prd = null) => {
+                    setSelectedPRD(prd);
+                    setShowPRDEditor(true);
+                  }}
+                  existingPRDs={existingPRDs}
+                  onRefreshPRDs={(showNotification = false) => {
+                    // Reload existing PRDs
+                    if (currentProject?.name) {
+                      api.get(`/taskmaster/prd/${encodeURIComponent(currentProject.name)}`)
+                        .then(response => response.ok ? response.json() : Promise.reject())
+                        .then(data => {
+                          setExistingPRDs(data.prdFiles || []);
+                          if (showNotification) {
+                            setPRDNotification('PRD saved successfully!');
+                            setTimeout(() => setPRDNotification(null), 3000);
+                          }
+                        })
+                        .catch(error => console.error('Failed to refresh PRDs:', error));
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          <div className={`h-full overflow-hidden ${activeTab === 'preview' ? 'block' : 'hidden'}`}>
+            {/* <LivePreviewPanel
             selectedProject={selectedProject}
             serverStatus={serverStatus}
             serverUrl={serverUrl}
@@ -576,7 +571,7 @@ function MainContent({
             serverLogs={serverLogs}
             onClearLogs={() => setServerLogs([])}
           /> */}
-        </div>
+          </div>
         </div>
 
         {/* Code Editor Right Sidebar - Desktop only, Mobile uses modal */}
@@ -643,14 +638,14 @@ function MainContent({
             setSelectedPRD(null);
           }}
           isNewFile={!selectedPRD?.isExisting}
-          file={{ 
+          file={{
             name: selectedPRD?.name || 'prd.txt',
             content: selectedPRD?.content || ''
           }}
           onSave={async () => {
             setShowPRDEditor(false);
             setSelectedPRD(null);
-            
+
             // Reload existing PRDs with notification
             try {
               const response = await api.get(`/taskmaster/prd/${encodeURIComponent(currentProject.name)}`);
@@ -663,7 +658,7 @@ function MainContent({
             } catch (error) {
               console.error('Failed to refresh PRDs:', error);
             }
-            
+
             refreshTasks?.();
           }}
         />

@@ -5482,11 +5482,11 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                   }}
                   placeholder={t('input.placeholder', { provider: provider === 'cursor' ? t('messageTypes.cursor') : provider === 'codex' ? t('messageTypes.codex') : t('messageTypes.claude') })}
                   disabled={isLoading}
-                  className={`chat-input-placeholder block w-full pl-3 ${isMobile ? 'pr-3 pb-2 min-h-[44px]' : 'pr-4 sm:pr-6 pb-12 sm:pb-14 min-h-[100px] sm:min-h-[120px]'} pt-3 bg-transparent rounded-2xl focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:opacity-50 resize-y max-h-[60vh] sm:max-h-[500px] overflow-y-auto text-base leading-6 transition-all duration-200`}
-                  style={{ height: isMobile ? '44px' : '100px' }}
+                  className={`chat-input-placeholder block w-full pl-3 ${isMobile ? 'pr-12 pb-10 min-h-[52px]' : 'pr-4 sm:pr-6 pb-12 sm:pb-14 min-h-[100px] sm:min-h-[120px]'} pt-3 bg-transparent rounded-2xl focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:opacity-50 resize-y max-h-[60vh] sm:max-h-[500px] overflow-y-auto text-base leading-6 transition-all duration-200`}
+                  style={{ height: isMobile ? '52px' : '100px' }}
                 />
                 {/* Bottom controls row */}
-                <div className={`${isMobile ? 'relative flex items-center justify-between px-2 pb-2 pt-1' : 'absolute bottom-2 left-2 right-2 flex items-center justify-between pointer-events-none'}`}>
+                <div className={`absolute left-2 right-2 flex items-center justify-between pointer-events-none ${isMobile ? 'bottom-1.5' : 'bottom-2'}`}>
                   <div className={`flex items-center gap-1.5 pointer-events-auto ${isMobile ? '' : 'bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-1'}`}>
                     {/* Image upload button */}
                     <button
@@ -5558,7 +5558,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                         setCommandQuery('');
                         setSelectedCommandIndex(-1);
                         if (isOpening) setFilteredCommands(slashCommands);
-                        if (textareaRef.current) textareaRef.current.focus();
+                        // On mobile, don't auto-focus to avoid keyboard popping up and covering the menu
+                        if (!isMobile && textareaRef.current) textareaRef.current.focus();
                       }}
                       className="relative w-7 h-7 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 flex items-center justify-center transition-colors"
                       title={t('input.showAllCommands')}
@@ -5604,7 +5605,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                       e.preventDefault();
                       handleSubmit(e);
                     }}
-                    className="pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed rounded-2xl flex items-center justify-center shadow-lg transition-all duration-200 active:scale-95"
+                    className={`pointer-events-auto bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed rounded-2xl flex items-center justify-center shadow-lg transition-all duration-200 active:scale-95 ${isMobile ? 'w-9 h-9' : 'w-10 h-10 sm:w-11 sm:h-11'}`}
                   >
                     <svg className="w-5 h-5 text-white transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

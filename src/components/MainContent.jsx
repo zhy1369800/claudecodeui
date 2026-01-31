@@ -11,7 +11,8 @@
  * No session protection logic is implemented here - it's purely a props bridge.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import ChatInterface from './ChatInterface';
 import FileTree from './FileTree';
@@ -87,6 +88,94 @@ function MainContent({
       setCurrentProject(selectedProject);
     }
   }, [selectedProject, currentProject, setCurrentProject]);
+
+  // Mobile drag state for tab navigation
+  const [handlePosition, setHandlePosition] = useState(() => {
+    const saved = localStorage.getItem('mobileNavHandlePosition');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.y ?? 5; // Default to 5% from top
+      } catch {
+        return 5;
+      }
+    }
+    return 5;
+  });
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartY, setDragStartY] = useState(0);
+  const [dragStartPosition, setDragStartPosition] = useState(0);
+  const constraintsRef = useRef({ min: 0, max: 90 }); // Keep within 0-90% of screen height
+  const dragThreshold = 5;
+
+  // Save handle position
+  useEffect(() => {
+    localStorage.setItem('mobileNavHandlePosition', JSON.stringify({ y: handlePosition }));
+  }, [handlePosition]);
+
+  // Handle drag mechanics
+  const handleDragStart = useCallback((e) => {
+    // Only enable drag on mobile (sm breakpoint is 640px)
+    if (window.innerWidth >= 640) return;
+
+    // Allow touch events only
+    if (!e.type.includes('touch')) return;
+
+    // stopPropagation to prevent interfering with other touch actions like scroll
+    // but we don't preventDefault yet to allow clicks if it's not a drag
+    // e.stopPropagation(); 
+
+    const clientY = e.touches[0].clientY;
+    setDragStartY(clientY);
+    setDragStartPosition(handlePosition);
+    setIsDragging(false);
+  }, [handlePosition]);
+
+  const handleDragMove = useCallback((e) => {
+    if (dragStartY === 0) return;
+
+    const clientY = e.touches[0].clientY;
+    const deltaY = Math.abs(clientY - dragStartY);
+
+    if (!isDragging && deltaY > dragThreshold) {
+      setIsDragging(true);
+    }
+
+    if (!isDragging) return;
+
+    e.preventDefault(); // Prevent scrolling while dragging
+
+    const actualDeltaY = clientY - dragStartY;
+    const percentageDelta = (actualDeltaY / window.innerHeight) * 100;
+
+    let newPosition = dragStartPosition + percentageDelta;
+    newPosition = Math.max(constraintsRef.current.min, Math.min(constraintsRef.current.max, newPosition));
+
+    setHandlePosition(newPosition);
+  }, [isDragging, dragStartY, dragStartPosition, dragThreshold]);
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+    setDragStartY(0);
+  }, []);
+
+  // Set up global touch listeners for drag continuation
+  useEffect(() => {
+    if (dragStartY !== 0) {
+      const handleTouchMove = (e) => handleDragMove(e);
+      const handleTouchEnd = () => handleDragEnd();
+
+      // Add options { passive: false } to allow preventDefault
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchend', handleTouchEnd);
+
+      return () => {
+        document.removeEventListener('touchmove', handleTouchMove);
+        document.removeEventListener('touchend', handleTouchEnd);
+      };
+    }
+  }, [dragStartY, handleDragMove, handleDragEnd]);
 
   // Switch away from tasks tab when tasks are disabled or TaskMaster is not installed
   useEffect(() => {
@@ -357,11 +446,30 @@ function MainContent({
           </div>
 
           {/* Modern Tab Navigation - Integrated for both Mobile and Desktop */}
-          <div className="flex-shrink-0">
-            <div className="relative flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 sm:p-1">
+          <div
+            className={`flex-shrink-0 ${isDragging ? 'cursor-grabbing' : ''}`}
+            style={window.innerWidth < 640 ? {
+              position: 'fixed',
+              top: `${handlePosition}%`,
+              right: '8px',
+              zIndex: 100,
+              pointerEvents: 'auto'
+            } : {}}
+          >
+            <div
+              className="relative flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 sm:p-1 touch-none"
+              onTouchStart={handleDragStart}
+            >
               <Tooltip content={t('tabs.chat')} position="bottom">
                 <button
-                  onClick={() => setActiveTab('chat')}
+                  onClick={(e) => {
+                    if (isDragging) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      return;
+                    }
+                    setActiveTab('chat');
+                  }}
                   className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'chat'
                     ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -377,7 +485,14 @@ function MainContent({
               </Tooltip>
               <Tooltip content={t('tabs.shell')} position="bottom">
                 <button
-                  onClick={() => setActiveTab('shell')}
+                  onClick={(e) => {
+                    if (isDragging) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      return;
+                    }
+                    setActiveTab('shell');
+                  }}
                   className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'shell'
                     ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -393,7 +508,14 @@ function MainContent({
               </Tooltip>
               <Tooltip content={t('tabs.files')} position="bottom">
                 <button
-                  onClick={() => setActiveTab('files')}
+                  onClick={(e) => {
+                    if (isDragging) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      return;
+                    }
+                    setActiveTab('files');
+                  }}
                   className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'files'
                     ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -409,7 +531,14 @@ function MainContent({
               </Tooltip>
               <Tooltip content={t('tabs.git')} position="bottom">
                 <button
-                  onClick={() => setActiveTab('git')}
+                  onClick={(e) => {
+                    if (isDragging) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      return;
+                    }
+                    setActiveTab('git');
+                  }}
                   className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'git'
                     ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -426,7 +555,14 @@ function MainContent({
               {shouldShowTasksTab && (
                 <Tooltip content={t('tabs.tasks')} position="bottom">
                   <button
-                    onClick={() => setActiveTab('tasks')}
+                    onClick={(e) => {
+                      if (isDragging) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                      }
+                      setActiveTab('tasks');
+                    }}
                     className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'tasks'
                       ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'

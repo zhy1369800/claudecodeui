@@ -88,8 +88,8 @@ function ThinkingModeSelector({ selectedMode, onModeChange, onClose, className =
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-200 ${selectedMode === 'none'
-            ? 'hover:bg-gray-100 dark:hover:bg-gray-700'
-            : 'bg-blue-100/50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50'
+          ? 'hover:bg-gray-100 dark:hover:bg-gray-700'
+          : 'bg-blue-100/50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50'
           }`}
         title={t('thinkingMode.buttonTitle', { mode: currentMode.name })}
       >
@@ -153,11 +153,6 @@ function ThinkingModeSelector({ selectedMode, onModeChange, onClose, className =
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                         {mode.description}
                       </p>
-                      {mode.prefix && (
-                        <code className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded mt-1 inline-block">
-                          {mode.prefix}
-                        </code>
-                      )}
                     </div>
                   </div>
                 </button>

@@ -29,6 +29,7 @@ import Tooltip from './Tooltip';
 import { useTaskMaster } from '../contexts/TaskMasterContext';
 import { useTasksSettings } from '../contexts/TasksSettingsContext';
 import { api } from '../utils/api';
+import { Settings2 } from 'lucide-react';
 
 function MainContent({
   selectedProject,
@@ -78,6 +79,10 @@ function MainContent({
   // TaskMaster context
   const { tasks, currentProject, refreshTasks, setCurrentProject } = useTaskMaster();
   const { tasksEnabled, isTaskMasterInstalled, isTaskMasterReady } = useTasksSettings();
+
+  // Shell controls state
+  const [shellSettingsOpen, setShellSettingsOpen] = useState(false);
+  const [isShellConnected, setIsShellConnected] = useState(false);
 
   // Only show tasks tab if TaskMaster is installed and enabled
   const shouldShowTasksTab = tasksEnabled && isTaskMasterInstalled;
@@ -430,12 +435,27 @@ function MainContent({
                   </div>
                 ) : (
                   <div className="min-w-0">
-                    <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
-                      {activeTab === 'files' ? t('mainContent.projectFiles') :
-                        activeTab === 'git' ? t('tabs.git') :
-                          (activeTab === 'tasks' && shouldShowTasksTab) ? 'TaskMaster' :
-                            'Project'}
-                    </h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
+                        {activeTab === 'files' ? t('mainContent.projectFiles') :
+                          activeTab === 'git' ? t('tabs.git') :
+                            (activeTab === 'tasks' && shouldShowTasksTab) ? 'TaskMaster' :
+                              'Project'}
+                      </h2>
+                      {isMobile && activeTab === 'shell' && (
+                        <button
+                          onClick={() => setShellSettingsOpen(!shellSettingsOpen)}
+                          className={`p-1 rounded-md transition-all active:scale-95 ${shellSettingsOpen ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                          <div className="relative">
+                            <Settings2 className="w-4 h-4" />
+                            {isShellConnected && (
+                              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900" />
+                            )}
+                          </div>
+                        </button>
+                      )}
+                    </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       {selectedProject.displayName}
                     </div>
@@ -640,7 +660,11 @@ function MainContent({
               <StandaloneShell
                 project={selectedProject}
                 session={selectedSession}
+                isMobile={isMobile}
                 showHeader={false}
+                isSettingsOpen={shellSettingsOpen}
+                onToggleSettings={setShellSettingsOpen}
+                onStatusChange={setIsShellConnected}
               />
             </div>
           )}

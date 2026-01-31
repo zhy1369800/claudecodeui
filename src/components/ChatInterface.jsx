@@ -5482,12 +5482,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                   }}
                   placeholder={t('input.placeholder', { provider: provider === 'cursor' ? t('messageTypes.cursor') : provider === 'codex' ? t('messageTypes.codex') : t('messageTypes.claude') })}
                   disabled={isLoading}
-                  className="chat-input-placeholder block w-full pl-3 pr-4 sm:pr-6 pt-3 pb-12 sm:pb-14 bg-transparent rounded-2xl focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:opacity-50 resize-y min-h-[100px] sm:min-h-[120px] max-h-[60vh] sm:max-h-[500px] overflow-y-auto text-base leading-6 transition-all duration-200"
-                  style={{ height: '100px' }}
+                  className={`chat-input-placeholder block w-full pl-3 ${isMobile ? 'pr-3 pb-2 min-h-[44px]' : 'pr-4 sm:pr-6 pb-12 sm:pb-14 min-h-[100px] sm:min-h-[120px]'} pt-3 bg-transparent rounded-2xl focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:opacity-50 resize-y max-h-[60vh] sm:max-h-[500px] overflow-y-auto text-base leading-6 transition-all duration-200`}
+                  style={{ height: isMobile ? '44px' : '100px' }}
                 />
                 {/* Bottom controls row */}
-                <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between pointer-events-none">
-                  <div className="flex items-center gap-1.5 pointer-events-auto bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-1">
+                <div className={`${isMobile ? 'relative flex items-center justify-between px-2 pb-2 pt-1' : 'absolute bottom-2 left-2 right-2 flex items-center justify-between pointer-events-none'}`}>
+                  <div className={`flex items-center gap-1.5 pointer-events-auto ${isMobile ? '' : 'bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-1'}`}>
                     {/* Image upload button */}
                     <button
                       type="button"
@@ -5537,12 +5537,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                       <ThinkingModeSelector
                         selectedMode={thinkingMode}
                         onModeChange={setThinkingMode}
-                        className="scale-90 origin-left"
+                        className={`scale-90 origin-left ${isMobile ? 'ml-1' : ''}`}
                       />
                     )}
 
                     {/* Token usage pie chart */}
-                    <div className="scale-75 origin-center">
+                    <div className={`scale-75 origin-center ${isMobile ? '-ml-1' : ''}`}>
                       <TokenUsagePie
                         used={tokenBudget?.used || 0}
                         total={tokenBudget?.total || parseInt(import.meta.env.VITE_CONTEXT_WINDOW) || 160000}

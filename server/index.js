@@ -1833,6 +1833,50 @@ async function startServer() {
             // Start watching the projects folder for changes
             await setupProjectsWatcher();
         });
+
+        // Graceful shutdown handler
+        const gracefulShutdown = async (signal) => {
+            console.log(`\n${c.info('[INFO]')} Received ${signal}. Shutting down gracefully...`);
+
+            // 1. Close file watcher
+            if (projectsWatcher) {
+                console.log(`${c.dim('[CLEANUP]')} Closing projects watcher...`);
+                await projectsWatcher.close();
+            }
+
+            // 2. Kill all active PTY sessions
+            if (ptySessionsMap.size > 0) {
+                console.log(`${c.dim('[CLEANUP]')} Terminating ${ptySessionsMap.size} active shell sessions...`);
+                for (const [key, session] of ptySessionsMap.entries()) {
+                    try {
+                        if (session.timeoutId) clearTimeout(session.timeoutId);
+                        if (session.pty) {
+                            session.pty.kill();
+                        }
+                    } catch (err) {
+                        console.error(`Error killing PTY session ${key}:`, err);
+                    }
+                }
+                ptySessionsMap.clear();
+            }
+
+            // 3. Close HTTP and WebSocket servers
+            server.close(() => {
+                console.log(`${c.ok('[OK]')} Server closed.`);
+                process.exit(0);
+            });
+
+            // Force exit if server hasn't closed in 5 seconds
+            setTimeout(() => {
+                console.error(`${c.warn('[WARN]')} Could not close connections in time, forcefully shutting down`);
+                process.exit(1);
+            }, 5000);
+        };
+
+        // Register signal handlers
+        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
     } catch (error) {
         console.error('[ERROR] Failed to start server:', error);
         process.exit(1);

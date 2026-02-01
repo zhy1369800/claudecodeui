@@ -5,7 +5,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { useTranslation } from 'react-i18next';
-import { Settings2, X, ChevronRight, Terminal as TerminalIcon } from 'lucide-react';
+import { Settings2, X, ChevronRight, Terminal as TerminalIcon, ChevronLeft, ChevronUp, ChevronDown, GripVertical } from 'lucide-react';
 
 const xtermStyles = `
   .xterm .xterm-screen {
@@ -49,6 +49,7 @@ function Shell({
   const [isRestarting, setIsRestarting] = useState(false);
   const [lastSessionId, setLastSessionId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [virtualKeysOpen, setVirtualKeysOpen] = useState(false);
 
   // Notify parent of connection status
   useEffect(() => {
@@ -204,6 +205,15 @@ function Shell({
     if (!sessionDisplayName) return null;
     return sessionDisplayName.slice(0, 50);
   }, [sessionDisplayName]);
+
+  const sendTerminalKey = useCallback((keyData) => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({
+        type: 'input',
+        data: keyData
+      }));
+    }
+  }, []);
 
   const restartShell = () => {
     setIsRestarting(true);
@@ -557,6 +567,61 @@ function Shell({
           </div>
         )}
       </div>
+
+      {/* Mobile Virtual Keys Drawer - Right Side Pull Tab */}
+      {isMobile && isConnected && (
+        <div
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-[70] flex items-center transition-transform duration-300 pointer-events-auto"
+          style={{ transform: virtualKeysOpen ? 'translateX(0)' : 'translateX(calc(100% - 1.5rem))' }}
+        >
+          {/* Pull Tab Handle */}
+          <button
+            onClick={() => setVirtualKeysOpen(!virtualKeysOpen)}
+            className="w-6 h-16 flex items-center justify-center bg-gray-800 border border-gray-700 border-r-0 rounded-l-lg shadow-lg active:bg-gray-700 transition-colors"
+            style={{ touchAction: 'none' }}
+          >
+            {virtualKeysOpen ? (
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+            ) : (
+              <ChevronLeft className="w-4 h-4 text-gray-400" />
+            )}
+          </button>
+
+          {/* Vertical Button Column */}
+          <div
+            className="flex flex-col gap-3 p-2 bg-gray-800/95 backdrop-blur-md border border-gray-700 border-r-0 shadow-2xl h-auto"
+            style={{ touchAction: 'none' }}
+            onPointerDown={(e) => e.preventDefault()}
+            onTouchMove={(e) => e.preventDefault()}
+          >
+            <button
+              onPointerDown={(e) => { e.preventDefault(); sendTerminalKey('\x1b'); }}
+              className="w-10 h-10 flex items-center justify-center bg-gray-700 text-gray-200 rounded-lg active:bg-blue-600 transition-colors text-[10px] font-bold border border-gray-600 shadow-sm"
+            >
+              ESC
+            </button>
+            <button
+              onPointerDown={(e) => { e.preventDefault(); sendTerminalKey('\t'); }}
+              className="w-10 h-10 flex items-center justify-center bg-gray-700 text-gray-200 rounded-lg active:bg-blue-600 transition-colors text-[10px] font-bold border border-gray-600 shadow-sm"
+            >
+              TAB
+            </button>
+            <div className="h-px w-6 bg-gray-600 mx-auto" />
+            <button
+              onPointerDown={(e) => { e.preventDefault(); sendTerminalKey('\x1b[A'); }}
+              className="w-10 h-10 flex items-center justify-center bg-gray-700 text-gray-200 rounded-lg active:bg-blue-600 transition-colors border border-gray-600 shadow-sm"
+            >
+              <ChevronUp className="w-5 h-5" />
+            </button>
+            <button
+              onPointerDown={(e) => { e.preventDefault(); sendTerminalKey('\x1b[B'); }}
+              className="w-10 h-10 flex items-center justify-center bg-gray-700 text-gray-200 rounded-lg active:bg-blue-600 transition-colors border border-gray-600 shadow-sm"
+            >
+              <ChevronDown className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -640,9 +640,22 @@
     }
   }
   
+  
   /* Safe area support for iOS devices */
   .ios-bottom-safe {
     padding-bottom: max(env(safe-area-inset-bottom), 12px);
+  }
+  
+  /* Enhanced bottom safe area for PWA mode */
+  @media (display-mode: standalone) {
+    .ios-bottom-safe {
+      padding-bottom: max(env(safe-area-inset-bottom), 20px) !important;
+    }
+  }
+  
+  /* PWA mode detected by JavaScript - additional spacing */
+  body.pwa-mode .ios-bottom-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 20px) !important;
   }
   
   /* PWA specific header adjustments - uses CSS variables for consistency */

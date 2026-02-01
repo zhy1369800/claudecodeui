@@ -4262,11 +4262,11 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
 
   // Reset textarea height when input is cleared programmatically
   useEffect(() => {
-    if (textareaRef.current && !input.trim()) {
-      textareaRef.current.style.height = 'auto';
+    if (textareaRef.current && !input.trim() && attachedImages.length === 0) {
+      textareaRef.current.style.height = isMobile ? '60px' : 'auto';
       setIsTextareaExpanded(false);
     }
-  }, [input]);
+  }, [input, attachedImages, isMobile]);
 
   // Load token usage when session changes for Claude sessions only
   // (Codex token usage is included in messages response, Cursor doesn't support it)
@@ -4452,7 +4452,19 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
       timestamp: new Date()
     };
 
-    setChatMessages(prev => [...prev, userMessage]);
+    // Check if this message already exists to prevent duplicates
+    setChatMessages(prev => {
+      // Check if the last message is identical (same content and images)
+      const lastMsg = prev[prev.length - 1];
+      if (lastMsg &&
+        lastMsg.type === 'user' &&
+        lastMsg.content === userMessage.content &&
+        JSON.stringify(lastMsg.images) === JSON.stringify(userMessage.images)) {
+        // Message already exists, don't add duplicate
+        return prev;
+      }
+      return [...prev, userMessage];
+    });
     setIsLoading(true);
     setCanAbortSession(true);
     // Set a default status when starting
@@ -4568,7 +4580,16 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
     if (selectedProject) {
       safeLocalStorage.removeItem(`draft_input_${selectedProject.name}`);
     }
-  }, [input, isLoading, selectedProject, attachedImages, currentSessionId, selectedSession, provider, permissionMode, onSessionActive, cursorModel, claudeModel, codexModel, sendMessage, setInput, setAttachedImages, setUploadingImages, setImageErrors, setIsTextareaExpanded, textareaRef, setChatMessages, setIsLoading, setCanAbortSession, setClaudeStatus, setIsUserScrolledUp, scrollToBottom, thinkingMode]);
+
+    // On mobile, blur the textarea to trigger the collapsing animation and clear focus
+    if (isMobile && textareaRef.current) {
+      textareaRef.current.blur();
+      // Force immediate state and style reset
+      setIsInputFocused(false);
+      setIsTextareaExpanded(false);
+      textareaRef.current.style.height = '60px';
+    }
+  }, [input, isLoading, selectedProject, attachedImages, currentSessionId, selectedSession, provider, permissionMode, onSessionActive, cursorModel, claudeModel, codexModel, sendMessage, setInput, setAttachedImages, setUploadingImages, setImageErrors, setIsTextareaExpanded, textareaRef, setChatMessages, setIsLoading, setCanAbortSession, setClaudeStatus, setIsUserScrolledUp, scrollToBottom, thinkingMode, isMobile]);
 
   const handleGrantToolPermission = useCallback((suggestion) => {
     if (!suggestion || provider !== 'claude') {
@@ -5234,8 +5255,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
 
 
         {/* Input Area - Fixed Bottom */}
-        <div className={`p-2 sm:p-4 md:p-4 flex-shrink-0 ${isInputFocused ? 'pb-2 sm:pb-4 md:pb-6' : 'pb-2 sm:pb-4 md:pb-6'
-          }`}>
+        <div className={`p-2 sm:p-4 md:p-4 flex-shrink-0 ${isInputFocused ? 'pb-2 sm:pb-4 md:pb-6' : 'pb-2 sm:pb-4 md:pb-6'} ios-bottom-safe`}>
 
           <div className="flex-1">
             <ClaudeStatus
@@ -5453,7 +5473,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                 aria-hidden="true"
                 className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl"
               >
-                <div className="chat-input-placeholder block w-full pl-3 pr-20 sm:pr-24 pt-3 pb-12 sm:pb-14 text-transparent text-base leading-6 whitespace-pre-wrap break-words min-h-[100px] sm:min-h-[120px]">
+                <div className={`chat-input-placeholder block w-full pl-3 ${isMobile ? (isInputFocused || input.trim() || attachedImages.length > 0 ? 'pr-12 pb-16 min-h-[96px] pt-4' : 'pr-12 pb-2 min-h-[60px] pt-2') : 'pr-20 sm:pr-24 pt-3 pb-12 sm:pb-14 min-h-[100px] sm:min-h-[120px]'} text-transparent text-base leading-6 whitespace-pre-wrap break-words transition-all duration-200`}>
                   {renderInputWithMentions(input)}
                 </div>
               </div>
@@ -5466,8 +5486,9 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
                   onScroll={(e) => syncInputOverlayScroll(e.target)}
-                  onFocus={() => setIsInputFocused(true)}
-                  onBlur={() => setIsInputFocused(false)}
+                  onBlur={() => {
+                    setIsInputFocused(false);
+                  }}
                   onInput={(e) => {
                     // Immediate resize on input for better UX
                     e.target.style.height = 'auto';
@@ -5482,12 +5503,15 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                   }}
                   placeholder={t('input.placeholder', { provider: provider === 'cursor' ? t('messageTypes.cursor') : provider === 'codex' ? t('messageTypes.codex') : t('messageTypes.claude') })}
                   disabled={isLoading}
-                  className={`chat-input-placeholder block w-full pl-3 ${isMobile ? 'pr-12 pb-10 min-h-[52px]' : 'pr-4 sm:pr-6 pb-12 sm:pb-14 min-h-[100px] sm:min-h-[120px]'} pt-3 bg-transparent rounded-2xl focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:opacity-50 resize-y max-h-[60vh] sm:max-h-[500px] overflow-y-auto text-base leading-6 transition-all duration-200`}
-                  style={{ height: isMobile ? '52px' : '100px' }}
+                  className={`chat-input-placeholder block w-full pl-3 ${isMobile ? (isInputFocused || input.trim() || attachedImages.length > 0 ? 'pr-12 pb-16 min-h-[96px] pt-4' : 'pr-12 pb-2 min-h-[60px] pt-2') : 'pr-4 sm:pr-6 pb-12 sm:pb-14 min-h-[100px] sm:min-h-[120px] pt-3'} bg-transparent rounded-2xl focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:opacity-50 resize-y max-h-[60vh] sm:max-h-[500px] overflow-y-auto text-base leading-6 transition-all duration-200`}
+                  style={{
+                    height: isMobile ? (isInputFocused || input.trim() || attachedImages.length > 0 ? 'auto' : '60px') : '100px',
+                    minHeight: isMobile ? (isInputFocused || input.trim() || attachedImages.length > 0 ? '96px' : '60px') : 'unset'
+                  }}
                 />
                 {/* Bottom controls row */}
-                <div className={`absolute left-2 right-2 flex items-center justify-between pointer-events-none ${isMobile ? 'bottom-1.5' : 'bottom-2'}`}>
-                  <div className={`flex items-center gap-1.5 pointer-events-auto ${isMobile ? '' : 'bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-1'}`}>
+                <div className={`absolute left-2 right-2 flex items-center justify-between pointer-events-none ${isMobile ? (isInputFocused || input.trim() || attachedImages.length > 0 ? 'bottom-2.5' : 'bottom-1') : 'bottom-2'}`}>
+                  <div className={`flex items-center gap-1.5 pointer-events-auto transition-all duration-200 origin-left ${isMobile ? (isInputFocused || input.trim() || attachedImages.length > 0 ? 'opacity-100 scale-100 w-auto' : 'opacity-0 scale-90 w-0 h-0 overflow-hidden') : 'bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-1'}`}>
                     {/* Image upload button */}
                     <button
                       type="button"

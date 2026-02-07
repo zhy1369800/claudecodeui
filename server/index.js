@@ -986,7 +986,12 @@ function handleShellConnection(ws) {
                 const commandSuffix = isPlainShell && initialCommand
                     ? `_cmd_${Buffer.from(initialCommand).toString('base64').slice(0, 16)}`
                     : '';
-                ptySessionKey = `${projectPath}_${sessionId || 'default'}${commandSuffix}`;
+                // Include provider in key so Claude/Cursor/Codex sessions never reuse each other's PTY history.
+                ptySessionKey = `${provider}_${projectPath}_${sessionId || 'default'}${commandSuffix}`;
+
+                // Interactive provider terminals (Claude/Cursor/Codex) should start fresh on each UI connect.
+                // Reattaching to an old PTY often appears "stuck" on mobile and delays visible output.
+                const allowPtyReconnect = isPlainShell;
 
                 // Kill any existing login session before starting fresh
                 if (isLoginCommand) {
@@ -999,7 +1004,7 @@ function handleShellConnection(ws) {
                     }
                 }
 
-                const existingSession = isLoginCommand ? null : ptySessionsMap.get(ptySessionKey);
+                const existingSession = (!allowPtyReconnect || isLoginCommand) ? null : ptySessionsMap.get(ptySessionKey);
                 if (existingSession) {
                     console.log('♻️  Reconnecting to existing PTY session:', ptySessionKey);
                     shellProcess = existingSession.pty;
@@ -1011,7 +1016,10 @@ function handleShellConnection(ws) {
                         data: `\x1b[36m[Reconnected to existing session]\x1b[0m\r\n`
                     }));
 
-                    if (existingSession.buffer && existingSession.buffer.length > 0) {
+                    // Only replay buffered output for plain shell commands.
+                    // Interactive CLIs (Codex/Claude/Cursor) use full-screen TUI updates;
+                    // replaying raw ANSI frames causes duplicated and spaced-out status lines on mobile.
+                    if (existingSession.isPlainShell && existingSession.buffer && existingSession.buffer.length > 0) {
                         console.log(`📜 Sending ${existingSession.buffer.length} buffered messages`);
                         existingSession.buffer.forEach(bufferedData => {
                             ws.send(JSON.stringify({
@@ -1146,7 +1154,9 @@ function handleShellConnection(ws) {
                         buffer: [],
                         timeoutId: null,
                         projectPath,
-                        sessionId
+                        sessionId,
+                        provider,
+                        isPlainShell
                     });
 
                     // Handle data output
@@ -1154,11 +1164,14 @@ function handleShellConnection(ws) {
                         const session = ptySessionsMap.get(ptySessionKey);
                         if (!session) return;
 
-                        if (session.buffer.length < 5000) {
-                            session.buffer.push(data);
-                        } else {
-                            session.buffer.shift();
-                            session.buffer.push(data);
+                        // Buffer only plain-shell output. Interactive provider TUIs are not replay-safe.
+                        if (session.isPlainShell) {
+                            if (session.buffer.length < 5000) {
+                                session.buffer.push(data);
+                            } else {
+                                session.buffer.shift();
+                                session.buffer.push(data);
+                            }
                         }
 
                         if (session.ws && session.ws.readyState === WebSocket.OPEN) {

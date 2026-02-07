@@ -174,6 +174,18 @@ function Shell({
     connectWebSocket();
   }, [isInitialized, isConnected, isConnecting, connectWebSocket]);
 
+  const syncTerminalSize = useCallback(() => {
+    if (!fitAddon.current || !terminal.current) return;
+    fitAddon.current.fit();
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({
+        type: 'resize',
+        cols: terminal.current.cols,
+        rows: terminal.current.rows
+      }));
+    }
+  }, []);
+
   const disconnectFromShell = useCallback(() => {
     if (ws.current) {
       ws.current.close();
@@ -337,16 +349,7 @@ function Shell({
     });
 
     setTimeout(() => {
-      if (fitAddon.current) {
-        fitAddon.current.fit();
-        if (terminal.current && ws.current && ws.current.readyState === WebSocket.OPEN) {
-          ws.current.send(JSON.stringify({
-            type: 'resize',
-            cols: terminal.current.cols,
-            rows: terminal.current.rows
-          }));
-        }
-      }
+      syncTerminalSize();
     }, 100);
 
     setIsInitialized(true);
@@ -360,26 +363,36 @@ function Shell({
     });
 
     const resizeObserver = new ResizeObserver(() => {
-      if (fitAddon.current && terminal.current) {
-        setTimeout(() => {
-          fitAddon.current.fit();
-          if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-            ws.current.send(JSON.stringify({
-              type: 'resize',
-              cols: terminal.current.cols,
-              rows: terminal.current.rows
-            }));
-          }
-        }, 50);
-      }
+      setTimeout(() => {
+        syncTerminalSize();
+      }, 50);
     });
 
     if (terminalRef.current) {
       resizeObserver.observe(terminalRef.current);
     }
 
+    const handleWindowResize = () => {
+      setTimeout(() => {
+        syncTerminalSize();
+      }, 50);
+    };
+
+    window.addEventListener('resize', handleWindowResize);
+    window.addEventListener('orientationchange', handleWindowResize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleWindowResize);
+      window.visualViewport.addEventListener('scroll', handleWindowResize);
+    }
+
     return () => {
       resizeObserver.disconnect();
+      window.removeEventListener('resize', handleWindowResize);
+      window.removeEventListener('orientationchange', handleWindowResize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleWindowResize);
+        window.visualViewport.removeEventListener('scroll', handleWindowResize);
+      }
 
       if (ws.current && (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING)) {
         ws.current.close();
@@ -391,7 +404,7 @@ function Shell({
         terminal.current = null;
       }
     };
-  }, [selectedProject?.path || selectedProject?.fullPath, isRestarting]);
+  }, [selectedProject?.path || selectedProject?.fullPath, isRestarting, syncTerminalSize]);
 
   useEffect(() => {
     if (!autoConnect || !isInitialized || isConnecting || isConnected) return;

@@ -380,6 +380,15 @@ function AppContent() {
           }
           return;
         }
+        const codexSession = project.codexSessions?.find(s => s.id === sessionId);
+        if (codexSession) {
+          setSelectedProject(project);
+          setSelectedSession({ ...codexSession, __provider: 'codex' });
+          if (shouldSwitchTab) {
+            setActiveTab('chat');
+          }
+          return;
+        }
       }
 
       // If session not found, it might be a newly created session
@@ -399,6 +408,8 @@ function AppContent() {
 
   const handleSessionSelect = (session) => {
     setSelectedSession(session);
+    const sessionProvider = session.__provider || 'claude';
+    localStorage.setItem('selected-provider', sessionProvider);
     // Only switch to chat tab when user explicitly selects a session
     // This prevents tab switching during automatic updates
     if (activeTab !== 'git' && activeTab !== 'preview') {
@@ -407,8 +418,7 @@ function AppContent() {
 
     // For Cursor sessions, we need to set the session ID differently
     // since they're persistent and not created by Claude
-    const provider = localStorage.getItem('selected-provider') || 'claude';
-    if (provider === 'cursor') {
+    if (sessionProvider === 'cursor') {
       // Cursor sessions have persistent IDs
       sessionStorage.setItem('cursorSessionId', session.id);
     }

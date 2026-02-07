@@ -1038,7 +1038,11 @@ function handleShellConnection(ws) {
                 if (isPlainShell) {
                     welcomeMsg = `\x1b[36mStarting terminal in: ${projectPath}\x1b[0m\r\n`;
                 } else {
-                    const providerName = provider === 'cursor' ? 'Cursor' : 'Claude';
+                    const providerName = provider === 'cursor'
+                        ? 'Cursor'
+                        : provider === 'codex'
+                            ? 'Codex'
+                            : 'Claude';
                     welcomeMsg = hasSession ?
                         `\x1b[36mResuming ${providerName} session ${sessionId} in: ${projectPath}\x1b[0m\r\n` :
                         `\x1b[36mStarting new ${providerName} session in: ${projectPath}\x1b[0m\r\n`;
@@ -1072,6 +1076,21 @@ function handleShellConnection(ws) {
                                 shellCommand = `cd "${projectPath}" && cursor-agent --resume="${sessionId}"`;
                             } else {
                                 shellCommand = `cd "${projectPath}" && cursor-agent`;
+                            }
+                        }
+                    } else if (provider === 'codex') {
+                        // Use codex command
+                        if (os.platform() === 'win32') {
+                            if (hasSession && sessionId) {
+                                shellCommand = `Set-Location -Path "${projectPath}"; codex resume ${sessionId}; if ($LASTEXITCODE -ne 0) { codex }`;
+                            } else {
+                                shellCommand = `Set-Location -Path "${projectPath}"; codex`;
+                            }
+                        } else {
+                            if (hasSession && sessionId) {
+                                shellCommand = `cd "${projectPath}" && codex resume ${sessionId} || codex`;
+                            } else {
+                                shellCommand = `cd "${projectPath}" && codex`;
                             }
                         }
                     } else {

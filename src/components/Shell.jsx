@@ -193,6 +193,8 @@ function Shell({
     if (!selectedSession) return null;
     return selectedSession.__provider === 'cursor'
       ? (selectedSession.name || 'Untitled Session')
+      : selectedSession.__provider === 'codex'
+        ? (selectedSession.summary || selectedSession.name || 'Codex Session')
       : (selectedSession.summary || 'New Session');
   }, [selectedSession]);
 

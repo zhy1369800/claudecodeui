@@ -5,6 +5,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { useTranslation } from 'react-i18next';
+import { IS_PLATFORM } from '../constants/config';
 import { Settings2, X, ChevronRight, Terminal as TerminalIcon, ChevronLeft, ChevronUp, ChevronDown, GripVertical } from 'lucide-react';
 
 const xtermStyles = `
@@ -76,10 +77,9 @@ function Shell({
     if (isConnecting || isConnected) return;
 
     try {
-      const isPlatform = import.meta.env.VITE_IS_PLATFORM === 'true';
       let wsUrl;
 
-      if (isPlatform) {
+      if (IS_PLATFORM) {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         wsUrl = `${protocol}//${window.location.host}/shell`;
       } else {

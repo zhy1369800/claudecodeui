@@ -43,6 +43,8 @@ import { CLAUDE_MODELS, CURSOR_MODELS, CODEX_MODELS } from '../../shared/modelCo
 
 import { safeJsonParse } from '../lib/utils.js';
 
+// ! Move all utility functions to utils/chatUtils.ts
+
 // Helper function to decode HTML entities in text
 function decodeHtmlEntities(text) {
   if (!text) return text;
@@ -1844,8 +1846,7 @@ const ImageAttachment = ({ file, onRemove, uploadProgress, error }) => {
 // - onReplaceTemporarySession: Called to replace temporary session ID with real WebSocket session ID
 //
 // This ensures uninterrupted chat experience by pausing sidebar refreshes during conversations.
-function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, messages, onFileOpen, onInputFocusChange, onSessionActive, onSessionInactive, onSessionProcessing, onSessionNotProcessing, processingSessions, onReplaceTemporarySession,
-  onNavigateToSession,
+function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, latestMessage, onFileOpen, onInputFocusChange, onSessionActive, onSessionInactive, onSessionProcessing, onSessionNotProcessing, processingSessions, onReplaceTemporarySession, onNavigateToSession,
   onShowSettings,
   autoExpandTools,
   showRawParameters,
@@ -3238,8 +3239,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
 
   useEffect(() => {
     // Handle WebSocket messages
-    if (messages.length > 0) {
-      const latestMessage = messages[messages.length - 1];
+    if (latestMessage) {
       const messageData = latestMessage.data?.message || latestMessage.data;
 
       // Filter messages by session ID to prevent cross-session interference
@@ -4064,7 +4064,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
 
       }
     }
-  }, [messages]);
+  }, [latestMessage]);
 
   // Load file list when project changes
   useEffect(() => {
@@ -4896,7 +4896,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
   };
 
 
-
+// ! Unused
   const handleNewSession = () => {
     setChatMessages([]);
     setInput('');

@@ -11,6 +11,7 @@
   },
   "loading": "Loading {{fileName}}...",
   "header": {
+    "projectFiles": "Project Files",
     "showingChanges": "Showing changes"
   },
   "actions": {

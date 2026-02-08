@@ -10,7 +10,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView, showPanel, ViewPlugin } from '@codemirror/view';
 import { unifiedMergeView, getChunks } from '@codemirror/merge';
 import { showMinimap } from '@replit/codemirror-minimap';
-import { X, Save, Download, Maximize2, Minimize2 } from 'lucide-react';
+import { X, Save, Download } from 'lucide-react';
 import { api } from '../utils/api';
 import { useTranslation } from 'react-i18next';
 import QuickSettingsPanel from './QuickSettingsPanel';
@@ -20,7 +20,6 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const savedTheme = localStorage.getItem('codeEditorTheme');
     return savedTheme ? savedTheme === 'dark' : true;
@@ -162,20 +161,6 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
           `;
         }
 
-        // Expand button (only in sidebar mode)
-        if (isSidebar && onToggleExpand) {
-          toolbarHTML += `
-            <button class="cm-toolbar-btn cm-expand-btn" title="${isExpanded ? t('toolbar.collapse') : t('toolbar.expand')}">
-              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                ${isExpanded ?
-                  '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />' :
-                  '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />'
-                }
-              </svg>
-            </button>
-          `;
-        }
-
         toolbarHTML += '</div>';
         toolbarHTML += '</div>';
 
@@ -221,13 +206,6 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
           });
         }
 
-        // Attach event listener for expand button
-        if (isSidebar && onToggleExpand) {
-          const expandBtn = dom.querySelector('.cm-expand-btn');
-          expandBtn?.addEventListener('click', () => {
-            onToggleExpand();
-          });
-        }
       };
 
       updatePanel();
@@ -242,7 +220,7 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
     return [showPanel.of(createPanel)];
   }, [file.diffInfo, showDiff, isSidebar, isExpanded, onToggleExpand]);
 
-  const showEditorToolbar = !!file.diffInfo || (isSidebar && !!onToggleExpand);
+  const showEditorToolbar = !!file.diffInfo;
 
   useEffect(() => {
     const onResize = () => setIsMobileViewport(window.innerWidth < 768);
@@ -367,10 +345,6 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
-
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
   };
 
   // Save theme preference to localStorage
@@ -569,27 +543,26 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
         `fixed inset-0 z-40 ${
           // Mobile: native fullscreen, Desktop: modal with backdrop
           'md:bg-black/50 md:flex md:items-center md:justify-center md:p-4'
-        } ${isFullscreen ? 'md:p-0' : ''}`}>
+        }`}>
         <div className={isSidebar ?
           'bg-background flex flex-col w-full h-full' :
           `bg-background shadow-2xl flex flex-col ${
           // Mobile: always fullscreen, Desktop: modal sizing
-          'w-full h-full md:rounded-lg md:shadow-2xl' +
-          (isFullscreen ? ' md:w-full md:h-full md:rounded-none' : ' md:w-full md:max-w-6xl md:h-[80vh] md:max-h-[80vh]')
+          'w-full h-full md:rounded-lg md:shadow-2xl md:w-full md:max-w-6xl md:h-[80vh] md:max-h-[80vh]'
         }`}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0 min-w-0">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 min-w-0">
-                <h3 className="font-medium text-gray-900 dark:text-white truncate">{file.name}</h3>
+                <h3 className="font-medium text-gray-900 dark:text-white truncate">{t('header.projectFiles')}</h3>
                 {file.diffInfo && (
                   <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-1 rounded whitespace-nowrap">
                     {t('header.showingChanges')}
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{file.path}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{file.path || file.name}</p>
             </div>
           </div>
 
@@ -625,16 +598,6 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
                 </>
               )}
             </button>
-
-            {!isSidebar && (
-              <button
-                onClick={toggleFullscreen}
-                className="hidden md:flex p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 items-center justify-center"
-                title={isFullscreen ? t('actions.exitFullscreen') : t('actions.fullscreen')}
-              >
-                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              </button>
-            )}
 
             <button
               onClick={onClose}

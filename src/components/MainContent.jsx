@@ -70,6 +70,7 @@ function MainContent({
   const [isResizing, setIsResizing] = useState(false);
   const [editorExpanded, setEditorExpanded] = useState(false);
   const resizeRef = useRef(null);
+  const lastSessionKeyRef = useRef('');
 
   // PRD Editor state
   const [showPRDEditor, setShowPRDEditor] = useState(false);
@@ -94,6 +95,22 @@ function MainContent({
       setCurrentProject(selectedProject);
     }
   }, [selectedProject, currentProject, setCurrentProject]);
+
+  // Desktop behavior: close file editor when user switches project/session from sidebar.
+  useEffect(() => {
+    const currentKey = `${selectedProject?.name || 'none'}:${selectedSession?.id || 'new'}`;
+    if (lastSessionKeyRef.current === '') {
+      lastSessionKeyRef.current = currentKey;
+      return;
+    }
+
+    if (!isMobile && editingFile && lastSessionKeyRef.current !== currentKey) {
+      setEditingFile(null);
+      setEditorExpanded(false);
+    }
+
+    lastSessionKeyRef.current = currentKey;
+  }, [selectedProject?.name, selectedSession?.id, isMobile, editingFile]);
 
   // Mobile drag state for tab navigation
   const [handlePosition, setHandlePosition] = useState(() => {
@@ -224,6 +241,10 @@ function MainContent({
       diffInfo: diffInfo // Pass along diff information if available
     };
     setEditingFile(file);
+    // Desktop: open editor in expanded mode by default (no split view).
+    if (!isMobile) {
+      setEditorExpanded(true);
+    }
   };
 
   const handleCloseEditor = () => {
@@ -386,9 +407,10 @@ function MainContent({
   return (
     <div className="h-full flex flex-col">
       {/* Header with tabs */}
-      <div
-        className="bg-background border-b border-border p-2 sm:p-3 pwa-header-safe flex-shrink-0"
-      >
+      {!(!isMobile && editingFile && editorExpanded) && (
+        <div
+          className="bg-background border-b border-border p-2 sm:p-3 pwa-header-safe flex-shrink-0"
+        >
         <div className="flex items-center justify-between relative">
           <div className="flex items-center space-x-2 min-w-0 flex-1">
             {isMobile && (
@@ -624,7 +646,8 @@ function MainContent({
             </div>
           )}
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Content Area with Right Sidebar */}
       <div className="flex-1 flex min-h-0 overflow-hidden">

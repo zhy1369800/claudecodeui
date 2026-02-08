@@ -11,6 +11,7 @@
   },
   "loading": "正在加载 {{fileName}}...",
   "header": {
+    "projectFiles": "项目文件",
     "showingChanges": "显示更改"
   },
   "actions": {

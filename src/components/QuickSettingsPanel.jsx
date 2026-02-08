@@ -23,6 +23,7 @@ import LanguageSelector from './LanguageSelector';
 const QuickSettingsPanel = ({
   isOpen,
   onToggle,
+  mode = 'chat',
   autoExpandTools,
   onAutoExpandChange,
   showRawParameters,
@@ -33,6 +34,14 @@ const QuickSettingsPanel = ({
   onAutoScrollChange,
   sendByCtrlEnter,
   onSendByCtrlEnterChange,
+  codeEditorWordWrap,
+  onCodeEditorWordWrapChange,
+  codeEditorShowMinimap,
+  onCodeEditorShowMinimapChange,
+  codeEditorLineNumbers,
+  onCodeEditorLineNumbersChange,
+  codeEditorFontSize,
+  onCodeEditorFontSizeChange,
   isMobile
 }) => {
   const { t } = useTranslation('settings');
@@ -276,87 +285,156 @@ const QuickSettingsPanel = ({
               </div>
             </div>
 
-            {/* Tool Display Settings */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">{t('quickSettings.sections.toolDisplay')}</h4>
+            {mode === 'chat' && (
+              <>
+                {/* Tool Display Settings */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">{t('quickSettings.sections.toolDisplay')}</h4>
 
-              <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
-                <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
-                  <Maximize2 className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                  {t('quickSettings.autoExpandTools')}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={autoExpandTools}
-                  onChange={(e) => onAutoExpandChange(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 focus:ring-2 dark:focus:ring-blue-400 bg-gray-100 dark:bg-gray-800 checked:bg-blue-600 dark:checked:bg-blue-600"
-                />
-              </label>
+                  <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
+                    <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+                      <Maximize2 className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      {t('quickSettings.autoExpandTools')}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={autoExpandTools}
+                      onChange={(e) => onAutoExpandChange(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 focus:ring-2 dark:focus:ring-blue-400 bg-gray-100 dark:bg-gray-800 checked:bg-blue-600 dark:checked:bg-blue-600"
+                    />
+                  </label>
 
-              <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
-                <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
-                  <Eye className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                  {t('quickSettings.showRawParameters')}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={showRawParameters}
-                  onChange={(e) => onShowRawParametersChange(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 focus:ring-2 dark:focus:ring-blue-400 bg-gray-100 dark:bg-gray-800 checked:bg-blue-600 dark:checked:bg-blue-600"
-                />
-              </label>
+                  <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
+                    <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+                      <Eye className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      {t('quickSettings.showRawParameters')}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={showRawParameters}
+                      onChange={(e) => onShowRawParametersChange(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 focus:ring-2 dark:focus:ring-blue-400 bg-gray-100 dark:bg-gray-800 checked:bg-blue-600 dark:checked:bg-blue-600"
+                    />
+                  </label>
 
-              <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
-                <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
-                  <Brain className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                  {t('quickSettings.showThinking')}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={showThinking}
-                  onChange={(e) => onShowThinkingChange(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 focus:ring-2 dark:focus:ring-blue-400 bg-gray-100 dark:bg-gray-800 checked:bg-blue-600 dark:checked:bg-blue-600"
-                />
-              </label>
-            </div>
-            {/* View Options */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">{t('quickSettings.sections.viewOptions')}</h4>
+                  <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
+                    <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+                      <Brain className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      {t('quickSettings.showThinking')}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={showThinking}
+                      onChange={(e) => onShowThinkingChange(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 focus:ring-2 dark:focus:ring-blue-400 bg-gray-100 dark:bg-gray-800 checked:bg-blue-600 dark:checked:bg-blue-600"
+                    />
+                  </label>
+                </div>
 
-              <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
-                <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
-                  <ArrowDown className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                  {t('quickSettings.autoScrollToBottom')}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={autoScrollToBottom}
-                  onChange={(e) => onAutoScrollChange(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 focus:ring-2 dark:focus:ring-blue-400 bg-gray-100 dark:bg-gray-800 checked:bg-blue-600 dark:checked:bg-blue-600"
-                />
-              </label>
-            </div>
+                {/* View Options */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">{t('quickSettings.sections.viewOptions')}</h4>
 
-            {/* Input Settings */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">{t('quickSettings.sections.inputSettings')}</h4>
+                  <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
+                    <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+                      <ArrowDown className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      {t('quickSettings.autoScrollToBottom')}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={autoScrollToBottom}
+                      onChange={(e) => onAutoScrollChange(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 focus:ring-2 dark:focus:ring-blue-400 bg-gray-100 dark:bg-gray-800 checked:bg-blue-600 dark:checked:bg-blue-600"
+                    />
+                  </label>
+                </div>
 
-              <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
-                <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
-                  <Languages className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                  {t('quickSettings.sendByCtrlEnter')}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={sendByCtrlEnter}
-                  onChange={(e) => onSendByCtrlEnterChange(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 focus:ring-2 dark:focus:ring-blue-400 bg-gray-100 dark:bg-gray-800 checked:bg-blue-600 dark:checked:bg-blue-600"
-                />
-              </label>
-              <p className="text-xs text-gray-500 dark:text-gray-400 ml-3">
-                {t('quickSettings.sendByCtrlEnterDescription')}
-              </p>
-            </div>
+                {/* Input Settings */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">{t('quickSettings.sections.inputSettings')}</h4>
+
+                  <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
+                    <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+                      <Languages className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      {t('quickSettings.sendByCtrlEnter')}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={sendByCtrlEnter}
+                      onChange={(e) => onSendByCtrlEnterChange(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 focus:ring-2 dark:focus:ring-blue-400 bg-gray-100 dark:bg-gray-800 checked:bg-blue-600 dark:checked:bg-blue-600"
+                    />
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 ml-3">
+                    {t('quickSettings.sendByCtrlEnterDescription')}
+                  </p>
+                </div>
+              </>
+            )}
+
+            {mode === 'editor' && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">{t('appearance.codeEditor')}</h4>
+
+                <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
+                  <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+                    <Maximize2 className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                    {t('appearance.wordWrap')}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={!!codeEditorWordWrap}
+                    onChange={(e) => onCodeEditorWordWrapChange && onCodeEditorWordWrapChange(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 focus:ring-2 dark:focus:ring-blue-400 bg-gray-100 dark:bg-gray-800 checked:bg-blue-600 dark:checked:bg-blue-600"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
+                  <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+                    <Eye className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                    {t('appearance.showMinimap')}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={!!codeEditorShowMinimap}
+                    onChange={(e) => onCodeEditorShowMinimapChange && onCodeEditorShowMinimapChange(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 focus:ring-2 dark:focus:ring-blue-400 bg-gray-100 dark:bg-gray-800 checked:bg-blue-600 dark:checked:bg-blue-600"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
+                  <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+                    <FileText className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                    {t('appearance.lineNumbers')}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={!!codeEditorLineNumbers}
+                    onChange={(e) => onCodeEditorLineNumbersChange && onCodeEditorLineNumbersChange(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-blue-500 focus:ring-2 dark:focus:ring-blue-400 bg-gray-100 dark:bg-gray-800 checked:bg-blue-600 dark:checked:bg-blue-600"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
+                  <span className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+                    <Languages className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                    {t('appearance.fontSize')}
+                  </span>
+                  <select
+                    value={codeEditorFontSize || '14'}
+                    onChange={(e) => onCodeEditorFontSizeChange && onCodeEditorFontSizeChange(e.target.value)}
+                    className="h-8 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 text-sm text-gray-900 dark:text-white"
+                  >
+                    <option value="12">12px</option>
+                    <option value="13">13px</option>
+                    <option value="14">14px</option>
+                    <option value="15">15px</option>
+                    <option value="16">16px</option>
+                    <option value="18">18px</option>
+                  </select>
+                </label>
+              </div>
+            )}
 
             {/* Whisper Dictation Settings - HIDDEN */}
             <div className="space-y-2" style={{ display: 'none' }}>

@@ -13,6 +13,7 @@ import { showMinimap } from '@replit/codemirror-minimap';
 import { X, Save, Download, Maximize2, Minimize2 } from 'lucide-react';
 import { api } from '../utils/api';
 import { useTranslation } from 'react-i18next';
+import QuickSettingsPanel from './QuickSettingsPanel';
 
 function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded = false, onToggleExpand = null }) {
   const { t } = useTranslation('codeEditor');
@@ -38,6 +39,8 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
   const [fontSize, setFontSize] = useState(() => {
     return localStorage.getItem('codeEditorFontSize') || '14';
   });
+  const [quickSettingsOpen, setQuickSettingsOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth < 768);
   const editorRef = useRef(null);
 
   // Create minimap extension with chunk-based gutters
@@ -159,15 +162,6 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
           `;
         }
 
-        // Settings button
-        toolbarHTML += `
-          <button class="cm-toolbar-btn cm-settings-btn" title="${t('toolbar.settings')}">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-        `;
-
         // Expand button (only in sidebar mode)
         if (isSidebar && onToggleExpand) {
           toolbarHTML += `
@@ -227,14 +221,6 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
           });
         }
 
-        // Attach event listener for settings button
-        const settingsBtn = dom.querySelector('.cm-settings-btn');
-        settingsBtn?.addEventListener('click', () => {
-          if (window.openSettings) {
-            window.openSettings('appearance');
-          }
-        });
-
         // Attach event listener for expand button
         if (isSidebar && onToggleExpand) {
           const expandBtn = dom.querySelector('.cm-expand-btn');
@@ -255,6 +241,14 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
 
     return [showPanel.of(createPanel)];
   }, [file.diffInfo, showDiff, isSidebar, isExpanded, onToggleExpand]);
+
+  const showEditorToolbar = !!file.diffInfo || (isSidebar && !!onToggleExpand);
+
+  useEffect(() => {
+    const onResize = () => setIsMobileViewport(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   // Get language extension based on file extension
   const getLanguageExtension = (filename) => {
@@ -388,6 +382,21 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
   useEffect(() => {
     localStorage.setItem('codeEditorWordWrap', wordWrap.toString());
   }, [wordWrap]);
+
+  // Save minimap preference to localStorage
+  useEffect(() => {
+    localStorage.setItem('codeEditorShowMinimap', minimapEnabled ? 'true' : 'false');
+  }, [minimapEnabled]);
+
+  // Save line numbers preference to localStorage
+  useEffect(() => {
+    localStorage.setItem('codeEditorLineNumbers', showLineNumbers ? 'true' : 'false');
+  }, [showLineNumbers]);
+
+  // Save font size preference to localStorage
+  useEffect(() => {
+    localStorage.setItem('codeEditorFontSize', String(fontSize));
+  }, [fontSize]);
 
   // Listen for settings changes from the Settings modal
   useEffect(() => {
@@ -645,8 +654,8 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
             onChange={setContent}
             extensions={[
               ...getLanguageExtension(file.name),
-              // Always show the toolbar
-              ...editorToolbarPanel,
+              // Only show toolbar when it has actionable controls.
+              ...(showEditorToolbar ? editorToolbarPanel : []),
               // Only show diff-related extensions when diff is enabled
               ...(file.diffInfo && showDiff && file.diffInfo.old_string !== undefined
                 ? [
@@ -686,17 +695,32 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-3 border-t border-border bg-muted flex-shrink-0">
+        <div className="flex items-center justify-center md:justify-between p-3 border-t border-border bg-muted flex-shrink-0">
           <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
             <span>{t('footer.lines')} {content.split('\n').length}</span>
             <span>{t('footer.characters')} {content.length}</span>
           </div>
 
-          <div className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="hidden md:block text-sm text-gray-500 dark:text-gray-400">
             {t('footer.shortcuts')}
           </div>
         </div>
       </div>
+
+      <QuickSettingsPanel
+        isOpen={quickSettingsOpen}
+        onToggle={setQuickSettingsOpen}
+        mode="editor"
+        codeEditorWordWrap={wordWrap}
+        onCodeEditorWordWrapChange={setWordWrap}
+        codeEditorShowMinimap={minimapEnabled}
+        onCodeEditorShowMinimapChange={setMinimapEnabled}
+        codeEditorLineNumbers={showLineNumbers}
+        onCodeEditorLineNumbersChange={setShowLineNumbers}
+        codeEditorFontSize={fontSize}
+        onCodeEditorFontSizeChange={setFontSize}
+        isMobile={isMobileViewport}
+      />
     </div>
     </>
   );

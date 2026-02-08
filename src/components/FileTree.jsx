@@ -9,7 +9,7 @@ import CodeEditor from './CodeEditor';
 import ImageViewer from './ImageViewer';
 import { api } from '../utils/api';
 
-function FileTree({ selectedProject }) {
+function FileTree({ selectedProject, onFileOpen = null }) {
   const { t } = useTranslation();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -101,6 +101,20 @@ function FileTree({ selectedProject }) {
     }
   };
 
+  const openTextFile = (item) => {
+    if (typeof onFileOpen === 'function') {
+      onFileOpen(item.path);
+      return;
+    }
+
+    setSelectedFile({
+      name: item.name,
+      path: item.path,
+      projectPath: selectedProject.path,
+      projectName: selectedProject.name
+    });
+  };
+
   const toggleDirectory = (path) => {
     const newExpanded = new Set(expandedDirs);
     if (newExpanded.has(path)) {
@@ -162,12 +176,7 @@ function FileTree({ selectedProject }) {
               });
             } else {
               // Open file in editor
-              setSelectedFile({
-                name: item.name,
-                path: item.path,
-                projectPath: selectedProject.path,
-                projectName: selectedProject.name
-              });
+              openTextFile(item);
             }
           }}
         >
@@ -243,12 +252,7 @@ function FileTree({ selectedProject }) {
                 projectName: selectedProject.name
               });
             } else {
-              setSelectedFile({
-                name: item.name,
-                path: item.path,
-                projectPath: selectedProject.path,
-                projectName: selectedProject.name
-              });
+              openTextFile(item);
             }
           }}
         >
@@ -305,12 +309,7 @@ function FileTree({ selectedProject }) {
                 projectName: selectedProject.name
               });
             } else {
-              setSelectedFile({
-                name: item.name,
-                path: item.path,
-                projectPath: selectedProject.path,
-                projectName: selectedProject.name
-              });
+              openTextFile(item);
             }
           }}
         >
@@ -460,7 +459,7 @@ function FileTree({ selectedProject }) {
       </ScrollArea>
       
       {/* Code Editor Modal */}
-      {selectedFile && (
+      {selectedFile && !onFileOpen && (
         <CodeEditor
           file={selectedFile}
           onClose={() => setSelectedFile(null)}

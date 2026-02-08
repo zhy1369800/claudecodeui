@@ -473,20 +473,21 @@ function MainContent({
           </div>
 
           {/* Modern Tab Navigation - Integrated for both Mobile and Desktop */}
-          <div
-            className={`flex-shrink-0 ${isDragging ? 'cursor-grabbing' : ''}`}
-            style={window.innerWidth < 640 ? {
-              position: 'fixed',
-              top: `${handlePosition}%`,
-              right: '8px',
-              zIndex: 100,
-              pointerEvents: 'auto'
-            } : {}}
-          >
+          {!(isMobile && editingFile) && (
             <div
-              className="relative flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 sm:p-1 touch-none"
-              onTouchStart={handleDragStart}
+              className={`flex-shrink-0 ${isDragging ? 'cursor-grabbing' : ''}`}
+              style={window.innerWidth < 640 ? {
+                position: 'fixed',
+                top: `${handlePosition}%`,
+                right: '8px',
+                zIndex: 100,
+                pointerEvents: 'auto'
+              } : {}}
             >
+              <div
+                className="relative flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 sm:p-1 touch-none"
+                onTouchStart={handleDragStart}
+              >
               <Tooltip content={t('tabs.chat')} position="bottom">
                 <button
                   onClick={(e) => {
@@ -619,8 +620,9 @@ function MainContent({
                   <span className="hidden sm:inline">Preview</span>
                 </span>
               </button> */}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -659,7 +661,10 @@ function MainContent({
         </div>
           {activeTab === 'files' && (
             <div className="h-full overflow-hidden">
-              <FileTree selectedProject={selectedProject} />
+              <FileTree
+                selectedProject={selectedProject}
+                onFileOpen={handleFileOpen}
+              />
             </div>
           )}
           {activeTab === 'shell' && (

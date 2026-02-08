@@ -748,6 +748,119 @@ app.put('/api/projects/:projectName/file', authenticateToken, async (req, res) =
     }
 });
 
+// Create file or directory endpoint
+app.post('/api/projects/:projectName/fs', authenticateToken, async (req, res) => {
+    try {
+        const { projectName } = req.params;
+        const { targetPath, type = 'file', content = '' } = req.body;
+
+        if (!targetPath || typeof targetPath !== 'string') {
+            return res.status(400).json({ error: 'targetPath is required' });
+        }
+
+        if (!['file', 'directory'].includes(type)) {
+            return res.status(400).json({ error: 'type must be "file" or "directory"' });
+        }
+
+        const projectRoot = await extractProjectDirectory(projectName).catch(() => null);
+        if (!projectRoot) {
+            return res.status(404).json({ error: 'Project not found' });
+        }
+
+        const resolved = path.isAbsolute(targetPath)
+            ? path.resolve(targetPath)
+            : path.resolve(projectRoot, targetPath);
+
+        const rootResolved = path.resolve(projectRoot);
+        const normalizedRoot = rootResolved + path.sep;
+        if (!resolved.startsWith(normalizedRoot)) {
+            return res.status(403).json({ error: 'Path must be under project root' });
+        }
+
+        if (resolved === rootResolved) {
+            return res.status(400).json({ error: 'Cannot create project root' });
+        }
+
+        try {
+            await fsPromises.access(resolved);
+            return res.status(409).json({ error: `${type} already exists` });
+        } catch (err) {
+            // Expected when target doesn't exist.
+        }
+
+        if (type === 'directory') {
+            await fsPromises.mkdir(resolved, { recursive: false });
+        } else {
+            const parentDir = path.dirname(resolved);
+            await fsPromises.mkdir(parentDir, { recursive: true });
+            await fsPromises.writeFile(resolved, String(content ?? ''), 'utf8');
+        }
+
+        res.json({ success: true, type, path: resolved });
+    } catch (error) {
+        console.error('Error creating file system entry:', error);
+        if (error.code === 'EEXIST') {
+            return res.status(409).json({ error: 'Target already exists' });
+        }
+        if (error.code === 'ENOENT') {
+            return res.status(404).json({ error: 'Parent directory not found' });
+        }
+        if (error.code === 'EACCES' || error.code === 'EPERM') {
+            return res.status(403).json({ error: 'Permission denied' });
+        }
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete file or directory endpoint
+app.delete('/api/projects/:projectName/fs', authenticateToken, async (req, res) => {
+    try {
+        const { projectName } = req.params;
+        const { targetPath } = req.body || {};
+
+        if (!targetPath || typeof targetPath !== 'string') {
+            return res.status(400).json({ error: 'targetPath is required' });
+        }
+
+        const projectRoot = await extractProjectDirectory(projectName).catch(() => null);
+        if (!projectRoot) {
+            return res.status(404).json({ error: 'Project not found' });
+        }
+
+        const resolved = path.isAbsolute(targetPath)
+            ? path.resolve(targetPath)
+            : path.resolve(projectRoot, targetPath);
+
+        const rootResolved = path.resolve(projectRoot);
+        const normalizedRoot = rootResolved + path.sep;
+        if (!resolved.startsWith(normalizedRoot)) {
+            return res.status(403).json({ error: 'Path must be under project root' });
+        }
+
+        if (resolved === rootResolved) {
+            return res.status(400).json({ error: 'Cannot delete project root' });
+        }
+
+        const stats = await fsPromises.stat(resolved);
+        if (stats.isDirectory()) {
+            await fsPromises.rm(resolved, { recursive: true, force: false });
+            return res.json({ success: true, type: 'directory', path: resolved });
+        }
+
+        await fsPromises.unlink(resolved);
+        res.json({ success: true, type: 'file', path: resolved });
+    } catch (error) {
+        console.error('Error deleting file system entry:', error);
+        if (error.code === 'ENOENT') {
+            return res.status(404).json({ error: 'Target not found' });
+        }
+        if (error.code === 'EACCES' || error.code === 'EPERM') {
+            return res.status(403).json({ error: 'Permission denied' });
+        }
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.get('/api/projects/:projectName/files', authenticateToken, async (req, res) => {
     try {
 

@@ -103,6 +103,16 @@ export const api = {
     }),
   getFiles: (projectName) =>
     authenticatedFetch(`/api/projects/${projectName}/files`),
+  createFileSystemEntry: (projectName, targetPath, type = 'file', content = '') =>
+    authenticatedFetch(`/api/projects/${projectName}/fs`, {
+      method: 'POST',
+      body: JSON.stringify({ targetPath, type, content }),
+    }),
+  deleteFileSystemEntry: (projectName, targetPath) =>
+    authenticatedFetch(`/api/projects/${projectName}/fs`, {
+      method: 'DELETE',
+      body: JSON.stringify({ targetPath }),
+    }),
   transcribe: (formData) =>
     authenticatedFetch('/api/transcribe', {
       method: 'POST',

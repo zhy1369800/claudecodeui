@@ -2932,9 +2932,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   // So we don't try to extract them from loaded sessionMessages
 
   // Define scroll functions early to avoid hoisting issues in useEffect dependencies
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((instant = false) => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: instant ? 'auto' : 'smooth'
+      });
       // Don't reset isUserScrolledUp here - let the scroll handler manage it
       // This prevents fighting with user's scroll position during streaming
     }

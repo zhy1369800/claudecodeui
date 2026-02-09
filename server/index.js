@@ -1272,7 +1272,24 @@ function handleShellConnection(ws) {
                         isPlainShell
                     });
 
-                    // Handle data output
+                    // Handle data output with buffering to improve performance
+                    let ptyOutputBuffer = '';
+                    let ptyBufferTimeout = null;
+
+                    const flushPtyBuffer = () => {
+                        if (!ptyOutputBuffer) return;
+
+                        const session = ptySessionsMap.get(ptySessionKey);
+                        if (session && session.ws && session.ws.readyState === WebSocket.OPEN) {
+                            session.ws.send(JSON.stringify({
+                                type: 'output',
+                                data: ptyOutputBuffer
+                            }));
+                        }
+                        ptyOutputBuffer = '';
+                        ptyBufferTimeout = null;
+                    };
+
                     shellProcess.onData((data) => {
                         const session = ptySessionsMap.get(ptySessionKey);
                         if (!session) return;
@@ -1287,47 +1304,53 @@ function handleShellConnection(ws) {
                             }
                         }
 
-                        if (session.ws && session.ws.readyState === WebSocket.OPEN) {
-                            let outputData = data;
+                        let outputData = data;
 
-                            // Check for various URL opening patterns
-                            const patterns = [
-                                // Direct browser opening commands
-                                /(?:xdg-open|open|start)\s+(https?:\/\/[^\s\x1b\x07]+)/g,
-                                // BROWSER environment variable override
-                                /OPEN_URL:\s*(https?:\/\/[^\s\x1b\x07]+)/g,
-                                // Git and other tools opening URLs
-                                /Opening\s+(https?:\/\/[^\s\x1b\x07]+)/gi,
-                                // General URL patterns that might be opened
-                                /Visit:\s*(https?:\/\/[^\s\x1b\x07]+)/gi,
-                                /View at:\s*(https?:\/\/[^\s\x1b\x07]+)/gi,
-                                /Browse to:\s*(https?:\/\/[^\s\x1b\x07]+)/gi
-                            ];
+                        // Check for various URL opening patterns
+                        const patterns = [
+                            // Direct browser opening commands
+                            /(?:xdg-open|open|start)\s+(https?:\/\/[^\s\x1b\x07]+)/g,
+                            // BROWSER environment variable override
+                            /OPEN_URL:\s*(https?:\/\/[^\s\x1b\x07]+)/g,
+                            // Git and other tools opening URLs
+                            /Opening\s+(https?:\/\/[^\s\x1b\x07]+)/gi,
+                            // General URL patterns that might be opened
+                            /Visit:\s*(https?:\/\/[^\s\x1b\x07]+)/gi,
+                            /View at:\s*(https?:\/\/[^\s\x1b\x07]+)/gi,
+                            /Browse to:\s*(https?:\/\/[^\s\x1b\x07]+)/gi
+                        ];
 
-                            patterns.forEach(pattern => {
-                                let match;
-                                while ((match = pattern.exec(data)) !== null) {
-                                    const url = match[1];
-                                    console.log('[DEBUG] Detected URL for opening:', url);
+                        patterns.forEach(pattern => {
+                            let match;
+                            while ((match = pattern.exec(data)) !== null) {
+                                const url = match[1];
+                                console.log('[DEBUG] Detected URL for opening:', url);
 
-                                    // Send URL opening message to client
+                                // Send URL opening message to client immediately (don't buffer this)
+                                if (session.ws && session.ws.readyState === WebSocket.OPEN) {
                                     session.ws.send(JSON.stringify({
                                         type: 'url_open',
                                         url: url
                                     }));
-
-                                    // Replace the OPEN_URL pattern with a user-friendly message
-                                    if (pattern.source.includes('OPEN_URL')) {
-                                        outputData = outputData.replace(match[0], `[INFO] Opening in browser: ${url}`);
-                                    }
                                 }
-                            });
 
-                            // Send regular output
-                            session.ws.send(JSON.stringify({
-                                type: 'output',
-                                data: outputData
-                            }));
+                                // Replace the OPEN_URL pattern with a user-friendly message
+                                if (pattern.source.includes('OPEN_URL')) {
+                                    outputData = outputData.replace(match[0], `[INFO] Opening in browser: ${url}`);
+                                }
+                            }
+                        });
+
+                        // Add to buffer
+                        ptyOutputBuffer += outputData;
+
+                        // Flush buffer if it gets too large
+                        if (ptyOutputBuffer.length > 4096) {
+                            if (ptyBufferTimeout) clearTimeout(ptyBufferTimeout);
+                            flushPtyBuffer();
+                        } else if (!ptyBufferTimeout) {
+                            // Or flush after a short delay
+                            ptyBufferTimeout = setTimeout(flushPtyBuffer, 10);
                         }
                     });
 

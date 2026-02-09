@@ -293,36 +293,59 @@ async function extractProjectDirectory(projectName) {
       // Fall back to decoded project name if no sessions
       extractedPath = projectName.replace(/-/g, '/');
     } else {
-      // Process all JSONL files to collect cwd values
-      for (const file of jsonlFiles) {
+      // Sort files by modification time (newest first) to find the most relevant cwd quickly
+      const filesWithStats = await Promise.all(
+        jsonlFiles.map(async (file) => {
+          const filePath = path.join(projectDir, file);
+          const stats = await fs.stat(filePath);
+          return { file, mtime: stats.mtime };
+        })
+      );
+      filesWithStats.sort((a, b) => b.mtime - a.mtime);
+
+      // Process JSONL files to collect cwd values
+      for (const { file } of filesWithStats) {
         const jsonlFile = path.join(projectDir, file);
         const fileStream = fsSync.createReadStream(jsonlFile);
         const rl = readline.createInterface({
           input: fileStream,
           crlfDelay: Infinity
         });
-        
+
+        let linesRead = 0;
         for await (const line of rl) {
+          linesRead++;
           if (line.trim()) {
             try {
               const entry = JSON.parse(line);
-              
+
               if (entry.cwd) {
                 // Count occurrences of each cwd
                 cwdCounts.set(entry.cwd, (cwdCounts.get(entry.cwd) || 0) + 1);
-                
+
                 // Track the most recent cwd
                 const timestamp = new Date(entry.timestamp || 0).getTime();
                 if (timestamp > latestTimestamp) {
                   latestTimestamp = timestamp;
                   latestCwd = entry.cwd;
                 }
+
+                // Optimization: Usually the first few lines contain the cwd.
+                // Once we find a cwd in a file, we can stop reading THIS file.
+                break;
               }
             } catch (parseError) {
               // Skip malformed lines
             }
           }
+          // Optimization: If we haven't found a cwd in the first 10 lines,
+          // this file might not have it or it's an unusual session.
+          if (linesRead > 10) break;
         }
+        fileStream.destroy(); // Close stream early
+
+        // If we found a cwd in the most recent file, that's usually enough
+        if (latestCwd && cwdCounts.size > 0) break;
       }
       
       // Determine the best cwd to use

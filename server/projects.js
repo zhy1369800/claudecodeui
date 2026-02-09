@@ -262,6 +262,46 @@ async function generateDisplayName(projectName, actualProjectDir = null) {
 
 // Extract the actual project directory from JSONL sessions (with caching)
 async function extractProjectDirectory(projectName) {
+  const QUICK_SCAN_MAX_LINES = 10;
+  const FALLBACK_FULL_SCAN_FILES = 20;
+
+  const collectCwdFromFile = async (jsonlFile, maxLines = Infinity) => {
+    const fileStream = fsSync.createReadStream(jsonlFile);
+    const rl = readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity
+    });
+
+    let linesRead = 0;
+    let foundCwd = null;
+    let foundTimestamp = 0;
+
+    try {
+      for await (const line of rl) {
+        linesRead++;
+        if (line.trim()) {
+          try {
+            const entry = JSON.parse(line);
+            if (entry.cwd) {
+              foundCwd = entry.cwd;
+              foundTimestamp = new Date(entry.timestamp || 0).getTime();
+              break;
+            }
+          } catch (parseError) {
+            // Skip malformed lines
+          }
+        }
+
+        if (linesRead >= maxLines) break;
+      }
+    } finally {
+      rl.close();
+      fileStream.destroy();
+    }
+
+    return { cwd: foundCwd, timestamp: foundTimestamp };
+  };
+
   // Check cache first
   if (projectDirectoryCache.has(projectName)) {
     return projectDirectoryCache.get(projectName);
@@ -303,49 +343,36 @@ async function extractProjectDirectory(projectName) {
       );
       filesWithStats.sort((a, b) => b.mtime - a.mtime);
 
-      // Process JSONL files to collect cwd values
+      // Fast path: newest files, partial scan for quicker project loading.
       for (const { file } of filesWithStats) {
         const jsonlFile = path.join(projectDir, file);
-        const fileStream = fsSync.createReadStream(jsonlFile);
-        const rl = readline.createInterface({
-          input: fileStream,
-          crlfDelay: Infinity
-        });
+        const { cwd, timestamp } = await collectCwdFromFile(jsonlFile, QUICK_SCAN_MAX_LINES);
+        if (!cwd) continue;
 
-        let linesRead = 0;
-        for await (const line of rl) {
-          linesRead++;
-          if (line.trim()) {
-            try {
-              const entry = JSON.parse(line);
-
-              if (entry.cwd) {
-                // Count occurrences of each cwd
-                cwdCounts.set(entry.cwd, (cwdCounts.get(entry.cwd) || 0) + 1);
-
-                // Track the most recent cwd
-                const timestamp = new Date(entry.timestamp || 0).getTime();
-                if (timestamp > latestTimestamp) {
-                  latestTimestamp = timestamp;
-                  latestCwd = entry.cwd;
-                }
-
-                // Optimization: Usually the first few lines contain the cwd.
-                // Once we find a cwd in a file, we can stop reading THIS file.
-                break;
-              }
-            } catch (parseError) {
-              // Skip malformed lines
-            }
-          }
-          // Optimization: If we haven't found a cwd in the first 10 lines,
-          // this file might not have it or it's an unusual session.
-          if (linesRead > 10) break;
+        cwdCounts.set(cwd, (cwdCounts.get(cwd) || 0) + 1);
+        if (timestamp > latestTimestamp) {
+          latestTimestamp = timestamp;
+          latestCwd = cwd;
         }
-        fileStream.destroy(); // Close stream early
 
-        // If we found a cwd in the most recent file, that's usually enough
+        // If newest file gives cwd, that's usually enough.
         if (latestCwd && cwdCounts.size > 0) break;
+      }
+
+      // Fallback: if quick scan fails, run a deeper pass on recent files.
+      if (cwdCounts.size === 0) {
+        const fallbackFiles = filesWithStats.slice(0, FALLBACK_FULL_SCAN_FILES);
+        for (const { file } of fallbackFiles) {
+          const jsonlFile = path.join(projectDir, file);
+          const { cwd, timestamp } = await collectCwdFromFile(jsonlFile, Infinity);
+          if (!cwd) continue;
+
+          cwdCounts.set(cwd, (cwdCounts.get(cwd) || 0) + 1);
+          if (timestamp > latestTimestamp) {
+            latestTimestamp = timestamp;
+            latestCwd = cwd;
+          }
+        }
       }
       
       // Determine the best cwd to use

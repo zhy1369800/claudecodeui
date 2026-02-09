@@ -1074,6 +1074,45 @@ function handleShellConnection(ws) {
     let shellProcess = null;
     let ptySessionKey = null;
     let outputBuffer = [];
+    let ptyOutputBuffer = '';
+    let ptyBufferTimeout = null;
+    const PTY_BUFFER_MAX_SIZE = 4096;
+    const PTY_BUFFER_DELAY_MS = 10;
+
+    const clearPtyBufferTimer = () => {
+        if (ptyBufferTimeout) {
+            clearTimeout(ptyBufferTimeout);
+            ptyBufferTimeout = null;
+        }
+    };
+
+    const flushPtyBuffer = () => {
+        if (!ptyOutputBuffer || !ptySessionKey) return;
+
+        const payload = ptyOutputBuffer;
+        ptyOutputBuffer = '';
+        clearPtyBufferTimer();
+
+        const session = ptySessionsMap.get(ptySessionKey);
+        if (session && session.ws && session.ws.readyState === WebSocket.OPEN) {
+            try {
+                session.ws.send(JSON.stringify({
+                    type: 'output',
+                    data: payload
+                }));
+            } catch (sendError) {
+                console.warn('[WARN] Failed to send buffered PTY output:', sendError.message);
+            }
+        }
+    };
+
+    const schedulePtyFlush = (delay = PTY_BUFFER_DELAY_MS) => {
+        if (ptyBufferTimeout) return;
+        ptyBufferTimeout = setTimeout(() => {
+            ptyBufferTimeout = null;
+            flushPtyBuffer();
+        }, delay);
+    };
 
     ws.on('message', async (message) => {
         try {
@@ -1272,23 +1311,9 @@ function handleShellConnection(ws) {
                         isPlainShell
                     });
 
-                    // Handle data output with buffering to improve performance
-                    let ptyOutputBuffer = '';
-                    let ptyBufferTimeout = null;
-
-                    const flushPtyBuffer = () => {
-                        if (!ptyOutputBuffer) return;
-
-                        const session = ptySessionsMap.get(ptySessionKey);
-                        if (session && session.ws && session.ws.readyState === WebSocket.OPEN) {
-                            session.ws.send(JSON.stringify({
-                                type: 'output',
-                                data: ptyOutputBuffer
-                            }));
-                        }
-                        ptyOutputBuffer = '';
-                        ptyBufferTimeout = null;
-                    };
+                    // Reset PTY output buffer for new process start.
+                    ptyOutputBuffer = '';
+                    clearPtyBufferTimer();
 
                     shellProcess.onData((data) => {
                         const session = ptySessionsMap.get(ptySessionKey);
@@ -1345,17 +1370,18 @@ function handleShellConnection(ws) {
                         ptyOutputBuffer += outputData;
 
                         // Flush buffer if it gets too large
-                        if (ptyOutputBuffer.length > 4096) {
-                            if (ptyBufferTimeout) clearTimeout(ptyBufferTimeout);
+                        if (ptyOutputBuffer.length > PTY_BUFFER_MAX_SIZE) {
+                            clearPtyBufferTimer();
                             flushPtyBuffer();
-                        } else if (!ptyBufferTimeout) {
+                        } else {
                             // Or flush after a short delay
-                            ptyBufferTimeout = setTimeout(flushPtyBuffer, 10);
+                            schedulePtyFlush();
                         }
                     });
 
                     // Handle process exit
                     shellProcess.onExit((exitCode) => {
+                        flushPtyBuffer();
                         console.log('🔚 Shell process exited with code:', exitCode.exitCode, 'signal:', exitCode.signal);
                         const session = ptySessionsMap.get(ptySessionKey);
                         if (session && session.ws && session.ws.readyState === WebSocket.OPEN) {
@@ -1410,6 +1436,7 @@ function handleShellConnection(ws) {
 
     ws.on('close', () => {
         console.log('🔌 Shell client disconnected');
+        flushPtyBuffer();
 
         if (ptySessionKey) {
             const session = ptySessionsMap.get(ptySessionKey);
@@ -1429,6 +1456,7 @@ function handleShellConnection(ws) {
     });
 
     ws.on('error', (error) => {
+        flushPtyBuffer();
         console.error('[ERROR] Shell WebSocket error:', error);
     });
 }

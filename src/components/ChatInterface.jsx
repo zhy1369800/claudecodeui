@@ -1904,6 +1904,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   // Streaming throttle buffers
   const streamBufferRef = useRef('');
   const streamTimerRef = useRef(null);
+  const scrollRafRef = useRef(null);
   // Track the session that this view expects when starting a brand‑new chat
   // (prevents background sessions from streaming into a different view).
   const pendingViewSessionRef = useRef(null);
@@ -1952,6 +1953,15 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       streamTimerRef.current = null;
     }
     streamBufferRef.current = '';
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current) {
+        cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = null;
+      }
+    };
   }, []);
   // Load permission mode for the current session
   useEffect(() => {
@@ -2933,15 +2943,19 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
 
   // Define scroll functions early to avoid hoisting issues in useEffect dependencies
   const scrollToBottom = useCallback((instant = false) => {
-    if (scrollContainerRef.current) {
+    if (scrollRafRef.current) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      if (!scrollContainerRef.current) return;
+
       scrollContainerRef.current.scrollTo({
         top: scrollContainerRef.current.scrollHeight,
-        behavior: instant ? 'auto' : 'smooth'
+        behavior: (instant || isLoading) ? 'auto' : 'smooth'
       });
       // Don't reset isUserScrolledUp here - let the scroll handler manage it
       // This prevents fighting with user's scroll position during streaming
-    }
-  }, []);
+    });
+  }, [isLoading]);
 
   // Check if user is near the bottom of the scroll container
   const isNearBottom = useCallback(() => {
@@ -3160,7 +3174,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
             // Smart scroll behavior: only auto-scroll if user is near bottom
             const shouldAutoScroll = autoScrollToBottom && isNearBottom();
             if (shouldAutoScroll) {
-              setTimeout(() => scrollToBottom(), 200);
+              setTimeout(() => scrollToBottom(true), 200);
             }
             // If user scrolled up, preserve their position (they're reading history)
           }
@@ -4209,7 +4223,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       if (autoScrollToBottom) {
         // If auto-scroll is enabled, always scroll to bottom unless user has manually scrolled up
         if (!isUserScrolledUp) {
-          setTimeout(() => scrollToBottom(), 50); // Small delay to ensure DOM is updated
+          setTimeout(() => scrollToBottom(true), 50); // Small delay to ensure DOM is updated
         }
       } else {
         // When auto-scroll is disabled, preserve the visual position
@@ -4235,7 +4249,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       // Reset scroll state when switching sessions
       setIsUserScrolledUp(false);
       setTimeout(() => {
-        scrollToBottom();
+        scrollToBottom(true);
         // After scrolling, the scroll event handler will naturally set isUserScrolledUp based on position
       }, 200); // Delay to ensure full rendering
     }
@@ -4479,7 +4493,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
 
     // Always scroll to bottom when user sends a message and reset scroll state
     setIsUserScrolledUp(false); // Reset scroll state so auto-scroll works for Claude's response
-    setTimeout(() => scrollToBottom(), 100); // Longer delay to ensure message is rendered
+    setTimeout(() => scrollToBottom(true), 100); // Longer delay to ensure message is rendered
 
     // Determine effective session id for replies to avoid race on state updates
     const effectiveSessionId = currentSessionId || selectedSession?.id || sessionStorage.getItem('cursorSessionId');

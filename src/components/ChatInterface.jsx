@@ -40,6 +40,7 @@ import ThinkingModeSelector, { thinkingModes } from './ThinkingModeSelector.jsx'
 import Fuse from 'fuse.js';
 import CommandMenu from './CommandMenu';
 import { CLAUDE_MODELS, CURSOR_MODELS, CODEX_MODELS } from '../../shared/modelConstants';
+import { useTheme } from '../contexts/ThemeContext';
 
 import { safeJsonParse } from '../lib/utils.js';
 
@@ -497,6 +498,7 @@ const markdownComponents = {
 // Memoized message component to prevent unnecessary re-renders
 const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFileOpen, onShowSettings, onGrantToolPermission, autoExpandTools, showRawParameters, showThinking, selectedProject, provider }) => {
   const { t } = useTranslation('chat');
+  const { isDarkMode } = useTheme();
   const isGrouped = prevMessage && prevMessage.type === message.type &&
     ((prevMessage.type === 'assistant') ||
       (prevMessage.type === 'user') ||
@@ -505,6 +507,7 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
   const messageRef = React.useRef(null);
   const [isExpanded, setIsExpanded] = React.useState(false);
   const permissionSuggestion = getClaudePermissionSuggestion(message, provider);
+  const isClaudeLightTheme = provider === 'claude' && !isDarkMode;
   const [permissionGrantState, setPermissionGrantState] = React.useState('idle');
 
   React.useEffect(() => {
@@ -547,7 +550,10 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
       {message.type === 'user' ? (
         /* User message bubble on the right */
         <div className="flex items-end space-x-0 sm:space-x-3 w-full sm:w-auto sm:max-w-[85%] md:max-w-md lg:max-w-lg xl:max-w-xl">
-          <div className="bg-blue-600 text-white rounded-2xl rounded-br-md px-3 sm:px-4 py-2 shadow-sm flex-1 sm:flex-initial">
+          <div className={`${isClaudeLightTheme
+            ? 'bg-[#e8e6df] text-[#2a2a28] border border-[#dbd7cc]'
+            : 'bg-blue-600 text-white'
+            } rounded-2xl rounded-br-md px-3 sm:px-4 py-2 shadow-sm flex-1 sm:flex-initial`}>
             <div className="text-sm whitespace-pre-wrap break-words">
               {message.content}
             </div>
@@ -564,12 +570,12 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
                 ))}
               </div>
             )}
-            <div className="text-xs text-blue-100 mt-1 text-right">
+            <div className={`text-xs mt-1 text-right ${isClaudeLightTheme ? 'text-[#7c7a73]' : 'text-blue-100'}`}>
               {new Date(message.timestamp).toLocaleTimeString()}
             </div>
           </div>
           {!isGrouped && (
-            <div className="hidden sm:flex w-8 h-8 bg-blue-600 rounded-full items-center justify-center text-white text-sm flex-shrink-0">
+            <div className={`hidden sm:flex w-8 h-8 rounded-full items-center justify-center text-sm flex-shrink-0 ${isClaudeLightTheme ? 'bg-[#d9d4c7] text-[#4e4a42]' : 'bg-blue-600 text-white'}`}>
               U
             </div>
           )}
@@ -1859,6 +1865,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   isMobile
 }) {
   const { tasksEnabled, isTaskMasterInstalled } = useTasksSettings();
+  const { isDarkMode } = useTheme();
   const { t } = useTranslation('chat');
   const [input, setInput] = useState(() => {
     if (typeof window !== 'undefined' && selectedProject) {
@@ -1934,6 +1941,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [provider, setProvider] = useState(() => {
     return localStorage.getItem('selected-provider') || 'claude';
   });
+  const isClaudeLightTheme = provider === 'claude' && !isDarkMode;
   const [cursorModel, setCursorModel] = useState(() => {
     return localStorage.getItem('cursor-model') || CURSOR_MODELS.DEFAULT;
   });
@@ -4967,13 +4975,13 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           }
         `}
       </style>
-      <div className="h-full flex flex-col">
+      <div className={`h-full flex flex-col ${isClaudeLightTheme ? 'claude-light-theme bg-[#f2f0ea] border border-[#d8d3c6] rounded-3xl overflow-hidden' : ''}`}>
         {/* Messages Area - Scrollable Middle Section */}
         <div
           ref={scrollContainerRef}
           onWheel={handleScroll}
           onTouchMove={handleScroll}
-          className="flex-1 overflow-y-auto overflow-x-hidden px-0 py-3 sm:p-4 space-y-3 sm:space-y-4 relative"
+          className={`flex-1 overflow-y-auto overflow-x-hidden px-0 py-3 sm:p-4 space-y-3 sm:space-y-4 relative ${isClaudeLightTheme ? 'claude-light-scroll' : ''}`}
         >
           {isLoadingSessionMessages && chatMessages.length === 0 ? (
             <div className="text-center text-gray-500 dark:text-gray-400 mt-8">
@@ -5384,7 +5392,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
               {isUserScrolledUp && chatMessages.length > 0 && (
                 <button
                   onClick={scrollToBottom}
-                  className="w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:ring-offset-gray-800"
+                  className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 dark:ring-offset-gray-800 ${isClaudeLightTheme ? 'bg-[#d9d4c7] hover:bg-[#cfc9bb] text-[#4e4a42] focus:ring-[#bdb6a8] focus:ring-offset-[#f2f0ea]' : 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500 focus:ring-offset-2'}`}
                   title="Scroll to bottom"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5483,7 +5491,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
               frequentCommands={commandQuery ? [] : frequentCommands}
             />
 
-            <div {...getRootProps()} className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-600 focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-500 focus-within:border-blue-500 transition-all duration-200 ${isTextareaExpanded ? 'chat-input-expanded' : ''}`}>
+            <div {...getRootProps()} className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-600 focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-500 focus-within:border-blue-500 transition-all duration-200 ${isTextareaExpanded ? 'chat-input-expanded' : ''} ${isClaudeLightTheme ? 'claude-light-input-shell' : ''}`}>
               <input {...getInputProps()} />
               <div
                 ref={inputHighlightRef}

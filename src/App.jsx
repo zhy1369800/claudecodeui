@@ -27,7 +27,7 @@ import MobileNav from './components/MobileNav';
 import Settings from './components/Settings';
 import QuickSettingsPanel from './components/QuickSettingsPanel';
 
-import { ThemeProvider } from './contexts/ThemeContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { TaskMasterProvider } from './contexts/TaskMasterContext';
 import { TasksSettingsProvider } from './contexts/TasksSettingsContext';
@@ -46,6 +46,7 @@ function AppContent() {
   const navigate = useNavigate();
   const { sessionId } = useParams();
   const { t } = useTranslation('common');
+  const { isDarkMode } = useTheme();
   // * This is a tracker for avoiding excessive re-renders during development 
   const renderCountRef = useRef(0);
   // console.log(`AppContent render count: ${renderCountRef.current++}`);
@@ -93,6 +94,8 @@ function AppContent() {
 
   // Detect if running as PWA
   const [isPWA, setIsPWA] = useState(false);
+  const activeProvider = selectedSession?.__provider || localStorage.getItem('selected-provider') || 'claude';
+  const isClaudeLightPageTheme = !isDarkMode && activeProvider === 'claude';
 
   useEffect(() => {
     // Check if running in standalone mode (PWA)
@@ -789,11 +792,11 @@ function AppContent() {
   };
 
   return (
-    <div className="fixed inset-0 flex bg-background">
+    <div className={`fixed inset-0 flex bg-background ${isClaudeLightPageTheme ? 'claude-light-page-theme' : ''}`}>
       {/* Fixed Desktop Sidebar */}
       {!isMobile && (
         <div
-          className={`h-full flex-shrink-0 border-r border-border bg-card transition-all duration-300 ${sidebarVisible ? 'w-80' : 'w-14'
+          className={`h-full flex-shrink-0 border-r border-border bg-card transition-all duration-300 ${isClaudeLightPageTheme ? 'claude-light-page-sidebar' : ''} ${sidebarVisible ? 'w-80' : 'w-14'
             }`}
         >
           <div className="h-full overflow-hidden">
@@ -886,7 +889,7 @@ function AppContent() {
             aria-label={t('versionUpdate.ariaLabels.closeSidebar')}
           />
           <div
-            className={`relative w-[85vw] max-w-sm sm:w-80 h-full bg-card border-r border-border transform transition-transform duration-150 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            className={`relative w-[85vw] max-w-sm sm:w-80 h-full bg-card border-r border-border transform transition-transform duration-150 ease-out ${isClaudeLightPageTheme ? 'claude-light-page-sidebar' : ''} ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
               }`}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
@@ -918,7 +921,7 @@ function AppContent() {
       )}
 
       {/* Main Content Area - Flexible */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={`flex-1 flex flex-col min-w-0 ${isClaudeLightPageTheme ? 'claude-light-page-main' : ''}`}>
         <MainContent
           selectedProject={selectedProject}
           selectedSession={selectedSession}

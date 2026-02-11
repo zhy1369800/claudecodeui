@@ -507,7 +507,7 @@ function MainContent({
               } : {}}
             >
               <div
-                className="relative flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 sm:p-1 touch-none"
+                className="main-tabs-pill relative flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 sm:p-1 touch-none"
                 onTouchStart={handleDragStart}
               >
               <Tooltip content={t('tabs.chat')} position="bottom">
@@ -520,8 +520,8 @@ function MainContent({
                     }
                     setActiveTab('chat');
                   }}
-                  className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'chat'
-                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                  className={`main-tab-btn relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'chat'
+                    ? 'main-tab-btn-active bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                 >
@@ -543,8 +543,8 @@ function MainContent({
                     }
                     setActiveTab('shell');
                   }}
-                  className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'shell'
-                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                  className={`main-tab-btn relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'shell'
+                    ? 'main-tab-btn-active bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                 >
@@ -566,8 +566,8 @@ function MainContent({
                     }
                     setActiveTab('files');
                   }}
-                  className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'files'
-                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                  className={`main-tab-btn relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'files'
+                    ? 'main-tab-btn-active bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                 >
@@ -589,8 +589,8 @@ function MainContent({
                     }
                     setActiveTab('git');
                   }}
-                  className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'git'
-                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                  className={`main-tab-btn relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'git'
+                    ? 'main-tab-btn-active bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                 >
@@ -613,8 +613,8 @@ function MainContent({
                       }
                       setActiveTab('tasks');
                     }}
-                    className={`relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'tasks'
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                    className={`main-tab-btn relative px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'tasks'
+                      ? 'main-tab-btn-active bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
                   >

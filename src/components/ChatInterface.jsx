@@ -1901,7 +1901,6 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [imageErrors, setImageErrors] = useState(new Map());
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
-  const inputContainerRef = useRef(null);
   const inputHighlightRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const isLoadingSessionRef = useRef(false); // Track session loading to prevent multiple scrolls
@@ -4966,6 +4965,11 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     );
   }
 
+  const hasInputContent = input.trim().length > 0 || attachedImages.length > 0;
+  const shouldShowExpandedInputUi = isMobile
+    ? (isInputFocused || hasInputContent)
+    : hasInputContent;
+
   return (
     <>
       <style>
@@ -4975,7 +4979,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           }
         `}
       </style>
-      <div className={`h-full flex flex-col ${isClaudeLightTheme ? 'claude-light-theme bg-[#f2f0ea] border border-[#d8d3c6] rounded-3xl overflow-hidden' : ''}`}>
+      <div className={`h-full flex flex-col relative ${isClaudeLightTheme ? 'claude-light-theme bg-[#f2f0ea] border border-[#d8d3c6] rounded-3xl overflow-hidden' : ''}`}>
         {/* Messages Area - Scrollable Middle Section */}
         <div
           ref={scrollContainerRef}
@@ -5291,14 +5295,10 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
               showThinking={showThinking}
             />
           </div>
-          {/* Permission Mode Selector with scroll to bottom button - Above input, clickable for mobile */}
-          <div ref={inputContainerRef} className="max-w-4xl mx-auto mb-3">
-            {pendingPermissionRequests.length > 0 && (
-              // Permission banner for tool approvals. This renders the input, allows
-              // "allow once" or "allow & remember", and supports batching similar requests.
-              // It does not persist permissions by itself; persistence is handled by
-              // the existing localStorage-based settings helpers, introduced to surface
-              // approvals before tool execution resumes.
+          {/* Permission banners (only render when needed) */}
+          {pendingPermissionRequests.length > 0 && (
+            <div className="max-w-4xl mx-auto mb-3">
+              {/* Permission banner for tool approvals. */}
               <div className="mb-3 space-y-2">
                 {pendingPermissionRequests.map((request) => {
                   const rawInput = formatToolInputForDisplay(request.input);
@@ -5385,25 +5385,25 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                   );
                 })}
               </div>
-            )}
+            </div>
+          )}
 
-            <div className="flex items-center justify-end">
-              {/* Scroll to bottom button - only visible if user scrolled up */}
-              {isUserScrolledUp && chatMessages.length > 0 && (
+          <form onSubmit={handleSubmit} className="relative max-w-4xl mx-auto">
+            {/* Scroll to bottom button - anchored to input top with fixed gap */}
+            {isUserScrolledUp && chatMessages.length > 0 && (
+              <div className="absolute left-1/2 -translate-x-1/2 -top-14 sm:-top-13 z-20 pointer-events-none">
                 <button
                   onClick={scrollToBottom}
-                  className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 dark:ring-offset-gray-800 ${isClaudeLightTheme ? 'bg-[#d9d4c7] hover:bg-[#cfc9bb] text-[#4e4a42] focus:ring-[#bdb6a8] focus:ring-offset-[#f2f0ea]' : 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500 focus:ring-offset-2'}`}
+                  className={`pointer-events-auto w-10 h-10 rounded-full border shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 ${isClaudeLightTheme ? 'bg-[#d9d4c7] hover:bg-[#cfc9bb] text-[#4e4a42] border-[#c7c1b2] focus:ring-[#bdb6a8] focus:ring-offset-[#f2f0ea]' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:ring-gray-400 dark:focus:ring-gray-500'}`}
                   title="Scroll to bottom"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                   </svg>
                 </button>
-              )}
-            </div>
-          </div>
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit} className="relative max-w-4xl mx-auto">
             {/* Drag overlay */}
             {isDragActive && (
               <div className="absolute inset-0 bg-blue-500/20 border-2 border-dashed border-blue-500 rounded-lg flex items-center justify-center z-50">
@@ -5498,7 +5498,10 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                 aria-hidden="true"
                 className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl"
               >
-                <div className={`chat-input-placeholder block w-full pl-3 ${isMobile ? (isInputFocused || input.trim() || attachedImages.length > 0 ? 'pr-12 pb-16 min-h-[96px] pt-4' : 'pr-12 pb-2 min-h-[60px] pt-2') : 'pr-20 sm:pr-24 pt-3 pb-12 sm:pb-14 min-h-[100px] sm:min-h-[120px]'} text-transparent text-base leading-6 whitespace-pre-wrap break-words transition-all duration-200`}>
+                <div className={`chat-input-placeholder block w-full pl-3 ${isMobile
+                  ? (shouldShowExpandedInputUi ? 'pr-12 pb-16 min-h-[96px] pt-4' : 'pr-12 pb-2 min-h-[60px] pt-2')
+                  : (shouldShowExpandedInputUi ? 'pr-20 sm:pr-24 pt-3 pb-12 sm:pb-14 min-h-[100px] sm:min-h-[120px]' : 'pr-14 sm:pr-16 pb-2 min-h-[56px] pt-2')
+                  } text-transparent text-base leading-6 whitespace-pre-wrap break-words transition-all duration-200`}>
                   {renderInputWithMentions(input)}
                 </div>
               </div>
@@ -5528,15 +5531,21 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                   }}
                   placeholder={t('input.placeholder', { provider: provider === 'cursor' ? t('messageTypes.cursor') : provider === 'codex' ? t('messageTypes.codex') : t('messageTypes.claude') })}
                   disabled={isLoading}
-                  className={`chat-input-placeholder block w-full pl-3 ${isMobile ? (isInputFocused || input.trim() || attachedImages.length > 0 ? 'pr-12 pb-16 min-h-[96px] pt-4' : 'pr-12 pb-2 min-h-[60px] pt-2') : 'pr-4 sm:pr-6 pb-12 sm:pb-14 min-h-[100px] sm:min-h-[120px] pt-3'} bg-transparent rounded-2xl focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:opacity-50 resize-y max-h-[60vh] sm:max-h-[500px] overflow-y-auto text-base leading-6 transition-all duration-200`}
+                  className={`chat-input-placeholder block w-full pl-3 ${isMobile
+                    ? (shouldShowExpandedInputUi ? 'pr-12 pb-16 min-h-[96px] pt-4' : 'pr-12 pb-2 min-h-[60px] pt-2')
+                    : (shouldShowExpandedInputUi ? 'pr-4 sm:pr-6 pb-12 sm:pb-14 min-h-[100px] sm:min-h-[120px] pt-3' : 'pr-14 sm:pr-16 pb-2 min-h-[56px] pt-2')
+                    } bg-transparent rounded-2xl focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:opacity-50 resize-y max-h-[60vh] sm:max-h-[500px] overflow-y-auto text-base leading-6 transition-all duration-200`}
                   style={{
-                    height: isMobile ? (isInputFocused || input.trim() || attachedImages.length > 0 ? 'auto' : '60px') : '100px',
-                    minHeight: isMobile ? (isInputFocused || input.trim() || attachedImages.length > 0 ? '96px' : '60px') : 'unset'
+                    height: isMobile ? (shouldShowExpandedInputUi ? 'auto' : '60px') : (shouldShowExpandedInputUi ? 'auto' : '56px'),
+                    minHeight: isMobile ? (shouldShowExpandedInputUi ? '96px' : '60px') : (shouldShowExpandedInputUi ? 'unset' : '56px')
                   }}
                 />
                 {/* Bottom controls row */}
-                <div className={`absolute left-2 right-2 flex items-center justify-between pointer-events-none ${isMobile ? (isInputFocused || input.trim() || attachedImages.length > 0 ? 'bottom-2.5' : 'bottom-1') : 'bottom-2'}`}>
-                  <div className={`flex items-center gap-1.5 pointer-events-auto transition-all duration-200 origin-left ${isMobile ? (isInputFocused || input.trim() || attachedImages.length > 0 ? 'opacity-100 scale-100 w-auto' : 'opacity-0 scale-90 w-0 h-0 overflow-hidden') : 'bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-1'}`}>
+                <div className={`absolute left-2 right-2 flex items-center justify-between pointer-events-none ${isMobile ? (shouldShowExpandedInputUi ? 'bottom-2.5' : 'bottom-1') : (shouldShowExpandedInputUi ? 'bottom-2' : 'bottom-1')}`}>
+                  <div className={`flex items-center gap-1.5 pointer-events-auto transition-all duration-200 origin-left ${isMobile
+                    ? (shouldShowExpandedInputUi ? 'opacity-100 scale-100 w-auto' : 'opacity-0 scale-90 w-0 h-0 overflow-hidden')
+                    : (shouldShowExpandedInputUi ? 'opacity-100 scale-100 w-auto bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-1' : 'opacity-0 scale-90 w-0 h-0 overflow-hidden')
+                    }`}>
                     {/* Image upload button */}
                     <button
                       type="button"
@@ -5663,7 +5672,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                 </div>
 
                 {/* Hint text inside input box at bottom-right - Desktop only */}
-                <div className={`absolute bottom-4 right-14 sm:right-16 text-[10px] text-gray-400 dark:text-gray-500 pointer-events-none hidden sm:block transition-opacity duration-200 ${input.trim() ? 'opacity-0' : 'opacity-100'
+                <div className={`absolute bottom-4 right-14 sm:right-16 text-[10px] text-gray-400 dark:text-gray-500 pointer-events-none hidden sm:block transition-opacity duration-200 ${!shouldShowExpandedInputUi || input.trim() ? 'opacity-0' : 'opacity-100'
                   }`}>
                   {sendByCtrlEnter ? t('input.hintText.ctrlEnter') : t('input.hintText.enter')}
                 </div>

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * ChatInterface.jsx - Chat Component with Session Protection Integration
  * 
  * SESSION PROTECTION INTEGRATION:
@@ -32,7 +32,6 @@ import NextTaskBanner from './NextTaskBanner.jsx';
 import { useTasksSettings } from '../contexts/TasksSettingsContext';
 import { useTranslation } from 'react-i18next';
 
-import ClaudeStatus from './ClaudeStatus';
 import TokenUsagePie from './TokenUsagePie';
 import { MicButton } from './MicButton.jsx';
 import { api, authenticatedFetch } from '../utils/api';
@@ -465,6 +464,7 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
 // Common markdown components to ensure consistent rendering (tables, inline code, links, etc.)
 const markdownComponents = {
   code: CodeBlock,
+  hr: () => null,
   blockquote: ({ children }) => (
     <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-4 italic text-gray-600 dark:text-gray-400 my-2">
       {children}
@@ -497,7 +497,7 @@ const markdownComponents = {
 
 // Memoized message component to prevent unnecessary re-renders
 const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFileOpen, onShowSettings, onGrantToolPermission, autoExpandTools, showRawParameters, showThinking, selectedProject, provider }) => {
-  const { t } = useTranslation('chat');
+  const { t, i18n } = useTranslation('chat');
   const { isDarkMode } = useTheme();
   const isGrouped = prevMessage && prevMessage.type === message.type &&
     ((prevMessage.type === 'assistant') ||
@@ -509,6 +509,16 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
   const permissionSuggestion = getClaudePermissionSuggestion(message, provider);
   const isClaudeLightTheme = provider === 'claude' && !isDarkMode;
   const [permissionGrantState, setPermissionGrantState] = React.useState('idle');
+  const workedForInlineText = React.useMemo(() => {
+    if (typeof message?.workedForSeconds !== 'number') return '';
+    const totalSeconds = Math.max(0, Math.floor(message.workedForSeconds));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const isZh = (i18n?.resolvedLanguage || i18n?.language || '').toLowerCase().startsWith('zh');
+    return isZh
+      ? `耗时 ${minutes}分 ${seconds}秒`
+      : `Worked for ${minutes}m ${seconds}s`;
+  }, [message?.workedForSeconds, i18n?.language, i18n?.resolvedLanguage]);
 
   React.useEffect(() => {
     setPermissionGrantState('idle');
@@ -572,6 +582,7 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
             )}
             <div className={`text-xs mt-1 text-right ${isClaudeLightTheme ? 'text-[#7c7a73]' : 'text-blue-100'}`}>
               {new Date(message.timestamp).toLocaleTimeString()}
+              {workedForInlineText ? ` · ${workedForInlineText}` : ''}
             </div>
           </div>
           {!isGrouped && (
@@ -1578,10 +1589,10 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
 
                       // Parse the menu options
                       lines.forEach(line => {
-                        // Match lines like "❯ 1. Yes" or "  2. No"
-                        const optionMatch = line.match(/[❯\s]*(\d+)\.\s+(.+)/);
+                        // Match lines like "✓ 1. Yes" or "  2. No"
+                        const optionMatch = line.match(/[✓\s]*(\d+)\.\s+(.+)/);
                         if (optionMatch) {
-                          const isSelected = line.includes('❯');
+                          const isSelected = line.includes('✓');
                           options.push({
                             number: optionMatch[1],
                             text: optionMatch[2].trim(),
@@ -1618,7 +1629,7 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
                                     {option.text}
                                   </span>
                                   {option.isSelected && (
-                                    <span className="text-lg">❯</span>
+                                    <span className="text-lg">✅</span>
                                   )}
                                 </div>
                               </button>
@@ -1799,6 +1810,7 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
 
             <div className={`text-xs text-gray-500 dark:text-gray-400 mt-1 ${isGrouped ? 'opacity-0 group-hover:opacity-100' : ''}`}>
               {new Date(message.timestamp).toLocaleTimeString()}
+              {workedForInlineText ? ` · ${workedForInlineText}` : ''}
             </div>
           </div>
         </div>
@@ -1932,11 +1944,14 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [commandQuery, setCommandQuery] = useState('');
   const [isTextareaExpanded, setIsTextareaExpanded] = useState(false);
   const [tokenBudget, setTokenBudget] = useState(null);
+  const [loadingElapsedSec, setLoadingElapsedSec] = useState(0);
+  const [showStopOnInputButton, setShowStopOnInputButton] = useState(false);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(-1);
   const [slashPosition, setSlashPosition] = useState(-1);
   const [visibleMessageCount, setVisibleMessageCount] = useState(100);
   const [claudeStatus, setClaudeStatus] = useState(null);
   const [thinkingMode, setThinkingMode] = useState('none');
+  const runStartedAtRef = useRef(null);
   const [provider, setProvider] = useState(() => {
     return localStorage.getItem('selected-provider') || 'claude';
   });
@@ -1970,6 +1985,84 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingElapsedSec(0);
+      setShowStopOnInputButton(false);
+      return;
+    }
+
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      setLoadingElapsedSec(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isLoading]);
+
+  const appendWorkedForMessage = useCallback(() => {
+    if (!runStartedAtRef.current) return;
+    const elapsedSec = Math.max(0, Math.floor((Date.now() - runStartedAtRef.current) / 1000));
+    setChatMessages(prev => {
+      const updated = [...prev];
+      for (let i = updated.length - 1; i >= 0; i--) {
+        const msg = updated[i];
+        if (msg.type === 'assistant' || msg.type === 'error') {
+          updated[i] = {
+            ...msg,
+            workedForSeconds: elapsedSec,
+            isLocalTransient: true
+          };
+          return updated;
+        }
+      }
+      return prev;
+    });
+    runStartedAtRef.current = null;
+  }, []);
+
+  const messageSignature = useCallback((message) => {
+    if (!message) return '';
+    const content = typeof message.content === 'string' ? message.content : '';
+    return `${message.type || ''}|${content}|${message.isThinking ? 'thinking' : ''}|${message.isToolUse ? 'tool' : ''}`;
+  }, []);
+
+  const mergeLoadedWithTransientMessages = useCallback((loadedMessages, previousMessages) => {
+    const loaded = Array.isArray(loadedMessages) ? loadedMessages : [];
+    const previous = Array.isArray(previousMessages) ? previousMessages : [];
+    const transient = previous.filter(msg => msg?.isLocalTransient);
+    if (transient.length === 0) return loaded;
+
+    const transientBySignature = new Map();
+    transient.forEach(msg => {
+      transientBySignature.set(messageSignature(msg), msg);
+    });
+
+    // If a loaded message matches a transient one, preserve transient-only UI fields
+    // (for example workedForSeconds) instead of dropping them on reload.
+    const mergedLoaded = loaded.map(msg => {
+      const key = messageSignature(msg);
+      const transientMatch = transientBySignature.get(key);
+      if (!transientMatch) return msg;
+      return {
+        ...msg,
+        workedForSeconds: transientMatch.workedForSeconds ?? msg.workedForSeconds,
+        isLocalTransient: transientMatch.isLocalTransient || msg.isLocalTransient
+      };
+    });
+
+    const loadedSignatures = new Set(loaded.map(messageSignature));
+    const remainTransient = transient.filter(msg => !loadedSignatures.has(messageSignature(msg)));
+    return [...mergedLoaded, ...remainTransient];
+  }, [messageSignature]);
+
+  // Fallback: whenever a run leaves loading state, ensure worked-time is emitted once.
+  useEffect(() => {
+    if (!isLoading && runStartedAtRef.current) {
+      appendWorkedForMessage();
+    }
+  }, [isLoading, appendWorkedForMessage]);
   // Load permission mode for the current session
   useEffect(() => {
     if (selectedSession?.id) {
@@ -3107,7 +3200,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
             const projectPath = selectedProject.fullPath || selectedProject.path;
             const converted = await loadCursorSessionMessages(projectPath, selectedSession.id);
             setSessionMessages([]);
-            setChatMessages(converted);
+            setChatMessages(prev => mergeLoadedWithTransientMessages(converted, prev));
           } else {
             // Reset the flag after handling system session change
             setIsSystemSessionChange(false);
@@ -3171,7 +3264,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
             const projectPath = selectedProject.fullPath || selectedProject.path;
             const converted = await loadCursorSessionMessages(projectPath, selectedSession.id);
             setSessionMessages([]);
-            setChatMessages(converted);
+            setChatMessages(prev => mergeLoadedWithTransientMessages(converted, prev));
           } else {
             // Reload Claude/Codex messages from API/JSONL
             const messages = await loadSessionMessages(selectedProject.name, selectedSession.id, false, selectedSession.__provider || 'claude');
@@ -3204,9 +3297,9 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   // Update chatMessages when convertedMessages changes
   useEffect(() => {
     if (sessionMessages.length > 0) {
-      setChatMessages(convertedMessages);
+      setChatMessages(prev => mergeLoadedWithTransientMessages(convertedMessages, prev));
     }
-  }, [convertedMessages, sessionMessages]);
+  }, [convertedMessages, sessionMessages, mergeLoadedWithTransientMessages]);
 
   // Notify parent when input focus changes
   useEffect(() => {
@@ -3374,6 +3467,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'claude-response':
+          setShowStopOnInputButton(false);
 
           // Handle Cursor streaming format (content_block_delta / content_block_stop)
           if (messageData && typeof messageData === 'object' && messageData.type) {
@@ -3645,6 +3739,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
         }
 
         case 'claude-error':
+          setShowStopOnInputButton(false);
+          appendWorkedForMessage();
           setChatMessages(prev => [...prev, {
             type: 'error',
             content: `Error: ${latestMessage.error}`,
@@ -3703,6 +3799,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'cursor-error':
+          setShowStopOnInputButton(false);
+          appendWorkedForMessage();
           // Show Cursor errors as error messages in chat
           setChatMessages(prev => [...prev, {
             type: 'error',
@@ -3712,6 +3810,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'cursor-result':
+          setShowStopOnInputButton(false);
+          appendWorkedForMessage();
           // Get session ID from message or fall back to current session
           const cursorCompletedSessionId = latestMessage.sessionId || currentSessionId;
 
@@ -3778,6 +3878,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'cursor-output':
+          setShowStopOnInputButton(false);
           // Handle Cursor raw terminal output; strip ANSI and ignore empty control-only payloads
           try {
             const raw = String(latestMessage.data ?? '');
@@ -3809,6 +3910,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'claude-complete':
+          setShowStopOnInputButton(false);
+          appendWorkedForMessage();
           // Get session ID from message or fall back to current session
           const completedSessionId = latestMessage.sessionId || currentSessionId || sessionStorage.getItem('pendingSessionId');
 
@@ -3849,6 +3952,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'codex-response':
+          setShowStopOnInputButton(false);
           // Handle Codex SDK responses
           const codexData = latestMessage.data;
           if (codexData) {
@@ -3939,11 +4043,13 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
             if (codexData.type === 'turn_complete') {
               // Turn completed, message stream done
               setIsLoading(false);
+              appendWorkedForMessage();
             }
 
             // Handle turn failed
             if (codexData.type === 'turn_failed') {
               setIsLoading(false);
+              appendWorkedForMessage();
               setChatMessages(prev => [...prev, {
                 type: 'error',
                 content: codexData.error?.message || 'Turn failed',
@@ -3954,6 +4060,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'codex-complete':
+          setShowStopOnInputButton(false);
+          appendWorkedForMessage();
           // Handle Codex session completion
           const codexCompletedSessionId = latestMessage.sessionId || currentSessionId || sessionStorage.getItem('pendingSessionId');
 
@@ -3991,6 +4099,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
 
         case 'codex-error':
           // Handle Codex errors
+          setShowStopOnInputButton(false);
+          appendWorkedForMessage();
           setIsLoading(false);
           setCanAbortSession(false);
           setChatMessages(prev => [...prev, {
@@ -4001,6 +4111,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'session-aborted': {
+          setShowStopOnInputButton(false);
+          appendWorkedForMessage();
           // Get session ID from message or fall back to current session
           const abortedSessionId = latestMessage.sessionId || currentSessionId;
 
@@ -4490,6 +4602,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       return [...prev, userMessage];
     });
     setIsLoading(true);
+    setShowStopOnInputButton(true);
+    runStartedAtRef.current = Date.now();
     setCanAbortSession(true);
     // Set a default status when starting
     setClaudeStatus({
@@ -4928,15 +5042,34 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     setCanAbortSession(false);
   };
 
-  const handleAbortSession = () => {
-    if (currentSessionId && canAbortSession) {
+  const handleAbortSession = useCallback(() => {
+    if (!canAbortSession) return;
+
+    setShowStopOnInputButton(false);
+
+    const isWebSocketReady = ws && ws.readyState === WebSocket.OPEN;
+    if (!isWebSocketReady) {
+      setIsLoading(false);
+      setCanAbortSession(false);
+      setClaudeStatus(null);
+      appendWorkedForMessage();
+      return;
+    }
+
+    if (currentSessionId) {
       sendMessage({
         type: 'abort-session',
         sessionId: currentSessionId,
         provider: provider
       });
+      return;
     }
-  };
+
+    setIsLoading(false);
+    setCanAbortSession(false);
+    setClaudeStatus(null);
+    appendWorkedForMessage();
+  }, [canAbortSession, ws, currentSessionId, sendMessage, provider, appendWorkedForMessage]);
 
   const handleModeSwitch = () => {
     // Codex doesn't support plan mode
@@ -5273,6 +5406,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                     <div className="animate-pulse" style={{ animationDelay: '0.2s' }}>●</div>
                     <div className="animate-pulse" style={{ animationDelay: '0.4s' }}>●</div>
                     <span className="ml-2">Thinking...</span>
+                    <span className="text-xs text-gray-400">({loadingElapsedSec}s)</span>
                   </div>
                 </div>
               </div>
@@ -5286,15 +5420,6 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
         {/* Input Area - Fixed Bottom */}
         <div className={`p-2 sm:p-4 md:p-4 flex-shrink-0 ${isInputFocused ? 'pb-2 sm:pb-4 md:pb-6' : 'pb-2 sm:pb-4 md:pb-6'} ios-bottom-safe`}>
 
-          <div className="flex-1">
-            <ClaudeStatus
-              status={claudeStatus}
-              isLoading={isLoading}
-              onAbort={handleAbortSession}
-              provider={provider}
-              showThinking={showThinking}
-            />
-          </div>
           {/* Permission banners (only render when needed) */}
           {pendingPermissionRequests.length > 0 && (
             <div className="max-w-4xl mx-auto mb-3">
@@ -5655,19 +5780,29 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                     )}
                   </div>
 
-                  {/* Send button */}
+                  {/* Send/Stop button */}
                   <button
-                    type="submit"
-                    disabled={!input.trim() || isLoading}
-                    onMouseDown={(e) => {
+                    type="button"
+                    disabled={!showStopOnInputButton && !input.trim()}
+                    onClick={(e) => {
                       e.preventDefault();
+                      if (showStopOnInputButton) {
+                        handleAbortSession();
+                        return;
+                      }
                       handleSubmit(e);
                     }}
-                    className={`pointer-events-auto bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed rounded-2xl flex items-center justify-center shadow-lg transition-all duration-200 active:scale-95 ${isMobile ? 'w-9 h-9' : 'w-10 h-10 sm:w-11 sm:h-11'}`}
+                    className={`pointer-events-auto rounded-2xl flex items-center justify-center shadow-lg transition-all duration-200 active:scale-95 ${showStopOnInputButton ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed ${isMobile ? 'w-9 h-9' : 'w-10 h-10 sm:w-11 sm:h-11'}`}
                   >
-                    <svg className="w-5 h-5 text-white transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
+                    {showStopOnInputButton ? (
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 6l12 12M18 6l-12 12" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 text-white transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                    )}
                   </button>
                 </div>
 

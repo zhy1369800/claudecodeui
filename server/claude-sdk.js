@@ -28,6 +28,11 @@ const activeSessions = new Map();
 // SDK can pause tool execution while the UI decides what to do.
 const pendingToolApprovals = new Map();
 
+// MCP Configuration Cache
+const mcpConfigCache = new Map();
+let mcpConfigCacheTimestamp = 0;
+const MCP_CACHE_TTL = 60000; // 60 seconds
+
 // Default approval timeout kept under the SDK's 60s control timeout.
 // This does not change SDK limits; it only defines how long we wait for the UI,
 // introduced to avoid hanging the run when no decision arrives.
@@ -209,7 +214,16 @@ function mapCliOptionsToSDK(options = {}) {
 
   // Map setting sources for CLAUDE.md loading
   // This loads CLAUDE.md from project, user (~/.config/claude/CLAUDE.md), and local directories
-  sdkOptions.settingSources = ['project', 'user', 'local'];
+  // Optimization: If cwd is home directory, skip 'project' source to avoid massive indexing
+  const homeDir = os.homedir();
+  const isHomeDir = cwd && (path.normalize(cwd) === path.normalize(homeDir));
+
+  if (isHomeDir) {
+    console.log('[PERF] CWD is home directory, skipping "project" setting source to avoid massive indexing');
+    sdkOptions.settingSources = ['user', 'local'];
+  } else {
+    sdkOptions.settingSources = ['project', 'user', 'local'];
+  }
 
   // Map resume session
   if (sessionId) {
@@ -406,6 +420,14 @@ async function cleanupTempFiles(tempImagePaths, tempDir) {
  * @returns {Object|null} MCP servers object or null if none found
  */
 async function loadMcpConfig(cwd) {
+  const now = Date.now();
+  const cacheKey = cwd || 'global';
+
+  // Return cached config if available and not expired
+  if (mcpConfigCache.has(cacheKey) && (now - mcpConfigCacheTimestamp < MCP_CACHE_TTL)) {
+    return mcpConfigCache.get(cacheKey);
+  }
+
   try {
     const claudeConfigPath = path.join(os.homedir(), '.claude.json');
 
@@ -449,10 +471,14 @@ async function loadMcpConfig(cwd) {
     // Return null if no servers found
     if (Object.keys(mcpServers).length === 0) {
       console.log('No MCP servers configured');
+      mcpConfigCache.set(cacheKey, null);
+      mcpConfigCacheTimestamp = now;
       return null;
     }
 
     console.log(`Total MCP servers loaded: ${Object.keys(mcpServers).length}`);
+    mcpConfigCache.set(cacheKey, mcpServers);
+    mcpConfigCacheTimestamp = now;
     return mcpServers;
   } catch (error) {
     console.error('Error loading MCP config:', error.message);
@@ -468,24 +494,35 @@ async function loadMcpConfig(cwd) {
  * @returns {Promise<void>}
  */
 async function queryClaudeSDK(command, options = {}, ws) {
+  const startTime = Date.now();
   const { sessionId } = options;
   let capturedSessionId = sessionId;
   let sessionCreatedSent = false;
   let tempImagePaths = [];
   let tempDir = null;
 
+  console.log(`[PERF] Starting queryClaudeSDK for command: "${command.substring(0, 20)}..."`);
+
   try {
     // Map CLI options to SDK format
     const sdkOptions = mapCliOptionsToSDK(options);
+    const optionsMappedTime = Date.now();
+    console.log(`[PERF] Options mapped in ${optionsMappedTime - startTime}ms`);
 
     // Load MCP configuration
     const mcpServers = await loadMcpConfig(options.cwd);
+    const mcpLoadedTime = Date.now();
+    console.log(`[PERF] MCP config loaded in ${mcpLoadedTime - optionsMappedTime}ms`);
+
     if (mcpServers) {
       sdkOptions.mcpServers = mcpServers;
     }
 
     // Handle images - save to temp files and modify prompt
     const imageResult = await handleImages(command, options.images, options.cwd);
+    const imagesProcessedTime = Date.now();
+    console.log(`[PERF] Images processed in ${imagesProcessedTime - mcpLoadedTime}ms`);
+
     const finalCommand = imageResult.modifiedCommand;
     tempImagePaths = imageResult.tempImagePaths;
     tempDir = imageResult.tempDir;
@@ -565,6 +602,8 @@ async function queryClaudeSDK(command, options = {}, ws) {
       prompt: finalCommand,
       options: sdkOptions
     });
+    const queryInstanceCreatedTime = Date.now();
+    console.log(`[PERF] SDK query instance created in ${queryInstanceCreatedTime - imagesProcessedTime}ms`);
 
     // Track the query instance for abort capability
     if (capturedSessionId) {
@@ -573,7 +612,13 @@ async function queryClaudeSDK(command, options = {}, ws) {
 
     // Process streaming messages
     console.log('Starting async generator loop for session:', capturedSessionId || 'NEW');
+    let firstMessageReceived = false;
+
     for await (const message of queryInstance) {
+      if (!firstMessageReceived) {
+        firstMessageReceived = true;
+        console.log(`[PERF] First message received from SDK in ${Date.now() - queryInstanceCreatedTime}ms`);
+      }
       // Capture session ID from first message
       if (message.session_id && !capturedSessionId) {
 

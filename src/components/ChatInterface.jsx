@@ -1936,6 +1936,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [cursorPosition, setCursorPosition] = useState(0);
   const [atSymbolPosition, setAtSymbolPosition] = useState(-1);
   const [canAbortSession, setCanAbortSession] = useState(false);
+  const activeRunIdRef = useRef(null);
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
   const scrollPositionRef = useRef({ height: 0, top: 0 });
   const [showCommandMenu, setShowCommandMenu] = useState(false);
@@ -1952,6 +1953,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [claudeStatus, setClaudeStatus] = useState(null);
   const [thinkingMode, setThinkingMode] = useState('none');
   const runStartedAtRef = useRef(null);
+  const pendingWorkedForSecondsRef = useRef(null);
   const [provider, setProvider] = useState(() => {
     return localStorage.getItem('selected-provider') || 'claude';
   });
@@ -2001,26 +2003,62 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     return () => clearInterval(timer);
   }, [isLoading]);
 
+  const findWorkedForTargetIndex = useCallback((messages) => {
+    if (!Array.isArray(messages) || messages.length === 0) return -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (!msg) continue;
+      const isAssistantLike = msg.type === 'assistant' || msg.type === 'error';
+      const isVisibleContent = !msg.isThinking && !msg.isToolUse;
+      if (isAssistantLike && isVisibleContent) return i;
+    }
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg && (msg.type === 'assistant' || msg.type === 'error')) return i;
+    }
+    return -1;
+  }, []);
+
   const appendWorkedForMessage = useCallback(() => {
-    if (!runStartedAtRef.current) return;
-    const elapsedSec = Math.max(0, Math.floor((Date.now() - runStartedAtRef.current) / 1000));
+    if (!runStartedAtRef.current && typeof pendingWorkedForSecondsRef.current !== 'number') return;
+    const elapsedSec = typeof pendingWorkedForSecondsRef.current === 'number'
+      ? pendingWorkedForSecondsRef.current
+      : Math.max(0, Math.floor((Date.now() - runStartedAtRef.current) / 1000));
     setChatMessages(prev => {
+      const targetIndex = findWorkedForTargetIndex(prev);
+      if (targetIndex < 0) return prev;
       const updated = [...prev];
-      for (let i = updated.length - 1; i >= 0; i--) {
-        const msg = updated[i];
-        if (msg.type === 'assistant' || msg.type === 'error') {
-          updated[i] = {
-            ...msg,
-            workedForSeconds: elapsedSec,
-            isLocalTransient: true
-          };
-          return updated;
-        }
-      }
-      return prev;
+      updated[targetIndex] = {
+        ...updated[targetIndex],
+        workedForSeconds: elapsedSec,
+        isLocalTransient: true
+      };
+      return updated;
     });
     runStartedAtRef.current = null;
-  }, []);
+    pendingWorkedForSecondsRef.current = elapsedSec;
+  }, [findWorkedForTargetIndex]);
+
+  useEffect(() => {
+    if (typeof pendingWorkedForSecondsRef.current !== 'number') return;
+    let attached = false;
+    const elapsedSec = pendingWorkedForSecondsRef.current;
+    setChatMessages(prev => {
+      const targetIndex = findWorkedForTargetIndex(prev);
+      if (targetIndex < 0) return prev;
+      const updated = [...prev];
+      updated[targetIndex] = {
+        ...updated[targetIndex],
+        workedForSeconds: elapsedSec,
+        isLocalTransient: true
+      };
+      attached = true;
+      return updated;
+    });
+    if (attached) {
+      pendingWorkedForSecondsRef.current = null;
+    }
+  }, [chatMessages, findWorkedForTargetIndex]);
 
   const messageSignature = useCallback((message) => {
     if (!message) return '';
@@ -2045,11 +2083,13 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       const key = messageSignature(msg);
       const transientMatch = transientBySignature.get(key);
       if (!transientMatch) return msg;
-      return {
+      const merged = {
         ...msg,
-        workedForSeconds: transientMatch.workedForSeconds ?? msg.workedForSeconds,
-        isLocalTransient: transientMatch.isLocalTransient || msg.isLocalTransient
+        workedForSeconds: transientMatch.workedForSeconds ?? msg.workedForSeconds
       };
+      // Message is now present in backend-loaded history, so clear transient marker.
+      delete merged.isLocalTransient;
+      return merged;
     });
 
     const loadedSignatures = new Set(loaded.map(messageSignature));
@@ -3430,6 +3470,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
         }
       }
 
+      const incomingRunId = latestMessage.runId || null;
+      if (activeRunIdRef.current && incomingRunId && incomingRunId !== activeRunIdRef.current) {
+        // Drop stale events from older runs in the same session.
+        return;
+      }
+
       switch (latestMessage.type) {
         case 'session-created':
           // New session created by Claude CLI - we receive the real session ID here
@@ -3739,6 +3785,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
         }
 
         case 'claude-error':
+          activeRunIdRef.current = null;
           setShowStopOnInputButton(false);
           appendWorkedForMessage();
           setChatMessages(prev => [...prev, {
@@ -3799,6 +3846,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'cursor-error':
+          activeRunIdRef.current = null;
           setShowStopOnInputButton(false);
           appendWorkedForMessage();
           // Show Cursor errors as error messages in chat
@@ -3810,6 +3858,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'cursor-result':
+          activeRunIdRef.current = null;
           setShowStopOnInputButton(false);
           appendWorkedForMessage();
           // Get session ID from message or fall back to current session
@@ -3910,6 +3959,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'claude-complete':
+          activeRunIdRef.current = null;
           setShowStopOnInputButton(false);
           appendWorkedForMessage();
           // Get session ID from message or fall back to current session
@@ -4060,6 +4110,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'codex-complete':
+          activeRunIdRef.current = null;
           setShowStopOnInputButton(false);
           appendWorkedForMessage();
           // Handle Codex session completion
@@ -4099,6 +4150,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
 
         case 'codex-error':
           // Handle Codex errors
+          activeRunIdRef.current = null;
           setShowStopOnInputButton(false);
           appendWorkedForMessage();
           setIsLoading(false);
@@ -4111,10 +4163,10 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'session-aborted': {
+          const abortedSessionId = latestMessage.sessionId || currentSessionId;
+          activeRunIdRef.current = null;
           setShowStopOnInputButton(false);
           appendWorkedForMessage();
-          // Get session ID from message or fall back to current session
-          const abortedSessionId = latestMessage.sessionId || currentSessionId;
 
           // Only update UI state if this is the current session
           if (abortedSessionId === currentSessionId) {
@@ -4137,11 +4189,13 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           // This does not change allowlists; it only clears the current banner.
           setPendingPermissionRequests([]);
 
-          setChatMessages(prev => [...prev, {
-            type: 'assistant',
-            content: 'Session interrupted by user.',
-            timestamp: new Date()
-          }]);
+          if (!latestMessage.ignoredStaleRun) {
+            setChatMessages(prev => [...prev, {
+              type: 'assistant',
+              content: 'Session interrupted by user.',
+              timestamp: new Date()
+            }]);
+          }
           break;
         }
 
@@ -4538,6 +4592,10 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     noKeyboard: true
   });
 
+  const createRunId = useCallback(() => {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }, []);
+
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     if (!input.trim() || isLoading || !selectedProject) return;
@@ -4585,7 +4643,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       type: 'user',
       content: input,
       images: uploadedImages,
-      timestamp: new Date()
+      timestamp: new Date(),
+      isLocalTransient: true
     };
 
     // Check if this message already exists to prevent duplicates
@@ -4601,8 +4660,11 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       }
       return [...prev, userMessage];
     });
+    const runId = createRunId();
+    activeRunIdRef.current = runId;
     setIsLoading(true);
     setShowStopOnInputButton(true);
+    pendingWorkedForSecondsRef.current = null;
     runStartedAtRef.current = Date.now();
     setCanAbortSession(true);
     // Set a default status when starting
@@ -4656,6 +4718,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       // Send Cursor command (always use cursor-command; include resume/sessionId when replying)
       sendMessage({
         type: 'cursor-command',
+        runId,
         command: messageContent,
         sessionId: effectiveSessionId,
         options: {
@@ -4663,6 +4726,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           cwd: selectedProject.fullPath || selectedProject.path,
           projectPath: selectedProject.fullPath || selectedProject.path,
           sessionId: effectiveSessionId,
+          runId,
           resume: !!effectiveSessionId,
           model: cursorModel,
           skipPermissions: toolsSettings?.skipPermissions || false,
@@ -4673,12 +4737,14 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       // Send Codex command
       sendMessage({
         type: 'codex-command',
+        runId,
         command: messageContent,
         sessionId: effectiveSessionId,
         options: {
           cwd: selectedProject.fullPath || selectedProject.path,
           projectPath: selectedProject.fullPath || selectedProject.path,
           sessionId: effectiveSessionId,
+          runId,
           resume: !!effectiveSessionId,
           model: codexModel,
           permissionMode: permissionMode === 'plan' ? 'default' : permissionMode
@@ -4688,11 +4754,13 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       // Send Claude command (existing code)
       sendMessage({
         type: 'claude-command',
+        runId,
         command: messageContent,
         options: {
           projectPath: selectedProject.path,
           cwd: selectedProject.fullPath,
           sessionId: currentSessionId,
+          runId,
           resume: !!currentSessionId,
           toolsSettings: toolsSettings,
           permissionMode: permissionMode,
@@ -4727,7 +4795,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       setIsTextareaExpanded(false);
       textareaRef.current.style.height = '60px';
     }
-  }, [input, isLoading, selectedProject, attachedImages, currentSessionId, selectedSession, provider, permissionMode, onSessionActive, cursorModel, claudeModel, codexModel, sendMessage, setInput, setAttachedImages, setUploadingImages, setImageErrors, setIsTextareaExpanded, textareaRef, setChatMessages, setIsLoading, setCanAbortSession, setClaudeStatus, setIsUserScrolledUp, scrollToBottom, thinkingMode, isMobile]);
+  }, [input, isLoading, selectedProject, attachedImages, currentSessionId, selectedSession, provider, permissionMode, onSessionActive, cursorModel, claudeModel, codexModel, sendMessage, setInput, setAttachedImages, setUploadingImages, setImageErrors, setIsTextareaExpanded, textareaRef, setChatMessages, setIsLoading, setCanAbortSession, setClaudeStatus, setIsUserScrolledUp, scrollToBottom, thinkingMode, isMobile, createRunId]);
 
   const handleGrantToolPermission = useCallback((suggestion) => {
     if (!suggestion || provider !== 'claude') {
@@ -5045,14 +5113,16 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const handleAbortSession = useCallback(() => {
     if (!canAbortSession) return;
 
+    // Optimistic stop: end the local loading state immediately so UI doesn't
+    // depend on WebSocket/backend round-trip latency.
     setShowStopOnInputButton(false);
+    setIsLoading(false);
+    setCanAbortSession(false);
+    setClaudeStatus(null);
+    appendWorkedForMessage();
 
     const isWebSocketReady = ws && ws.readyState === WebSocket.OPEN;
     if (!isWebSocketReady) {
-      setIsLoading(false);
-      setCanAbortSession(false);
-      setClaudeStatus(null);
-      appendWorkedForMessage();
       return;
     }
 
@@ -5060,15 +5130,11 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       sendMessage({
         type: 'abort-session',
         sessionId: currentSessionId,
-        provider: provider
+        provider: provider,
+        runId: activeRunIdRef.current
       });
       return;
     }
-
-    setIsLoading(false);
-    setCanAbortSession(false);
-    setClaudeStatus(null);
-    appendWorkedForMessage();
   }, [canAbortSession, ws, currentSessionId, sendMessage, provider, appendWorkedForMessage]);
 
   const handleModeSwitch = () => {

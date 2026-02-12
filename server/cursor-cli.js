@@ -11,10 +11,11 @@ let activeCursorProcesses = new Map(); // Track active processes by session ID
 
 async function spawnCursor(command, options = {}, ws) {
   return new Promise(async (resolve, reject) => {
-    const { sessionId, projectPath, cwd, resume, toolsSettings, skipPermissions, model, images } = options;
+    const { sessionId, projectPath, cwd, resume, toolsSettings, skipPermissions, model, images, runId = null } = options;
     let capturedSessionId = sessionId; // Track session ID throughout the process
     let sessionCreatedSent = false; // Track if we've already sent session-created event
     let messageBuffer = ''; // Buffer for accumulating assistant messages
+    const sendWithRunId = (payload) => ws.send({ ...payload, runId });
     
     // Use tools settings passed from frontend, or defaults
     const settings = toolsSettings || {
@@ -102,7 +103,7 @@ async function spawnCursor(command, options = {}, ws) {
                   // Send session-created event only once for new sessions
                   if (!sessionId && !sessionCreatedSent) {
                     sessionCreatedSent = true;
-                    ws.send({
+                    sendWithRunId({
                       type: 'session-created',
                       sessionId: capturedSessionId,
                       model: response.model,
@@ -112,7 +113,7 @@ async function spawnCursor(command, options = {}, ws) {
                 }
                 
                 // Send system info to frontend
-                ws.send({
+                sendWithRunId({
                   type: 'cursor-system',
                   data: response,
                   sessionId: capturedSessionId || sessionId || null
@@ -122,7 +123,7 @@ async function spawnCursor(command, options = {}, ws) {
               
             case 'user':
               // Forward user message
-              ws.send({
+              sendWithRunId({
                 type: 'cursor-user',
                 data: response,
                 sessionId: capturedSessionId || sessionId || null
@@ -136,7 +137,7 @@ async function spawnCursor(command, options = {}, ws) {
                 messageBuffer += textContent;
                 
                 // Send as Claude-compatible format for frontend
-                ws.send({
+                sendWithRunId({
                   type: 'claude-response',
                   data: {
                     type: 'content_block_delta',
@@ -156,7 +157,7 @@ async function spawnCursor(command, options = {}, ws) {
               
               // Send final message if we have buffered content
               if (messageBuffer) {
-                ws.send({
+                sendWithRunId({
                   type: 'claude-response',
                   data: {
                     type: 'content_block_stop'
@@ -166,7 +167,7 @@ async function spawnCursor(command, options = {}, ws) {
               }
               
               // Send completion event
-              ws.send({
+              sendWithRunId({
                 type: 'cursor-result',
                 sessionId: capturedSessionId || sessionId,
                 data: response,
@@ -176,7 +177,7 @@ async function spawnCursor(command, options = {}, ws) {
               
             default:
               // Forward any other message types
-              ws.send({
+              sendWithRunId({
                 type: 'cursor-response',
                 data: response,
                 sessionId: capturedSessionId || sessionId || null
@@ -185,7 +186,7 @@ async function spawnCursor(command, options = {}, ws) {
         } catch (parseError) {
           console.log('📄 Non-JSON response:', line);
           // If not JSON, send as raw text
-          ws.send({
+          sendWithRunId({
             type: 'cursor-output',
             data: line,
             sessionId: capturedSessionId || sessionId || null
@@ -197,7 +198,7 @@ async function spawnCursor(command, options = {}, ws) {
     // Handle stderr
     cursorProcess.stderr.on('data', (data) => {
       console.error('Cursor CLI stderr:', data.toString());
-      ws.send({
+      sendWithRunId({
         type: 'cursor-error',
         error: data.toString(),
         sessionId: capturedSessionId || sessionId || null
@@ -212,7 +213,7 @@ async function spawnCursor(command, options = {}, ws) {
       const finalSessionId = capturedSessionId || sessionId || processKey;
       activeCursorProcesses.delete(finalSessionId);
 
-      ws.send({
+      sendWithRunId({
         type: 'claude-complete',
         sessionId: finalSessionId,
         exitCode: code,
@@ -234,7 +235,7 @@ async function spawnCursor(command, options = {}, ws) {
       const finalSessionId = capturedSessionId || sessionId || processKey;
       activeCursorProcesses.delete(finalSessionId);
 
-      ws.send({
+      sendWithRunId({
         type: 'cursor-error',
         error: error.message,
         sessionId: capturedSessionId || sessionId || null

@@ -495,7 +495,7 @@ async function loadMcpConfig(cwd) {
  */
 async function queryClaudeSDK(command, options = {}, ws) {
   const startTime = Date.now();
-  const { sessionId } = options;
+  const { sessionId, runId = null } = options;
   let capturedSessionId = sessionId;
   let sessionCreatedSent = false;
   let tempImagePaths = [];
@@ -556,7 +556,8 @@ async function queryClaudeSDK(command, options = {}, ws) {
         requestId,
         toolName,
         input,
-        sessionId: capturedSessionId || sessionId || null
+        sessionId: capturedSessionId || sessionId || null,
+        runId
       });
 
       // Wait for the UI; if the SDK cancels, notify the UI so it can dismiss the banner.
@@ -568,7 +569,8 @@ async function queryClaudeSDK(command, options = {}, ws) {
             type: 'claude-permission-cancelled',
             requestId,
             reason,
-            sessionId: capturedSessionId || sessionId || null
+            sessionId: capturedSessionId || sessionId || null,
+            runId
           });
         }
       });
@@ -635,7 +637,8 @@ async function queryClaudeSDK(command, options = {}, ws) {
           sessionCreatedSent = true;
           ws.send({
             type: 'session-created',
-            sessionId: capturedSessionId
+            sessionId: capturedSessionId,
+            runId
           });
         } else {
           console.log('Not sending session-created. sessionId:', sessionId, 'sessionCreatedSent:', sessionCreatedSent);
@@ -649,7 +652,8 @@ async function queryClaudeSDK(command, options = {}, ws) {
       ws.send({
         type: 'claude-response',
         data: transformedMessage,
-        sessionId: capturedSessionId || sessionId || null
+        sessionId: capturedSessionId || sessionId || null,
+        runId
       });
 
       // Extract and send token budget updates from result messages
@@ -660,7 +664,8 @@ async function queryClaudeSDK(command, options = {}, ws) {
           ws.send({
             type: 'token-budget',
             data: tokenBudget,
-            sessionId: capturedSessionId || sessionId || null
+            sessionId: capturedSessionId || sessionId || null,
+            runId
           });
         }
       }
@@ -680,7 +685,8 @@ async function queryClaudeSDK(command, options = {}, ws) {
       type: 'claude-complete',
       sessionId: capturedSessionId,
       exitCode: 0,
-      isNewSession: !sessionId && !!command
+      isNewSession: !sessionId && !!command,
+      runId
     });
     console.log('claude-complete event sent');
 
@@ -699,7 +705,8 @@ async function queryClaudeSDK(command, options = {}, ws) {
     ws.send({
       type: 'claude-error',
       error: error.message,
-      sessionId: capturedSessionId || sessionId || null
+      sessionId: capturedSessionId || sessionId || null,
+      runId
     });
 
     throw error;

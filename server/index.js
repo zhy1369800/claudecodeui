@@ -67,6 +67,7 @@ import { IS_PLATFORM } from './constants/config.js';
 let projectsWatcher = null;
 const connectedClients = new Set();
 let isGetProjectsRunning = false; // Flag to prevent reentrant calls
+const activeRunBySession = new Map(); // key: `${provider}:${sessionId}` => runId
 
 // Broadcast progress to all connected WebSocket clients
 function broadcastProgress(progress) {
@@ -957,19 +958,31 @@ function handleChatConnection(ws) {
                 console.log('🔄 Session:', data.options?.sessionId ? 'Resume' : 'New');
 
                 // Use Claude Agents SDK
-                await queryClaudeSDK(data.command, data.options, writer);
+                const claudeRunId = data.runId || data.options?.runId || null;
+                if (data.options?.sessionId && claudeRunId) {
+                    activeRunBySession.set(`claude:${data.options.sessionId}`, claudeRunId);
+                }
+                await queryClaudeSDK(data.command, { ...data.options, runId: claudeRunId }, writer);
             } else if (data.type === 'cursor-command') {
                 console.log('[DEBUG] Cursor message:', data.command || '[Continue/Resume]');
                 console.log('📁 Project:', data.options?.cwd || 'Unknown');
                 console.log('🔄 Session:', data.options?.sessionId ? 'Resume' : 'New');
                 console.log('🤖 Model:', data.options?.model || 'default');
-                await spawnCursor(data.command, data.options, writer);
+                const cursorRunId = data.runId || data.options?.runId || null;
+                if (data.options?.sessionId && cursorRunId) {
+                    activeRunBySession.set(`cursor:${data.options.sessionId}`, cursorRunId);
+                }
+                await spawnCursor(data.command, { ...data.options, runId: cursorRunId }, writer);
             } else if (data.type === 'codex-command') {
                 console.log('[DEBUG] Codex message:', data.command || '[Continue/Resume]');
                 console.log('📁 Project:', data.options?.projectPath || data.options?.cwd || 'Unknown');
                 console.log('🔄 Session:', data.options?.sessionId ? 'Resume' : 'New');
                 console.log('🤖 Model:', data.options?.model || 'default');
-                await queryCodex(data.command, data.options, writer);
+                const codexRunId = data.runId || data.options?.runId || null;
+                if (data.options?.sessionId && codexRunId) {
+                    activeRunBySession.set(`codex:${data.options.sessionId}`, codexRunId);
+                }
+                await queryCodex(data.command, { ...data.options, runId: codexRunId }, writer);
             } else if (data.type === 'cursor-resume') {
                 // Backward compatibility: treat as cursor-command with resume and no prompt
                 console.log('[DEBUG] Cursor resume session (compat):', data.sessionId);
@@ -981,22 +994,37 @@ function handleChatConnection(ws) {
             } else if (data.type === 'abort-session') {
                 console.log('[DEBUG] Abort session request:', data.sessionId);
                 const provider = data.provider || 'claude';
+                const runId = data.runId || null;
                 let success;
+                let ignoredStaleRun = false;
 
-                if (provider === 'cursor') {
-                    success = abortCursorSession(data.sessionId);
-                } else if (provider === 'codex') {
-                    success = abortCodexSession(data.sessionId);
-                } else {
-                    // Use Claude Agents SDK
-                    success = await abortClaudeSDKSession(data.sessionId);
+                if (data.sessionId && runId) {
+                    const key = `${provider}:${data.sessionId}`;
+                    const activeRunId = activeRunBySession.get(key);
+                    if (activeRunId && activeRunId !== runId) {
+                        ignoredStaleRun = true;
+                        success = false;
+                    }
+                }
+
+                if (!ignoredStaleRun) {
+                    if (provider === 'cursor') {
+                        success = abortCursorSession(data.sessionId);
+                    } else if (provider === 'codex') {
+                        success = abortCodexSession(data.sessionId);
+                    } else {
+                        // Use Claude Agents SDK
+                        success = await abortClaudeSDKSession(data.sessionId);
+                    }
                 }
 
                 writer.send({
                     type: 'session-aborted',
                     sessionId: data.sessionId,
                     provider,
-                    success
+                    success,
+                    runId,
+                    ignoredStaleRun
                 });
             } else if (data.type === 'claude-permission-response') {
                 // Relay UI approval decisions back into the SDK control flow.
@@ -1017,7 +1045,8 @@ function handleChatConnection(ws) {
                     type: 'session-aborted',
                     sessionId: data.sessionId,
                     provider: 'cursor',
-                    success
+                    success,
+                    runId: data.runId || null
                 });
             } else if (data.type === 'check-session-status') {
                 // Check if a specific session is currently processing

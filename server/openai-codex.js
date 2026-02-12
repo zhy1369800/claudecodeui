@@ -194,7 +194,8 @@ export async function queryCodex(command, options = {}, ws) {
     cwd,
     projectPath,
     model,
-    permissionMode = 'default'
+    permissionMode = 'default',
+    runId = null
   } = options;
 
   const workingDirectory = cwd || projectPath || process.cwd();
@@ -239,7 +240,8 @@ export async function queryCodex(command, options = {}, ws) {
     sendMessage(ws, {
       type: 'session-created',
       sessionId: currentSessionId,
-      provider: 'codex'
+      provider: 'codex',
+      runId
     });
 
     // Execute with streaming
@@ -261,7 +263,8 @@ export async function queryCodex(command, options = {}, ws) {
       sendMessage(ws, {
         type: 'codex-response',
         data: transformed,
-        sessionId: currentSessionId
+        sessionId: currentSessionId,
+        runId
       });
 
       // Extract and send token usage if available (normalized to match Claude format)
@@ -273,7 +276,8 @@ export async function queryCodex(command, options = {}, ws) {
             used: totalTokens,
             total: 200000 // Default context window for Codex models
           },
-          sessionId: currentSessionId
+          sessionId: currentSessionId,
+          runId
         });
       }
     }
@@ -282,7 +286,8 @@ export async function queryCodex(command, options = {}, ws) {
     sendMessage(ws, {
       type: 'codex-complete',
       sessionId: currentSessionId,
-      actualSessionId: thread.id
+      actualSessionId: thread.id,
+      runId
     });
 
   } catch (error) {
@@ -291,7 +296,8 @@ export async function queryCodex(command, options = {}, ws) {
     sendMessage(ws, {
       type: 'codex-error',
       error: error.message,
-      sessionId: currentSessionId
+      sessionId: currentSessionId,
+      runId
     });
 
   } finally {

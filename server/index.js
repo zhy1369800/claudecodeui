@@ -71,13 +71,13 @@ let isGetProjectsRunning = false; // Flag to prevent reentrant calls
 const activeRunBySession = new Map(); // key: `${provider}:${sessionId}` => runId
 let isClaudeCliInstalled = false;
 
-// Check for Claude CLI on startup
+// Keep CLI detection for future toggles/debug, but Claude routing is forced to SDK below.
 checkClaudeCliInstalled().then(installed => {
     isClaudeCliInstalled = installed;
     if (installed) {
-        console.log(c.ok('[INFO] Claude CLI detected! Using native CLI for faster responses.'));
+        console.log(c.ok('[INFO] Claude CLI detected.'));
     } else {
-        console.log(c.warn('[INFO] Claude CLI not found. Falling back to Agent SDK.'));
+        console.log(c.warn('[INFO] Claude CLI not found.'));
     }
 });
 
@@ -975,12 +975,12 @@ function handleChatConnection(ws) {
                     activeRunBySession.set(`claude:${data.options.sessionId}`, claudeRunId);
                 }
 
-                // Double Engine Routing: Use native CLI only for default mode (fast),
-                // but use SDK for other modes (plan/acceptEdits/bypassPermissions need full tool support).
-                const useCli = isClaudeCliInstalled &&
-                              (data.options?.permissionMode === 'default' ||
-                               data.options?.permissionMode === undefined ||
-                               data.options?.permissionMode === null);
+                // Force SDK routing for Claude. Keep original CLI branch structure for easy rollback.
+                // const useCli = isClaudeCliInstalled &&
+                //               (data.options?.permissionMode === 'default' ||
+                //                data.options?.permissionMode === undefined ||
+                //                data.options?.permissionMode === null);
+                const useCli = false;
 
                 if (useCli) {
                     console.log('[INFO] Routing to Claude CLI engine...');
@@ -1039,7 +1039,7 @@ function handleChatConnection(ws) {
                     } else if (provider === 'codex') {
                         success = abortCodexSession(data.sessionId);
                     } else {
-                        // Try to abort both CLI and SDK sessions
+                        // Keep both for compatibility with legacy in-flight CLI sessions.
                         const cliAborted = abortClaudeCLISession(data.sessionId);
                         const sdkAborted = await abortClaudeSDKSession(data.sessionId);
                         success = cliAborted || sdkAborted;

@@ -44,6 +44,7 @@ import mime from 'mime-types';
 
 import { getProjects, getSessions, getSessionMessages, renameProject, deleteSession, deleteProject, addProjectManually, extractProjectDirectory, clearProjectDirectoryCache } from './projects.js';
 import { queryClaudeSDK, abortClaudeSDKSession, isClaudeSDKSessionActive, getActiveClaudeSDKSessions, resolveToolApproval } from './claude-sdk.js';
+import { checkClaudeCliInstalled, queryClaudeCLI, abortClaudeCLISession } from './claude-cli-native.js';
 import { spawnCursor, abortCursorSession, isCursorSessionActive, getActiveCursorSessions } from './cursor-cli.js';
 import { queryCodex, abortCodexSession, isCodexSessionActive, getActiveCodexSessions } from './openai-codex.js';
 import gitRoutes from './routes/git.js';
@@ -68,6 +69,17 @@ let projectsWatcher = null;
 const connectedClients = new Set();
 let isGetProjectsRunning = false; // Flag to prevent reentrant calls
 const activeRunBySession = new Map(); // key: `${provider}:${sessionId}` => runId
+let isClaudeCliInstalled = false;
+
+// Check for Claude CLI on startup
+checkClaudeCliInstalled().then(installed => {
+    isClaudeCliInstalled = installed;
+    if (installed) {
+        console.log(c.ok('[INFO] Claude CLI detected! Using native CLI for faster responses.'));
+    } else {
+        console.log(c.warn('[INFO] Claude CLI not found. Falling back to Agent SDK.'));
+    }
+});
 
 // Broadcast progress to all connected WebSocket clients
 function broadcastProgress(progress) {
@@ -962,7 +974,21 @@ function handleChatConnection(ws) {
                 if (data.options?.sessionId && claudeRunId) {
                     activeRunBySession.set(`claude:${data.options.sessionId}`, claudeRunId);
                 }
-                await queryClaudeSDK(data.command, { ...data.options, runId: claudeRunId }, writer);
+
+                // Double Engine Routing: Use native CLI only for default mode (fast),
+                // but use SDK for other modes (plan/acceptEdits/bypassPermissions need full tool support).
+                const useCli = isClaudeCliInstalled &&
+                              (data.options?.permissionMode === 'default' ||
+                               data.options?.permissionMode === undefined ||
+                               data.options?.permissionMode === null);
+
+                if (useCli) {
+                    console.log('[INFO] Routing to Claude CLI engine...');
+                    await queryClaudeCLI(data.command, { ...data.options, runId: claudeRunId }, writer);
+                } else {
+                    console.log('[INFO] Routing to Claude Agent SDK engine...');
+                    await queryClaudeSDK(data.command, { ...data.options, runId: claudeRunId }, writer);
+                }
             } else if (data.type === 'cursor-command') {
                 console.log('[DEBUG] Cursor message:', data.command || '[Continue/Resume]');
                 console.log('📁 Project:', data.options?.cwd || 'Unknown');
@@ -1013,8 +1039,10 @@ function handleChatConnection(ws) {
                     } else if (provider === 'codex') {
                         success = abortCodexSession(data.sessionId);
                     } else {
-                        // Use Claude Agents SDK
-                        success = await abortClaudeSDKSession(data.sessionId);
+                        // Try to abort both CLI and SDK sessions
+                        const cliAborted = abortClaudeCLISession(data.sessionId);
+                        const sdkAborted = await abortClaudeSDKSession(data.sessionId);
+                        success = cliAborted || sdkAborted;
                     }
                 }
 

@@ -3262,6 +3262,20 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           }
         }
       } else {
+        const shouldPreserveAdHocSession =
+          !selectedSession &&
+          !!currentSessionId &&
+          !!pendingViewSessionRef.current?.sessionId &&
+          pendingViewSessionRef.current.sessionId === currentSessionId;
+
+        if (shouldPreserveAdHocSession) {
+          // Stay on the in-place ad-hoc session when project metadata refreshes.
+          setTimeout(() => {
+            isLoadingSessionRef.current = false;
+          }, 250);
+          return;
+        }
+
         // New session view (no selected session) - always reset UI state
         // CRITICAL: Don't reset if we are currently loading/sending a message,
         // otherwise we'll clear the user's first message and jump back to landing page.
@@ -3790,6 +3804,17 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           activeRunIdRef.current = null;
           setShowStopOnInputButton(false);
           appendWorkedForMessage();
+          setIsLoading(false);
+          setCanAbortSession(false);
+          setClaudeStatus(null);
+          if (latestMessage.sessionId) {
+            if (onSessionInactive) {
+              onSessionInactive(latestMessage.sessionId);
+            }
+            if (onSessionNotProcessing) {
+              onSessionNotProcessing(latestMessage.sessionId);
+            }
+          }
           setChatMessages(prev => [...prev, {
             type: 'error',
             content: `Error: ${latestMessage.error}`,
@@ -3992,6 +4017,10 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
 
             // No need to manually refresh - projects_updated WebSocket message will handle it
             console.log('✅ New session complete, ID set to:', pendingSessionId);
+          } else if (!currentSessionId && completedSessionId && latestMessage.exitCode === 0) {
+            // Fallback when backend only returns sessionId on completion.
+            setCurrentSessionId(completedSessionId);
+            console.log('✅ Session complete fallback, ID set to:', completedSessionId);
           }
 
           // Clear persisted chat messages after successful completion
@@ -4683,7 +4712,11 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     setTimeout(() => scrollToBottom(true), 100); // Longer delay to ensure message is rendered
 
     // Determine effective session id for replies to avoid race on state updates
-    const effectiveSessionId = currentSessionId || selectedSession?.id || sessionStorage.getItem('cursorSessionId');
+    const effectiveSessionId =
+      currentSessionId ||
+      selectedSession?.id ||
+      sessionStorage.getItem('pendingSessionId') ||
+      sessionStorage.getItem('cursorSessionId');
 
     // Session Protection: Mark session as active to prevent automatic project updates during conversation
     // Use existing session if available; otherwise a temporary placeholder until backend provides real ID
@@ -4759,13 +4792,14 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       sendMessage({
         type: 'claude-command',
         runId,
+        sessionId: effectiveSessionId,
         command: messageContent,
         options: {
           projectPath: selectedProject.path,
           cwd: selectedProject.fullPath,
-          sessionId: currentSessionId,
+          sessionId: effectiveSessionId,
           runId,
-          resume: !!currentSessionId,
+          resume: !!effectiveSessionId,
           toolsSettings: toolsSettings,
           permissionMode: permissionMode,
           model: claudeModel,

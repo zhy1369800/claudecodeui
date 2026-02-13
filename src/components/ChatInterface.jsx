@@ -3263,7 +3263,9 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
         }
       } else {
         // New session view (no selected session) - always reset UI state
-        if (!isSystemSessionChange) {
+        // CRITICAL: Don't reset if we are currently loading/sending a message,
+        // otherwise we'll clear the user's first message and jump back to landing page.
+        if (!isSystemSessionChange && !isLoading) {
           resetStreamingState();
           pendingViewSessionRef.current = null;
           setChatMessages([]);
@@ -4600,6 +4602,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     e.preventDefault();
     if (!input.trim() || isLoading || !selectedProject) return;
 
+    // Start timing immediately to capture the full duration including image uploads
+    runStartedAtRef.current = Date.now();
+    pendingWorkedForSecondsRef.current = null;
+    setIsLoading(true);
+    setShowStopOnInputButton(true);
+
     // Apply thinking mode prefix if selected
     let messageContent = input;
     const selectedThinkingMode = thinkingModes.find(mode => mode.id === thinkingMode);
@@ -4662,10 +4670,6 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     });
     const runId = createRunId();
     activeRunIdRef.current = runId;
-    setIsLoading(true);
-    setShowStopOnInputButton(true);
-    pendingWorkedForSecondsRef.current = null;
-    runStartedAtRef.current = Date.now();
     setCanAbortSession(true);
     // Set a default status when starting
     setClaudeStatus({
@@ -5193,7 +5197,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                 <p>{t('session.loading.sessionMessages')}</p>
               </div>
             </div>
-          ) : chatMessages.length === 0 ? (
+          ) : (chatMessages.length === 0 && !isLoading) ? (
             <div className="flex items-center justify-center h-full">
               {!selectedSession && !currentSessionId && (
                 <div className="text-center px-6 sm:px-4 py-8">

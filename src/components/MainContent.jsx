@@ -449,8 +449,25 @@ function MainContent({
                           ? (selectedSession.summary || selectedSession.name || 'Codex Session')
                           : (selectedSession.summary || 'New Session')}
                     </h2>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                      {selectedProject.displayName}
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1.5">
+                      {/* WebSocket Connection Status Indicator */}
+                      <span
+                        className={`w-2 h-2 rounded-full flex-shrink-0 transition-colors duration-300 ${
+                          ws?.readyState === 1
+                            ? 'bg-green-500 shadow-sm shadow-green-500/50'
+                            : ws?.readyState === 0
+                            ? 'bg-yellow-500 shadow-sm shadow-yellow-500/50 animate-pulse'
+                            : 'bg-red-500 shadow-sm shadow-red-500/50'
+                        }`}
+                        title={
+                          ws?.readyState === 1
+                            ? '已连接'
+                            : ws?.readyState === 0
+                            ? '连接中...'
+                            : '连接断开'
+                        }
+                      />
+                      <span className="truncate">{selectedProject.displayName}</span>
                     </div>
                   </div>
                 ) : activeTab === 'chat' && !selectedSession ? (
@@ -458,8 +475,25 @@ function MainContent({
                     <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
                       {t('mainContent.newSession')}
                     </h2>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                      {selectedProject.displayName}
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1.5">
+                      {/* WebSocket Connection Status Indicator */}
+                      <span
+                        className={`w-2 h-2 rounded-full flex-shrink-0 transition-colors duration-300 ${
+                          ws?.readyState === 1
+                            ? 'bg-green-500 shadow-sm shadow-green-500/50'
+                            : ws?.readyState === 0
+                            ? 'bg-yellow-500 shadow-sm shadow-yellow-500/50 animate-pulse'
+                            : 'bg-red-500 shadow-sm shadow-red-500/50'
+                        }`}
+                        title={
+                          ws?.readyState === 1
+                            ? '已连接'
+                            : ws?.readyState === 0
+                            ? '连接中...'
+                            : '连接断开'
+                        }
+                      />
+                      <span className="truncate">{selectedProject.displayName}</span>
                     </div>
                   </div>
                 ) : (

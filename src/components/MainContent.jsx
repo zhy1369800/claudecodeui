@@ -505,13 +505,14 @@ function MainContent({
                             (activeTab === 'tasks' && shouldShowTasksTab) ? 'TaskMaster' :
                               'Project'}
                       </h2>
-                      {isMobile && activeTab === 'shell' && (
+                      {activeTab === 'shell' && (
                         <button
                           onClick={() => setShellSettingsOpen(!shellSettingsOpen)}
-                          className={`p-1 rounded-md transition-all active:scale-95 ${shellSettingsOpen ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600'}`}
+                          className={`p-1 rounded-md transition-all active:scale-95 ${shellSettingsOpen ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                          title={t('shell.status.connection')}
                         >
                           <div className="relative">
-                            <Settings2 className="w-4 h-4" />
+                            <Settings2 className="w-3.5 h-3.5" />
                             {isShellConnected && (
                               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900" />
                             )}
@@ -519,8 +520,8 @@ function MainContent({
                         </button>
                       )}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                      {selectedProject.displayName}
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1.5">
+                      <span className="truncate">{selectedProject.displayName}</span>
                     </div>
                   </div>
                 )}

@@ -11,20 +11,15 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  // Check for saved theme preference or default to system preference
+  // Check for saved theme preference or default to dark mode
   const [isDarkMode, setIsDarkMode] = useState(() => {
     // Check localStorage first
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
       return savedTheme === 'dark';
     }
-    
-    // Check system preference
-    if (window.matchMedia) {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    
-    return false;
+
+    return true;
   });
 
   // Update document class and localStorage when theme changes

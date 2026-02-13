@@ -48,6 +48,8 @@ function FileTree({ selectedProject, onFileOpen = null }) {
     const savedViewMode = localStorage.getItem('file-tree-view-mode');
     if (savedViewMode && ['simple', 'detailed', 'compact'].includes(savedViewMode)) {
       setViewMode(savedViewMode);
+    } else {
+      setViewMode('simple');
     }
   }, []);
 
@@ -308,6 +310,25 @@ function FileTree({ selectedProject, onFileOpen = null }) {
     localStorage.setItem('file-tree-view-mode', mode);
   };
 
+  const cycleMobileViewMode = () => {
+    const orderedModes = ['simple', 'compact', 'detailed'];
+    const currentIndex = orderedModes.indexOf(viewMode);
+    const nextMode = orderedModes[(currentIndex + 1) % orderedModes.length];
+    changeViewMode(nextMode);
+  };
+
+  const getViewModeIcon = () => {
+    if (viewMode === 'compact') return <Eye className="w-4 h-4" />;
+    if (viewMode === 'detailed') return <TableProperties className="w-4 h-4" />;
+    return <List className="w-4 h-4" />;
+  };
+
+  const getViewModeTitle = () => {
+    if (viewMode === 'compact') return t('fileTree.compactView');
+    if (viewMode === 'detailed') return t('fileTree.detailedView');
+    return t('fileTree.simpleView');
+  };
+
   // Format file size
   const formatFileSize = (bytes) => {
     if (!bytes || bytes === 0) return '0 B';
@@ -564,8 +585,8 @@ function FileTree({ selectedProject, onFileOpen = null }) {
   return (
     <div className="h-full flex flex-col bg-card">
       {/* Header with Search and View Mode Toggle */}
-      <div className="p-4 border-b border-border space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="p-3 border-b border-border">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             {selectionMode && (
               <input
@@ -594,78 +615,91 @@ function FileTree({ selectedProject, onFileOpen = null }) {
               </span>
             )}
           </div>
-          <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={openCreateDialog}
-              title={t('buttons.create')}
-              disabled={isMutating || !selectedProject}
-            >
-              <FilePlus2 className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
-              onClick={handleBatchDelete}
-              title={t('fileTree.deleteSelected', { defaultValue: 'Delete selected' })}
-              disabled={isMutating || !selectionMode || selectedPaths.size === 0}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'simple' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => changeViewMode('simple')}
-              title={t('fileTree.simpleView')}
-            >
-              <List className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'compact' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => changeViewMode('compact')}
-              title={t('fileTree.compactView')}
-            >
-              <Eye className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'detailed' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => changeViewMode('detailed')}
-              title={t('fileTree.detailedView')}
-            >
-              <TableProperties className="w-4 h-4" />
-            </Button>
+          <div className="flex items-center gap-2 flex-1 justify-end">
+            <div className="relative w-full max-w-[520px]">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder={t('fileTree.searchPlaceholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 pr-8 h-10 text-sm"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 hover:bg-accent"
+                  onClick={() => setSearchQuery('')}
+                  title={t('fileTree.clearSearch')}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-10 w-10 p-0"
+                onClick={openCreateDialog}
+                title={t('buttons.create')}
+                disabled={isMutating || !selectedProject}
+              >
+                <FilePlus2 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-10 w-10 p-0 text-red-500 hover:text-red-600"
+                onClick={handleBatchDelete}
+                title={t('fileTree.deleteSelected', { defaultValue: 'Delete selected' })}
+                disabled={isMutating || !selectionMode || selectedPaths.size === 0}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+              <div className="flex gap-1 sm:hidden">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-10 w-10 p-0"
+                  onClick={cycleMobileViewMode}
+                  title={getViewModeTitle()}
+                >
+                  {getViewModeIcon()}
+                </Button>
+              </div>
+              <div className="hidden sm:flex gap-1">
+                <Button
+                  variant={viewMode === 'simple' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-10 w-10 p-0"
+                  onClick={() => changeViewMode('simple')}
+                  title={t('fileTree.simpleView')}
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'compact' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-10 w-10 p-0"
+                  onClick={() => changeViewMode('compact')}
+                  title={t('fileTree.compactView')}
+                >
+                  <Eye className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'detailed' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-10 w-10 p-0"
+                  onClick={() => changeViewMode('detailed')}
+                  title={t('fileTree.detailedView')}
+                >
+                  <TableProperties className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder={t('fileTree.searchPlaceholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 pr-8 h-8 text-sm"
-          />
-          {searchQuery && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover:bg-accent"
-              onClick={() => setSearchQuery('')}
-              title={t('fileTree.clearSearch')}
-            >
-              <X className="w-3 h-3" />
-            </Button>
-          )}
         </div>
       </div>
 

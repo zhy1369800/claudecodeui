@@ -551,7 +551,7 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
           'w-full h-full md:rounded-lg md:shadow-2xl md:w-full md:max-w-6xl md:h-[80vh] md:max-h-[80vh]'
         }`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0 min-w-0">
+        <div className="flex items-center justify-between p-3 border-b border-border flex-shrink-0 min-w-0">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 min-w-0">
@@ -569,7 +569,7 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
           <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
             <button
               onClick={handleDownload}
-              className="p-2 md:p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 h-10 w-10 flex items-center justify-center"
               title={t('actions.download')}
             >
               <Download className="w-5 h-5 md:w-4 md:h-4" />
@@ -578,7 +578,7 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
             <button
               onClick={handleSave}
               disabled={saving}
-              className={`px-3 py-2 text-white rounded-md disabled:opacity-50 flex items-center gap-2 transition-colors min-h-[44px] md:min-h-0 ${
+              className={`px-3 py-2 text-white rounded-md disabled:opacity-50 flex items-center gap-2 transition-colors h-10 ${
                 saveSuccess
                   ? 'bg-green-600 hover:bg-green-700'
                   : 'bg-blue-600 hover:bg-blue-700'
@@ -601,7 +601,7 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
 
             <button
               onClick={onClose}
-              className="p-2 md:p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 h-10 w-10 flex items-center justify-center"
               title={t('actions.close')}
             >
               <X className="w-6 h-6 md:w-4 md:h-4" />

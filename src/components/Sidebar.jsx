@@ -617,7 +617,6 @@ function Sidebar({
 
       <div
         className="h-full flex flex-col bg-card md:select-none"
-        style={isPWA && isMobile ? { paddingTop: '44px' } : {}}
       >
       {/* Header */}
       <div className="md:p-4 md:border-b md:border-border">
@@ -671,7 +670,6 @@ function Sidebar({
         {/* Mobile Header */}
         <div
           className="md:hidden p-3 border-b border-border"
-          style={isPWA && isMobile ? { paddingTop: '16px' } : {}}
         >
           <div className="flex items-center justify-between">
             {IS_PLATFORM ? (

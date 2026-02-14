@@ -235,7 +235,7 @@ const QuickSettingsPanel = ({
           handleDragStart(e);
         }}
         className={`fixed ${localIsOpen ? 'right-64' : 'right-0'
-          } z-50 ${isDragging ? '' : 'transition-all duration-150 ease-out'} bg-white dark:bg-gray-800 border ${isDragging ? 'border-blue-500 dark:border-blue-400' : 'border-gray-200 dark:border-gray-700'
+          } z-[510] ${isDragging ? '' : 'transition-all duration-150 ease-out'} bg-white dark:bg-gray-800 border ${isDragging ? 'border-blue-500 dark:border-blue-400' : 'border-gray-200 dark:border-gray-700'
           } rounded-l-md p-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shadow-lg ${isDragging ? 'cursor-grabbing' : 'cursor-pointer'
           } touch-none`}
         style={{ ...getPositionStyle(), touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
@@ -253,7 +253,7 @@ const QuickSettingsPanel = ({
 
       {/* Panel */}
       <div
-        className={`fixed top-0 right-0 h-full w-64 bg-background border-l border-border shadow-xl transform transition-transform duration-150 ease-out z-40 ${localIsOpen ? 'translate-x-0' : 'translate-x-full'
+        className={`fixed top-0 right-0 h-full w-64 bg-background border-l border-border shadow-xl transform transition-transform duration-150 ease-out z-[505] ${localIsOpen ? 'translate-x-0' : 'translate-x-full'
           } ${isMobile ? 'h-screen' : ''}`}
       >
         <div className="h-full flex flex-col">
@@ -521,7 +521,7 @@ const QuickSettingsPanel = ({
       {/* Backdrop */}
       {localIsOpen && (
         <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-30 transition-opacity duration-150 ease-out"
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[501] transition-opacity duration-150 ease-out"
           onClick={handleToggle}
         />
       )}

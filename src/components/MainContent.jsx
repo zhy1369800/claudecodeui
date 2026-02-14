@@ -537,7 +537,7 @@ function MainContent({
                 position: 'fixed',
                 top: `${handlePosition}%`,
                 right: '8px',
-                zIndex: 100,
+                zIndex: 400,
                 pointerEvents: 'auto'
               } : {}}
             >

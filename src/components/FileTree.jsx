@@ -9,7 +9,7 @@ import CodeEditor from './CodeEditor';
 import ImageViewer from './ImageViewer';
 import { api } from '../utils/api';
 
-function FileTree({ selectedProject, onFileOpen = null }) {
+function FileTree({ selectedProject, onFileOpen = null, onSelectionChange = null }) {
   const { t } = useTranslation();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -42,6 +42,13 @@ function FileTree({ selectedProject, onFileOpen = null }) {
       return next;
     });
   }, [files]);
+
+  // Report selection count to parent
+  useEffect(() => {
+    if (onSelectionChange) {
+      onSelectionChange(selectionMode ? selectedPaths.size : 0);
+    }
+  }, [selectedPaths.size, selectionMode, onSelectionChange]);
 
   // Load view mode preference from localStorage
   useEffect(() => {
@@ -609,11 +616,6 @@ function FileTree({ selectedProject, onFileOpen = null }) {
                 <ChevronRight className="w-4 h-4" />
               )}
             </button>
-            {selectionMode && selectedPaths.size > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {t('fileTree.selectedCount', { defaultValue: '{{count}} selected', count: selectedPaths.size })}
-              </span>
-            )}
           </div>
           <div className="flex items-center gap-2 flex-1 justify-end">
             <div className="relative w-full max-w-[520px]">
@@ -651,7 +653,10 @@ function FileTree({ selectedProject, onFileOpen = null }) {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-10 w-10 p-0 text-red-500 hover:text-red-600"
+                className={cn(
+                  "h-10 w-10 p-0 hover:text-red-600",
+                  selectionMode ? "text-red-500" : "text-white"
+                )}
                 onClick={handleBatchDelete}
                 title={t('fileTree.deleteSelected', { defaultValue: 'Delete selected' })}
                 disabled={isMutating || !selectionMode || selectedPaths.size === 0}
@@ -660,7 +665,7 @@ function FileTree({ selectedProject, onFileOpen = null }) {
               </Button>
               <div className="flex gap-1 sm:hidden">
                 <Button
-                  variant="default"
+                  variant="ghost"
                   size="sm"
                   className="h-10 w-10 p-0"
                   onClick={cycleMobileViewMode}
@@ -671,7 +676,7 @@ function FileTree({ selectedProject, onFileOpen = null }) {
               </div>
               <div className="hidden sm:flex gap-1">
                 <Button
-                  variant={viewMode === 'simple' ? 'default' : 'ghost'}
+                  variant={viewMode === 'simple' ? 'secondary' : 'ghost'}
                   size="sm"
                   className="h-10 w-10 p-0"
                   onClick={() => changeViewMode('simple')}
@@ -680,7 +685,7 @@ function FileTree({ selectedProject, onFileOpen = null }) {
                   <List className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant={viewMode === 'compact' ? 'default' : 'ghost'}
+                  variant={viewMode === 'compact' ? 'secondary' : 'ghost'}
                   size="sm"
                   className="h-10 w-10 p-0"
                   onClick={() => changeViewMode('compact')}
@@ -689,7 +694,7 @@ function FileTree({ selectedProject, onFileOpen = null }) {
                   <Eye className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant={viewMode === 'detailed' ? 'default' : 'ghost'}
+                  variant={viewMode === 'detailed' ? 'secondary' : 'ghost'}
                   size="sm"
                   className="h-10 w-10 p-0"
                   onClick={() => changeViewMode('detailed')}

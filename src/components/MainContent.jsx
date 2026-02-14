@@ -90,6 +90,9 @@ function MainContent({
   const [showMobileTabs, setShowMobileTabs] = useState(true);
   const hideTimerRef = useRef(null);
 
+  // File selection state for header display
+  const [fileSelectionCount, setFileSelectionCount] = useState(0);
+
   const startHideTimer = useCallback(() => {
     if (!isMobile) return;
 
@@ -529,11 +532,16 @@ function MainContent({
                 ) : (
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
+                      <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         {activeTab === 'files' ? t('mainContent.projectFiles') :
                           activeTab === 'git' ? t('tabs.git') :
                             (activeTab === 'tasks' && shouldShowTasksTab) ? 'TaskMaster' :
                               'Project'}
+                        {activeTab === 'files' && fileSelectionCount > 0 && (
+                          <span className="text-xs font-normal text-muted-foreground bg-accent px-1.5 py-0.5 rounded">
+                            {t('fileTree.selectedCount', { defaultValue: '{{count}} selected', count: fileSelectionCount })}
+                          </span>
+                        )}
                       </h2>
                       {activeTab === 'shell' && (
                         <button
@@ -756,6 +764,7 @@ function MainContent({
               <FileTree
                 selectedProject={selectedProject}
                 onFileOpen={handleFileOpen}
+                onSelectionChange={setFileSelectionCount}
               />
             </div>
           )}

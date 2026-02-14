@@ -86,6 +86,21 @@ function MainContent({
   const [shellSettingsOpen, setShellSettingsOpen] = useState(false);
   const [isShellConnected, setIsShellConnected] = useState(false);
 
+  // Mobile tabs visibility state
+  const [showMobileTabs, setShowMobileTabs] = useState(true);
+  const hideTimerRef = useRef(null);
+
+  const startHideTimer = useCallback(() => {
+    if (!isMobile) return;
+
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+
+    setShowMobileTabs(true);
+    hideTimerRef.current = setTimeout(() => {
+      setShowMobileTabs(false);
+    }, 5000);
+  }, [isMobile]);
+
   // Only show tasks tab if TaskMaster is installed and enabled
   const shouldShowTasksTab = tasksEnabled && isTaskMasterInstalled;
 
@@ -137,10 +152,21 @@ function MainContent({
     localStorage.setItem('mobileNavHandlePosition', JSON.stringify({ y: handlePosition }));
   }, [handlePosition]);
 
+  // Auto-hide mobile tabs after 5 seconds
+  useEffect(() => {
+    startHideTimer();
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, [selectedSession?.id, startHideTimer]);
+
   // Handle drag mechanics
   const handleDragStart = useCallback((e) => {
     // Only enable drag on mobile (sm breakpoint is 640px)
     if (window.innerWidth >= 640) return;
+
+    // Reset hide timer on any interaction with the nav
+    startHideTimer();
 
     // Allow touch events only
     if (!e.type.includes('touch')) return;
@@ -153,7 +179,7 @@ function MainContent({
     setDragStartY(clientY);
     setDragStartPosition(handlePosition);
     setIsDragging(false);
-  }, [handlePosition]);
+  }, [handlePosition, startHideTimer]);
 
   const handleDragMove = useCallback((e) => {
     if (dragStartY === 0) return;
@@ -427,7 +453,11 @@ function MainContent({
                 </svg>
               </button>
             )}
-            <div className="min-w-0 flex items-center gap-2 flex-1 overflow-x-auto scrollbar-hide">
+            <div
+              className="min-w-0 flex items-center gap-2 flex-1 overflow-x-auto scrollbar-hide cursor-pointer"
+              onClick={() => isMobile && startHideTimer()}
+              onTouchStart={() => isMobile && startHideTimer()}
+            >
               {activeTab === 'chat' && selectedSession && (
                 <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
                   {selectedSession.__provider === 'cursor' ? (
@@ -533,12 +563,16 @@ function MainContent({
           {!(isMobile && editingFile) && (
             <div
               className={`flex-shrink-0 ${isDragging ? 'cursor-grabbing' : ''}`}
+              onClick={() => isMobile && startHideTimer()}
               style={window.innerWidth < 640 ? {
                 position: 'fixed',
                 top: `${handlePosition}%`,
                 right: '8px',
                 zIndex: 400,
-                pointerEvents: 'auto'
+                pointerEvents: 'auto',
+                opacity: showMobileTabs ? 1 : 0,
+                visibility: showMobileTabs ? 'visible' : 'hidden',
+                transition: 'opacity 0.3s, visibility 0.3s'
               } : {}}
             >
               <div

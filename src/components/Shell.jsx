@@ -64,13 +64,19 @@ function Shell({
   const initialCommandRef = useRef(initialCommand);
   const isPlainShellRef = useRef(isPlainShell);
   const onProcessCompleteRef = useRef(onProcessComplete);
+  const initialCommandExecutedRef = useRef(false); // Track if initialCommand has been executed
 
   useEffect(() => {
     selectedProjectRef.current = selectedProject;
     selectedSessionRef.current = selectedSession;
-    initialCommandRef.current = initialCommand;
     isPlainShellRef.current = isPlainShell;
     onProcessCompleteRef.current = onProcessComplete;
+
+    // Reset execution flag when initialCommand changes
+    if (initialCommandRef.current !== initialCommand) {
+      initialCommandExecutedRef.current = false;
+      initialCommandRef.current = initialCommand;
+    }
   });
 
   const connectWebSocket = useCallback(async () => {
@@ -104,17 +110,25 @@ function Shell({
             fitAddon.current.fit();
 
             const projectPath = selectedProjectRef.current?.fullPath || selectedProjectRef.current?.path || null;
+            const projectName = selectedProjectRef.current?.name || null;
             const isActuallyPlainShell = isPlainShellRef.current || !selectedProjectRef.current;
+
+            // Only send initialCommand on first connection, not on reconnects
+            const commandToSend = !initialCommandExecutedRef.current ? initialCommandRef.current : null;
+            if (commandToSend) {
+              initialCommandExecutedRef.current = true;
+            }
 
             ws.current.send(JSON.stringify({
               type: 'init',
               projectPath: projectPath,
+              projectName: projectName,
               sessionId: isActuallyPlainShell ? null : selectedSessionRef.current?.id,
               hasSession: isActuallyPlainShell ? false : !!selectedSessionRef.current,
               provider: isActuallyPlainShell ? 'plain-shell' : (selectedSessionRef.current?.__provider || 'claude'),
               cols: terminal.current.cols,
               rows: terminal.current.rows,
-              initialCommand: initialCommandRef.current,
+              initialCommand: commandToSend,
               isPlainShell: isActuallyPlainShell
             }));
           }

@@ -175,6 +175,14 @@ export const api = {
     return authenticatedFetch(`/api/projects/scan-scripts?${params}`);
   },
 
+  getRunningProjects: () =>
+    authenticatedFetch('/api/projects/running'),
+
+  stopProject: (projectName) =>
+    authenticatedFetch(`/api/projects/stop/${projectName}`, {
+      method: 'POST',
+    }),
+
   createFolder: (folderPath) =>
     authenticatedFetch('/api/create-folder', {
       method: 'POST',

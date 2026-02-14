@@ -91,6 +91,7 @@ function Sidebar({
   const [swipedProject, setSwipedProject] = useState(null); // project.name of currently swiped item
   const touchStartX = useRef(null);
   const touchCurrentX = useRef(null);
+  const [runningProjects, setRunningProjects] = useState({}); // Map of running projects
 
   // TaskMaster context
   const { setCurrentProject, mcpServerStatus } = useTaskMaster();
@@ -128,6 +129,31 @@ function Sidebar({
     }, 60000); // Update every 60 seconds
 
     return () => clearInterval(timer);
+  }, []);
+
+  // Poll for running projects
+  useEffect(() => {
+    const fetchRunningProjects = async () => {
+      try {
+        const response = await api.getRunningProjects();
+        if (response.ok) {
+          const data = await response.json();
+          const runningMap = {};
+          if (data.running) {
+            data.running.forEach(p => {
+              runningMap[p.name] = p;
+            });
+          }
+          setRunningProjects(runningMap);
+        }
+      } catch (error) {
+        console.error('Error fetching running projects:', error);
+      }
+    };
+
+    fetchRunningProjects();
+    const interval = setInterval(fetchRunningProjects, 3000); // Poll every 3 seconds
+    return () => clearInterval(interval);
   }, []);
 
   // Clear additional sessions when projects list changes (e.g., after refresh)
@@ -980,6 +1006,8 @@ function Sidebar({
               const isSelected = selectedProject?.name === project.name;
               const isStarred = isProjectStarred(project.name);
               const isDeleting = deletingProjects.has(project.name);
+              const isRunning = !!runningProjects[project.name];
+              const runningInfo = runningProjects[project.name];
 
               return (
                 <div key={project.name} className={cn("md:space-y-1", isDeleting && "opacity-50 pointer-events-none")}>
@@ -1064,9 +1092,17 @@ function Sidebar({
                               ) : (
                                 <>
                                   <div className="flex items-center justify-between min-w-0 flex-1">
-                                    <h3 className="text-sm font-bold text-foreground truncate">
-                                      {project.displayName}
-                                    </h3>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <h3 className="text-sm font-bold text-foreground truncate">
+                                        {project.displayName}
+                                      </h3>
+                                      {isRunning && (
+                                        <div
+                                          className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"
+                                          title={`Running${runningInfo?.ports?.length > 0 ? ` on port ${runningInfo.ports.join(', ')}` : ''}`}
+                                        />
+                                      )}
+                                    </div>
                                     {tasksEnabled && (
                                       <TaskIndicator
                                         status={(() => {
@@ -1146,15 +1182,42 @@ function Sidebar({
                                 </button>
                                 {project.startupScript && (
                                   <button
-                                    className="w-8 h-8 rounded-lg bg-green-500/10 dark:bg-green-900/30 border border-green-200 dark:border-green-800 flex items-center justify-center active:scale-90 transition-all duration-150"
-                                    onClick={(e) => {
+                                    className={cn(
+                                      "w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-all duration-150 border",
+                                      isRunning
+                                        ? "bg-red-500/10 dark:bg-red-900/30 border-red-200 dark:border-red-800"
+                                        : "bg-green-500/10 dark:bg-green-900/30 border-green-200 dark:border-green-800"
+                                    )}
+                                    onClick={async (e) => {
                                       e.stopPropagation();
-                                      handleProjectSelect(project);
-                                      setActiveTab('shell', { project, initialCommand: project.startupScript, forcePlainShell: true });
+                                      if (isRunning) {
+                                        if (confirm(`Stop project ${project.displayName}?`)) {
+                                          await api.stopProject(project.name);
+                                          // Refresh running projects immediately
+                                          const response = await api.getRunningProjects();
+                                          if (response.ok) {
+                                            const data = await response.json();
+                                            const runningMap = {};
+                                            if (data.running) {
+                                              data.running.forEach(p => {
+                                                runningMap[p.name] = p;
+                                              });
+                                            }
+                                            setRunningProjects(runningMap);
+                                          }
+                                        }
+                                      } else {
+                                        handleProjectSelect(project);
+                                        setActiveTab('shell', { project, initialCommand: project.startupScript, forcePlainShell: true });
+                                      }
                                     }}
-                                    title="Start Project"
+                                    title={isRunning ? "Stop Project" : "Start Project"}
                                   >
-                                    <Play className="w-4 h-4 text-green-600 dark:text-green-400 fill-current" />
+                                    {isRunning ? (
+                                      <div className="w-3 h-3 bg-red-600 dark:text-red-400 rounded-sm" />
+                                    ) : (
+                                      <Play className="w-4 h-4 text-green-600 dark:text-green-400 fill-current" />
+                                    )}
                                   </button>
                                 )}
                                 <button
@@ -1229,8 +1292,16 @@ function Sidebar({
                             </div>
                           ) : (
                             <div>
-                              <div className="text-sm font-semibold truncate text-foreground" title={project.displayName}>
-                                {project.displayName}
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm font-semibold truncate text-foreground" title={project.displayName}>
+                                  {project.displayName}
+                                </div>
+                                {isRunning && (
+                                  <div
+                                    className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"
+                                    title={`Running${runningInfo?.ports?.length > 0 ? ` on port ${runningInfo.ports.join(', ')}` : ''}`}
+                                  />
+                                )}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {(() => {
@@ -1296,15 +1367,42 @@ function Sidebar({
                             </div>
                             {project.startupScript && (
                               <div
-                                className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center justify-center rounded cursor-pointer touch:opacity-100"
-                                onClick={(e) => {
+                                className={cn(
+                                  "w-6 h-6 transition-all duration-200 flex items-center justify-center rounded cursor-pointer touch:opacity-100",
+                                  isRunning
+                                    ? "opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    : "opacity-0 group-hover:opacity-100 hover:bg-green-50 dark:hover:bg-green-900/20"
+                                )}
+                                onClick={async (e) => {
                                   e.stopPropagation();
-                                  handleProjectSelect(project);
-                                  setActiveTab('shell', { project, initialCommand: project.startupScript, forcePlainShell: true });
+                                  if (isRunning) {
+                                    if (confirm(`Stop project ${project.displayName}?`)) {
+                                      await api.stopProject(project.name);
+                                      // Refresh running projects immediately
+                                      const response = await api.getRunningProjects();
+                                      if (response.ok) {
+                                        const data = await response.json();
+                                        const runningMap = {};
+                                        if (data.running) {
+                                          data.running.forEach(p => {
+                                            runningMap[p.name] = p;
+                                          });
+                                        }
+                                        setRunningProjects(runningMap);
+                                      }
+                                    }
+                                  } else {
+                                    handleProjectSelect(project);
+                                    setActiveTab('shell', { project, initialCommand: project.startupScript, forcePlainShell: true });
+                                  }
                                 }}
-                                title="Start Project"
+                                title={isRunning ? "Stop Project" : "Start Project"}
                               >
-                                <Play className="w-3 h-3 text-green-600 dark:text-green-400 fill-current" />
+                                {isRunning ? (
+                                  <div className="w-3 h-3 bg-red-500 rounded-sm" />
+                                ) : (
+                                  <Play className="w-3 h-3 text-green-600 dark:text-green-400 fill-current" />
+                                )}
                               </div>
                             )}
                             <div

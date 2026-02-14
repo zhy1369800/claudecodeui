@@ -192,6 +192,10 @@ const server = http.createServer(app);
 const ptySessionsMap = new Map();
 const PTY_SESSION_TIMEOUT = 30 * 60 * 1000;
 
+// Running projects tracking system
+// Map<projectName, { pid, ports: [], startTime, ptySessionKey }>
+const runningProjectsMap = new Map();
+
 // Single WebSocket server that handles both paths
 const wss = new WebSocketServer({
     server,
@@ -390,6 +394,67 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
         const projects = await getProjects(broadcastProgress);
         res.json(projects);
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get running projects
+app.get('/api/projects/running', authenticateToken, (req, res) => {
+    try {
+        const running = [];
+        for (const [name, info] of runningProjectsMap.entries()) {
+            running.push({
+                name,
+                pid: info.pid,
+                ports: info.ports,
+                startTime: info.startTime,
+                initialCommand: info.initialCommand
+            });
+        }
+        res.json({ running });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Stop a running project
+app.post('/api/projects/stop/:projectName', authenticateToken, (req, res) => {
+    try {
+        const { projectName } = req.params;
+        const projectInfo = runningProjectsMap.get(projectName);
+
+        if (!projectInfo) {
+            return res.status(404).json({ error: 'Project is not running' });
+        }
+
+        const session = ptySessionsMap.get(projectInfo.ptySessionKey);
+        if (session && session.pty) {
+            console.log(`🛑 Stopping project ${projectName} (PID: ${projectInfo.pid})`);
+
+            // Send a message to the client if connected
+            if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+                session.ws.send(JSON.stringify({
+                    type: 'output',
+                    data: `\r\n\x1b[31m[System] Process stopped by user request.\x1b[0m\r\n`
+                }));
+            }
+
+            // Kill the process
+            if (session.pty.kill) {
+                session.pty.kill();
+            } else {
+                process.kill(projectInfo.pid);
+            }
+
+            // Cleanup will happen in onExit handler
+            res.json({ success: true, message: 'Project stopped' });
+        } else {
+            // Fallback cleanup if session is gone but map entry remains
+            runningProjectsMap.delete(projectName);
+            res.json({ success: true, message: 'Project record cleaned up (process was already gone)' });
+        }
+    } catch (error) {
+        console.error('Error stopping project:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1178,6 +1243,7 @@ function handleShellConnection(ws) {
 
             if (data.type === 'init') {
                 const projectPath = data.projectPath || process.cwd();
+                const projectName = data.projectName || path.basename(projectPath); // Extract project name from path if not provided
                 const sessionId = data.sessionId;
                 const hasSession = data.hasSession;
                 const provider = data.provider || 'claude';
@@ -1219,6 +1285,43 @@ function handleShellConnection(ws) {
                     shellProcess = existingSession.pty;
 
                     clearTimeout(existingSession.timeoutId);
+
+                    // Ensure running project is tracked correctly (handle rename or missing tracking)
+                    if (isPlainShell && initialCommand && projectName) {
+                        // Check if this project is already tracked under the correct name
+                        if (!runningProjectsMap.has(projectName)) {
+                            console.log('📊 Updating running project tracking for:', projectName);
+
+                            // Check if it was tracked under a different name (e.g. basename)
+                            let oldName = null;
+                            let oldInfo = null;
+                            for (const [name, info] of runningProjectsMap.entries()) {
+                                if (info.ptySessionKey === ptySessionKey) {
+                                    oldName = name;
+                                    oldInfo = info;
+                                    break;
+                                }
+                            }
+
+                            if (oldName) {
+                                // Rename entry
+                                console.log(`📊 Renaming running project from ${oldName} to ${projectName}`);
+                                runningProjectsMap.delete(oldName);
+                                runningProjectsMap.set(projectName, oldInfo);
+                            } else {
+                                // Not tracked at all
+                                console.log('📊 Adding missing running project tracking:', projectName);
+                                runningProjectsMap.set(projectName, {
+                                    pid: shellProcess.pid,
+                                    ports: [], // Start empty, will be populated by output
+                                    startTime: new Date().toISOString(),
+                                    ptySessionKey,
+                                    projectPath,
+                                    initialCommand
+                                });
+                            }
+                        }
+                    }
 
                     ws.send(JSON.stringify({
                         type: 'output',
@@ -1380,6 +1483,19 @@ function handleShellConnection(ws) {
                         isPlainShell
                     });
 
+                    // Track running project if it's a plain shell with startup script
+                    if (isPlainShell && initialCommand && projectName) {
+                        console.log('📊 Tracking running project:', projectName);
+                        runningProjectsMap.set(projectName, {
+                            pid: shellProcess.pid,
+                            ports: [], // Will be detected from output
+                            startTime: new Date().toISOString(),
+                            ptySessionKey,
+                            projectPath,
+                            initialCommand
+                        });
+                    }
+
                     // Reset PTY output buffer for new process start.
                     ptyOutputBuffer = '';
                     clearPtyBufferTimer();
@@ -1435,6 +1551,35 @@ function handleShellConnection(ws) {
                             }
                         });
 
+                        // Detect port numbers from output for running projects tracking
+                        if (session.isPlainShell) {
+                            // Find project in running projects map
+                            for (const [projName, projInfo] of runningProjectsMap.entries()) {
+                                if (projInfo.ptySessionKey === ptySessionKey) {
+                                    // Common port detection patterns
+                                    const portPatterns = [
+                                        /(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d{2,5})/g,
+                                        /port\s+(\d{2,5})/gi,
+                                        /listening on.*?(\d{2,5})/gi,
+                                        /server.*?(\d{2,5})/gi,
+                                        /http:\/\/[^:]+:(\d{2,5})/g
+                                    ];
+
+                                    portPatterns.forEach(portPattern => {
+                                        let portMatch;
+                                        while ((portMatch = portPattern.exec(data)) !== null) {
+                                            const port = parseInt(portMatch[1]);
+                                            if (port >= 1024 && port <= 65535 && !projInfo.ports.includes(port)) {
+                                                console.log(`📊 Detected port ${port} for project ${projName}`);
+                                                projInfo.ports.push(port);
+                                            }
+                                        }
+                                    });
+                                    break;
+                                }
+                            }
+                        }
+
                         // Add to buffer
                         ptyOutputBuffer += outputData;
 
@@ -1452,6 +1597,16 @@ function handleShellConnection(ws) {
                     shellProcess.onExit((exitCode) => {
                         flushPtyBuffer();
                         console.log('🔚 Shell process exited with code:', exitCode.exitCode, 'signal:', exitCode.signal);
+
+                        // Remove from running projects tracking
+                        for (const [projName, projInfo] of runningProjectsMap.entries()) {
+                            if (projInfo.ptySessionKey === ptySessionKey) {
+                                console.log('📊 Removing project from running list:', projName);
+                                runningProjectsMap.delete(projName);
+                                break;
+                            }
+                        }
+
                         const session = ptySessionsMap.get(ptySessionKey);
                         if (session && session.ws && session.ws.readyState === WebSocket.OPEN) {
                             session.ws.send(JSON.stringify({

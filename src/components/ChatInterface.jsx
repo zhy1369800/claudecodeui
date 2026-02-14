@@ -3529,8 +3529,6 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'claude-response':
-          setShowStopOnInputButton(false);
-
           // Handle Cursor streaming format (content_block_delta / content_block_stop)
           if (messageData && typeof messageData === 'object' && messageData.type) {
             if (messageData.type === 'content_block_delta' && messageData.delta?.text) {
@@ -3954,7 +3952,6 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'cursor-output':
-          setShowStopOnInputButton(false);
           // Handle Cursor raw terminal output; strip ANSI and ignore empty control-only payloads
           try {
             const raw = String(latestMessage.data ?? '');
@@ -4033,7 +4030,6 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           break;
 
         case 'codex-response':
-          setShowStopOnInputButton(false);
           // Handle Codex SDK responses
           const codexData = latestMessage.data;
           if (codexData) {
@@ -4124,12 +4120,14 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
             if (codexData.type === 'turn_complete') {
               // Turn completed, message stream done
               setIsLoading(false);
+              setCanAbortSession(false);
               appendWorkedForMessage();
             }
 
             // Handle turn failed
             if (codexData.type === 'turn_failed') {
               setIsLoading(false);
+              setCanAbortSession(false);
               appendWorkedForMessage();
               setChatMessages(prev => [...prev, {
                 type: 'error',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
@@ -9,7 +9,7 @@ import CodeEditor from './CodeEditor';
 import ImageViewer from './ImageViewer';
 import { api } from '../utils/api';
 
-function FileTree({ selectedProject, onFileOpen = null, onSelectionChange = null }) {
+function FileTree({ selectedProject, onFileOpen = null, onSelectionChange = null, isMobile = false }) {
   const { t } = useTranslation();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -25,6 +25,30 @@ function FileTree({ selectedProject, onFileOpen = null, onSelectionChange = null
   const [createNameInput, setCreateNameInput] = useState('');
   const [selectedPaths, setSelectedPaths] = useState(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
+
+  // Custom double-click detection for mobile
+  const lastClickRef = useRef({ time: 0, path: '' });
+
+  const handleItemClick = (e, item) => {
+    const now = Date.now();
+    const isDoubleClick = now - lastClickRef.current.time < 300 && lastClickRef.current.path === item.path;
+    lastClickRef.current = { time: now, path: item.path };
+
+    if (isDoubleClick) {
+      // Manual double click detected
+      e.preventDefault();
+      e.stopPropagation();
+      openItem(item);
+      return;
+    }
+
+    // Single click logic
+    if (selectionMode) {
+      toggleRowSelection(item.path, e.ctrlKey || e.metaKey);
+    } else {
+      openItem(item);
+    }
+  };
 
   useEffect(() => {
     if (selectedProject) {
@@ -368,18 +392,7 @@ function FileTree({ selectedProject, onFileOpen = null, onSelectionChange = null
             selectedPaths.has(item.path) && "bg-accent/70",
           )}
           style={{ paddingLeft: `${level * 16 + 12}px` }}
-          onClick={(e) => {
-            if (selectionMode) {
-              toggleRowSelection(item.path, e.ctrlKey || e.metaKey);
-            } else {
-              openItem(item);
-            }
-          }}
-          onDoubleClick={() => {
-            if (selectionMode) {
-              openItem(item);
-            }
-          }}
+          onClick={(e) => handleItemClick(e, item)}
         >
           <div className="flex items-center gap-2 min-w-0 w-full">
             {selectionMode && (
@@ -454,18 +467,7 @@ function FileTree({ selectedProject, onFileOpen = null, onSelectionChange = null
             selectedPaths.has(item.path) && "bg-accent/70",
           )}
           style={{ paddingLeft: `${level * 16 + 12}px` }}
-          onClick={(e) => {
-            if (selectionMode) {
-              toggleRowSelection(item.path, e.ctrlKey || e.metaKey);
-            } else {
-              openItem(item);
-            }
-          }}
-          onDoubleClick={() => {
-            if (selectionMode) {
-              openItem(item);
-            }
-          }}
+          onClick={(e) => handleItemClick(e, item)}
         >
           {selectionMode && (
             <div className="col-span-1 flex items-center">
@@ -523,18 +525,7 @@ function FileTree({ selectedProject, onFileOpen = null, onSelectionChange = null
             selectedPaths.has(item.path) && "bg-accent/70",
           )}
           style={{ paddingLeft: `${level * 16 + 12}px` }}
-          onClick={(e) => {
-            if (selectionMode) {
-              toggleRowSelection(item.path, e.ctrlKey || e.metaKey);
-            } else {
-              openItem(item);
-            }
-          }}
-          onDoubleClick={() => {
-            if (selectionMode) {
-              openItem(item);
-            }
-          }}
+          onClick={(e) => handleItemClick(e, item)}
         >
           <div className="flex items-center gap-2 min-w-0">
             {selectionMode && (
@@ -595,7 +586,7 @@ function FileTree({ selectedProject, onFileOpen = null, onSelectionChange = null
       <div className="p-3 border-b border-border">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            {selectionMode && (
+            {selectionMode && viewMode !== 'detailed' && (
               <input
                 type="checkbox"
                 checked={allVisibleSelected}

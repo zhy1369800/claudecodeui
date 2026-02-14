@@ -765,6 +765,7 @@ function MainContent({
                 selectedProject={selectedProject}
                 onFileOpen={handleFileOpen}
                 onSelectionChange={setFileSelectionCount}
+                isMobile={isMobile}
               />
             </div>
           )}

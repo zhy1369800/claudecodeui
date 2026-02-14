@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
   const { t } = useTranslation();
   // Wizard state
-  const [step, setStep] = useState(1); // 1: Choose type, 2: Configure, 3: Confirm
+  const [step, setStep] = useState(1); // 1: Choose type, 2: Configure, 3: Scripts, 4: Confirm
   const [workspaceType, setWorkspaceType] = useState('existing'); // 'existing' or 'new' - default to 'existing'
 
   // Form state
@@ -17,6 +17,9 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
   const [selectedGithubToken, setSelectedGithubToken] = useState('');
   const [tokenMode, setTokenMode] = useState('stored'); // 'stored' | 'new' | 'none'
   const [newGithubToken, setNewGithubToken] = useState('');
+  const [startupScript, setStartupScript] = useState('');
+  const [availableScripts, setAvailableScripts] = useState([]);
+  const [isLoadingScripts, setIsLoadingScripts] = useState(false);
 
   // UI state
   const [isCreating, setIsCreating] = useState(false);
@@ -95,7 +98,7 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     setError(null);
 
     if (step === 1) {
@@ -110,8 +113,29 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
         return;
       }
 
-      // No validation for GitHub token - it's optional (only needed for private repos)
+      // If it's an existing workspace, scan for scripts
+      if (workspaceType === 'existing') {
+        try {
+          setIsLoadingScripts(true);
+          const response = await api.scanScripts(workspacePath.trim());
+          const data = await response.json();
+          if (response.ok) {
+            setAvailableScripts(data.scripts || []);
+            // Auto-select first script if available
+            if (data.scripts && data.scripts.length > 0) {
+              setStartupScript(data.scripts[0].command);
+            }
+          }
+        } catch (error) {
+          console.error('Error scanning scripts:', error);
+        } finally {
+          setIsLoadingScripts(false);
+        }
+      }
+
       setStep(3);
+    } else if (step === 3) {
+      setStep(4);
     }
   };
 
@@ -177,6 +201,7 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
       const payload = {
         workspaceType,
         path: workspacePath.trim(),
+        startupScript: startupScript.trim() || null,
       };
 
       const response = await api.createWorkspace(payload);
@@ -283,7 +308,7 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
         {/* Progress Indicator */}
         <div className="px-6 pt-4 pb-2">
           <div className="flex items-center justify-between">
-            {[1, 2, 3].map((s) => (
+            {[1, 2, 3, 4].map((s) => (
               <React.Fragment key={s}>
                 <div className="flex items-center gap-2">
                   <div
@@ -298,10 +323,10 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
                     {s < step ? <Check className="w-4 h-4" /> : s}
                   </div>
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:inline">
-                    {s === 1 ? t('projectWizard.steps.type') : s === 2 ? t('projectWizard.steps.configure') : t('projectWizard.steps.confirm')}
+                    {s === 1 ? t('projectWizard.steps.type') : s === 2 ? t('projectWizard.steps.configure') : s === 3 ? 'Scripts' : t('projectWizard.steps.confirm')}
                   </span>
                 </div>
-                {s < 3 && (
+                {s < 4 && (
                   <div
                     className={`flex-1 h-1 mx-2 rounded ${
                       s < step ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'
@@ -581,8 +606,70 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
             </div>
           )}
 
-          {/* Step 3: Confirm */}
+          {/* Step 3: Startup Script */}
           {step === 3 && (
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Select a startup script for this project (optional)
+                </h4>
+
+                {isLoadingScripts ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                    <span className="ml-2 text-sm text-gray-500">Scanning for scripts...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {availableScripts.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto p-1">
+                        {availableScripts.map((script, index) => (
+                          <button
+                            key={index}
+                            onClick={() => setStartupScript(script.command)}
+                            className={`p-3 text-left border rounded-lg transition-all ${
+                              startupScript === script.command
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-sm text-gray-900 dark:text-white">{script.name}</span>
+                              <span className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">{script.type}</span>
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono truncate">{script.command}</div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm text-yellow-800 dark:text-yellow-200">
+                        No common startup scripts found in this directory.
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Custom Startup Command
+                      </label>
+                      <Input
+                        type="text"
+                        value={startupScript}
+                        onChange={(e) => setStartupScript(e.target.value)}
+                        placeholder="e.g., npm start, ./run.sh"
+                        className="w-full font-mono text-sm"
+                      />
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        This command will be executed in the terminal when you click the "Start" button.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Confirm */}
+          {step === 4 && (
             <div className="space-y-4">
               <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
@@ -601,6 +688,14 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
                       {workspacePath}
                     </span>
                   </div>
+                  {startupScript && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">Startup Script</span>
+                      <span className="font-mono text-xs text-gray-900 dark:text-white break-all">
+                        {startupScript}
+                      </span>
+                    </div>
+                  )}
                   {workspaceType === 'new' && githubUrl && (
                     <>
                       <div className="flex justify-between text-sm">
@@ -666,7 +761,7 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
           </Button>
 
           <Button
-            onClick={step === 3 ? handleCreate : handleNext}
+            onClick={step === 4 ? handleCreate : handleNext}
             disabled={isCreating || (step === 1 && !workspaceType)}
           >
             {isCreating ? (
@@ -674,7 +769,7 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 {githubUrl ? t('projectWizard.buttons.cloning', 'Cloning...') : t('projectWizard.buttons.creating')}
               </>
-            ) : step === 3 ? (
+            ) : step === 4 ? (
               <>
                 <Check className="w-4 h-4 mr-1" />
                 {t('projectWizard.buttons.createProject')}

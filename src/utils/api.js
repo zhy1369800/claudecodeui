@@ -67,10 +67,10 @@ export const api = {
     }
     return authenticatedFetch(url);
   },
-  renameProject: (projectName, displayName) =>
+  renameProject: (projectName, displayName, startupScript) =>
     authenticatedFetch(`/api/projects/${projectName}/rename`, {
       method: 'PUT',
-      body: JSON.stringify({ displayName }),
+      body: JSON.stringify({ displayName, startupScript }),
     }),
   deleteSession: (projectName, sessionId) =>
     authenticatedFetch(`/api/projects/${projectName}/sessions/${sessionId}`, {
@@ -167,6 +167,12 @@ export const api = {
     if (dirPath) params.append('path', dirPath);
 
     return authenticatedFetch(`/api/browse-filesystem?${params}`);
+  },
+
+  scanScripts: (projectPath) => {
+    const params = new URLSearchParams();
+    params.append('path', projectPath);
+    return authenticatedFetch(`/api/projects/scan-scripts?${params}`);
   },
 
   createFolder: (folderPath) =>

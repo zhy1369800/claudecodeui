@@ -485,6 +485,7 @@ async function getProjects(progressCallback = null) {
           displayName: customName || autoDisplayName,
           fullPath: fullPath,
           isCustomName: !!customName,
+          startupScript: config[entry.name]?.startupScript || null,
           sessions: []
         };
         
@@ -582,6 +583,7 @@ async function getProjects(progressCallback = null) {
           fullPath: actualProjectDir,
           isCustomName: !!projectConfig.displayName,
           isManuallyAdded: true,
+          startupScript: projectConfig.startupScript || null,
           sessions: [],
           cursorSessions: [],
           codexSessions: []
@@ -995,20 +997,37 @@ async function getSessionMessages(projectName, sessionId, limit = null, offset =
   }
 }
 
-// Rename a project's display name
-async function renameProject(projectName, newDisplayName) {
+// Rename a project's display name and/or update startup script
+async function renameProject(projectName, newDisplayName, startupScript) {
   const config = await loadProjectConfig();
-  
+
+  // Preserve existing config or create new one
+  const existingConfig = config[projectName] || {};
+
   if (!newDisplayName || newDisplayName.trim() === '') {
-    // Remove custom name if empty, will fall back to auto-generated
-    delete config[projectName];
+    // If no display name provided, remove it but keep other properties
+    delete existingConfig.displayName;
   } else {
     // Set custom display name
-    config[projectName] = {
-      displayName: newDisplayName.trim()
-    };
+    existingConfig.displayName = newDisplayName.trim();
   }
-  
+
+  // Update startup script (can be null/undefined to remove it)
+  if (startupScript !== undefined) {
+    if (startupScript === null || startupScript === '') {
+      delete existingConfig.startupScript;
+    } else {
+      existingConfig.startupScript = startupScript;
+    }
+  }
+
+  // Only save if there's something to save, otherwise remove the entry
+  if (Object.keys(existingConfig).length > 0) {
+    config[projectName] = existingConfig;
+  } else {
+    delete config[projectName];
+  }
+
   await saveProjectConfig(config);
   return true;
 }
@@ -1134,7 +1153,7 @@ async function deleteProject(projectName, force = false) {
 }
 
 // Add a project manually to the config (without creating folders)
-async function addProjectManually(projectPath, displayName = null) {
+async function addProjectManually(projectPath, displayName = null, startupScript = null) {
   const absolutePath = path.resolve(projectPath);
 
   try {
@@ -1167,16 +1186,21 @@ async function addProjectManually(projectPath, displayName = null) {
   if (displayName) {
     config[projectName].displayName = displayName;
   }
-  
+
+  if (startupScript) {
+    config[projectName].startupScript = startupScript;
+  }
+
   await saveProjectConfig(config);
-  
-  
+
+
   return {
     name: projectName,
     path: absolutePath,
     fullPath: absolutePath,
     displayName: displayName || await generateDisplayName(projectName, absolutePath),
     isManuallyAdded: true,
+    startupScript: startupScript,
     sessions: [],
     cursorSessions: []
   };
@@ -1714,6 +1738,70 @@ async function deleteCodexSession(sessionId) {
   }
 }
 
+// Scan for potential startup scripts in a project directory
+async function scanProjectScripts(projectPath) {
+  const scripts = [];
+  const absolutePath = path.resolve(projectPath);
+
+  try {
+    const entries = await fs.readdir(absolutePath, { withFileTypes: true });
+
+    // 1. Check package.json for npm scripts
+    const hasPackageJson = entries.some(e => e.name === 'package.json');
+    if (hasPackageJson) {
+      try {
+        const content = await fs.readFile(path.join(absolutePath, 'package.json'), 'utf8');
+        const pkg = JSON.parse(content);
+        if (pkg.scripts) {
+          Object.keys(pkg.scripts).forEach(name => {
+            scripts.push({
+              name: `npm run ${name}`,
+              command: `npm run ${name}`,
+              type: 'npm',
+              description: pkg.scripts[name]
+            });
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to parse package.json for scripts:', e.message);
+      }
+    }
+
+    // 2. Check for common script files
+    const scriptExtensions = ['.sh', '.bat', '.ps1', '.py', '.js'];
+    const commonNames = ['start', 'dev', 'run', 'serve', 'main', 'index'];
+
+    for (const entry of entries) {
+      if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase();
+        const name = path.basename(entry.name, ext).toLowerCase();
+
+        if (scriptExtensions.includes(ext) || commonNames.includes(name)) {
+          // Filter out some obvious non-scripts
+          if (entry.name === 'package.json' || entry.name === 'package-lock.json' || entry.name === 'yarn.lock') continue;
+
+          let command = entry.name;
+          if (ext === '.py') command = `python ${entry.name}`;
+          else if (ext === '.js') command = `node ${entry.name}`;
+          else if (ext === '.sh') command = `./${entry.name}`;
+          else if (os.platform() === 'win32' && (ext === '.bat' || ext === '.ps1')) command = `.\\${entry.name}`;
+
+          scripts.push({
+            name: entry.name,
+            command: command,
+            type: 'file',
+            description: `Executable script: ${entry.name}`
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error scanning for scripts:', error);
+  }
+
+  return scripts;
+}
+
 export {
   getProjects,
   getSessions,
@@ -1730,5 +1818,6 @@ export {
   clearProjectDirectoryCache,
   getCodexSessions,
   getCodexSessionMessages,
-  deleteCodexSession
+  deleteCodexSession,
+  scanProjectScripts
 };

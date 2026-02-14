@@ -429,11 +429,11 @@ app.get('/api/projects/:projectName/sessions/:sessionId/messages', authenticateT
     }
 });
 
-// Rename project endpoint
+// Rename project endpoint (also supports updating startup script)
 app.put('/api/projects/:projectName/rename', authenticateToken, async (req, res) => {
     try {
-        const { displayName } = req.body;
-        await renameProject(req.params.projectName, displayName);
+        const { displayName, startupScript } = req.body;
+        await renameProject(req.params.projectName, displayName, startupScript);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });

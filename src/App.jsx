@@ -60,6 +60,7 @@ function AppContent() {
   const [selectedSession, setSelectedSession] = useState(null);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'files'
   const [forcePlainShell, setForcePlainShell] = useState(false);
+  const [initialShellCommand, setInitialShellCommand] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
@@ -80,8 +81,14 @@ function AppContent() {
     setActiveTab(tab);
     if (tab !== 'shell') {
       setForcePlainShell(false);
-    } else if (options.forcePlainShell !== undefined) {
-      setForcePlainShell(!!options.forcePlainShell);
+      setInitialShellCommand(null);
+    } else {
+      if (options.forcePlainShell !== undefined) {
+        setForcePlainShell(!!options.forcePlainShell);
+      }
+      if (options.initialCommand !== undefined) {
+        setInitialShellCommand(options.initialCommand);
+      }
     }
   }, []);
   // Session Protection System: Track sessions with active conversations to prevent
@@ -943,6 +950,7 @@ function AppContent() {
           activeTab={activeTab}
           setActiveTab={handleSetActiveTab}
           forcePlainShell={forcePlainShell}
+          initialShellCommand={initialShellCommand}
           ws={ws}
           sendMessage={sendMessage}
           latestMessage={latestMessage}

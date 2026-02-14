@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import os from 'os';
-import { addProjectManually } from '../projects.js';
+import { addProjectManually, scanProjectScripts } from '../projects.js';
 
 const router = express.Router();
 
@@ -162,19 +162,45 @@ export async function validateWorkspacePath(requestedPath) {
 }
 
 /**
+ * Scan for potential startup scripts
+ * GET /api/projects/scan-scripts
+ */
+router.get('/scan-scripts', async (req, res) => {
+  try {
+    const { path: projectPath } = req.query;
+
+    if (!projectPath) {
+      return res.status(400).json({ error: 'Path is required' });
+    }
+
+    const validation = await validateWorkspacePath(projectPath);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
+    }
+
+    const scripts = await scanProjectScripts(validation.resolvedPath);
+    res.json({ scripts });
+  } catch (error) {
+    console.error('Error scanning scripts:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Create a new workspace
  * POST /api/projects/create-workspace
  *
  * Body:
  * - workspaceType: 'existing' | 'new'
  * - path: string (workspace path)
+ * - startupScript?: string (optional)
  * - githubUrl?: string (optional, for new workspaces)
  * - githubTokenId?: number (optional, ID of stored token)
  * - newGithubToken?: string (optional, one-time token)
  */
 router.post('/create-workspace', async (req, res) => {
   try {
-    const { workspaceType, path: workspacePath, githubUrl, githubTokenId, newGithubToken } = req.body;
+    const { workspaceType, path: workspacePath, startupScript, githubUrl, githubTokenId, newGithubToken } = req.body;
 
     // Validate required fields
     if (!workspaceType || !workspacePath) {
@@ -214,7 +240,7 @@ router.post('/create-workspace', async (req, res) => {
       }
 
       // Add the existing workspace to the project list
-      const project = await addProjectManually(absolutePath);
+      const project = await addProjectManually(absolutePath, null, startupScript);
 
       return res.json({
         success: true,
@@ -279,7 +305,7 @@ router.post('/create-workspace', async (req, res) => {
         }
 
         // Add the cloned repo path to the project list
-        const project = await addProjectManually(clonePath);
+        const project = await addProjectManually(clonePath, null, startupScript);
 
         return res.json({
           success: true,
@@ -289,7 +315,7 @@ router.post('/create-workspace', async (req, res) => {
       }
 
       // Add the new workspace to the project list (no clone)
-      const project = await addProjectManually(absolutePath);
+      const project = await addProjectManually(absolutePath, null, startupScript);
 
       return res.json({
         success: true,

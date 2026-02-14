@@ -38,6 +38,7 @@ function MainContent({
   activeTab,
   setActiveTab,
   forcePlainShell,
+  initialShellCommand,
   ws,
   sendMessage,
   latestMessage,
@@ -776,6 +777,7 @@ function MainContent({
               <StandaloneShell
                 project={selectedProject}
                 session={selectedSession}
+                command={initialShellCommand}
                 isPlainShell={forcePlainShell}
                 isMobile={isMobile}
                 showHeader={false}

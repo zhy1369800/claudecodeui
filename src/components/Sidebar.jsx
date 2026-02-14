@@ -6,7 +6,7 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { useTranslation } from 'react-i18next';
 
-import { FolderOpen, Folder, Plus, MessageSquare, Clock, ChevronDown, ChevronRight, Edit3, Check, X, Trash2, Settings, FolderPlus, RefreshCw, Sparkles, Edit2, Star, Search, AlertTriangle, Terminal } from 'lucide-react';
+import { FolderOpen, Folder, Plus, MessageSquare, Clock, ChevronDown, ChevronRight, Edit3, Check, X, Trash2, Settings, FolderPlus, RefreshCw, Sparkles, Edit2, Star, Search, AlertTriangle, Terminal, Play, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import ClaudeLogo from './ClaudeLogo';
 import CursorLogo from './CursorLogo.jsx';
@@ -72,6 +72,9 @@ function Sidebar({
   const [editingProject, setEditingProject] = useState(null);
   const [showNewProject, setShowNewProject] = useState(false);
   const [editingName, setEditingName] = useState('');
+  const [editingStartupScript, setEditingStartupScript] = useState('');
+  const [availableScripts, setAvailableScripts] = useState([]);
+  const [isLoadingScripts, setIsLoadingScripts] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState({});
   const [additionalSessions, setAdditionalSessions] = useState({});
   const [initialSessionsLoaded, setInitialSessionsLoaded] = useState(new Set());
@@ -287,19 +290,38 @@ function Sidebar({
     }
   });
 
-  const startEditing = (project) => {
+  const startEditing = async (project) => {
     setEditingProject(project.name);
     setEditingName(project.displayName);
+    setEditingStartupScript(project.startupScript || '');
+    setAvailableScripts([]);
+    setIsLoadingScripts(true);
+
+    // Scan for available scripts
+    try {
+      const response = await api.scanScripts(project.fullPath);
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableScripts(data.scripts || []);
+      }
+    } catch (error) {
+      console.error('Error scanning scripts:', error);
+    } finally {
+      setIsLoadingScripts(false);
+    }
   };
 
   const cancelEditing = () => {
     setEditingProject(null);
     setEditingName('');
+    setEditingStartupScript('');
+    setAvailableScripts([]);
+    setIsLoadingScripts(false);
   };
 
   const saveProjectName = async (projectName) => {
     try {
-      const response = await api.renameProject(projectName, editingName);
+      const response = await api.renameProject(projectName, editingName, editingStartupScript || null);
 
       if (response.ok) {
         // Refresh projects to get updated data
@@ -317,6 +339,8 @@ function Sidebar({
 
     setEditingProject(null);
     setEditingName('');
+    setEditingStartupScript('');
+    setAvailableScripts([]);
   };
 
   const showDeleteSessionConfirmation = (projectName, sessionId, sessionTitle, provider = 'claude') => {
@@ -617,6 +641,107 @@ function Sidebar({
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 {t('actions.delete')}
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Project Edit Modal */}
+      {editingProject && ReactDOM.createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-border">
+              <h3 className="text-lg font-semibold text-foreground">编辑项目</h3>
+              <p className="text-sm text-muted-foreground mt-1">修改项目名称和启动脚本</p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Project Name */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  项目名称
+                </label>
+                <Input
+                  type="text"
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  placeholder="输入项目名称"
+                  className="w-full"
+                />
+              </div>
+
+              {/* Startup Script Selection */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  启动脚本 (可选)
+                </label>
+
+                {isLoadingScripts ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    <span className="ml-2 text-sm text-muted-foreground">扫描脚本中...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {availableScripts.length > 0 && (
+                      <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto p-1">
+                        {availableScripts.map((script, index) => (
+                          <button
+                            key={index}
+                            onClick={() => setEditingStartupScript(script.command)}
+                            className={`p-3 text-left border rounded-lg transition-all ${
+                              editingStartupScript === script.command
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-muted-foreground'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-sm text-foreground">{script.name}</span>
+                              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">{script.type}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1 font-mono truncate">{script.command}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-muted-foreground mb-2">
+                        自定义启动命令
+                      </label>
+                      <Input
+                        type="text"
+                        value={editingStartupScript}
+                        onChange={(e) => setEditingStartupScript(e.target.value)}
+                        placeholder="例如: npm start, ./run.sh"
+                        className="w-full font-mono text-sm"
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        点击 Play 按钮时将在终端中执行此命令
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-4 bg-muted/30 border-t border-border">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={cancelEditing}
+              >
+                取消
+              </Button>
+              <Button
+                variant="default"
+                className="flex-1"
+                onClick={() => saveProjectName(editingProject)}
+              >
+                <Check className="w-4 h-4 mr-2" />
+                保存
               </Button>
             </div>
           </div>
@@ -1019,6 +1144,19 @@ function Sidebar({
                                       : "text-gray-600 dark:text-gray-400"
                                   )} />
                                 </button>
+                                {project.startupScript && (
+                                  <button
+                                    className="w-8 h-8 rounded-lg bg-green-500/10 dark:bg-green-900/30 border border-green-200 dark:border-green-800 flex items-center justify-center active:scale-90 transition-all duration-150"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleProjectSelect(project);
+                                      setActiveTab('shell', { project, initialCommand: project.startupScript, forcePlainShell: true });
+                                    }}
+                                    title="Start Project"
+                                  >
+                                    <Play className="w-4 h-4 text-green-600 dark:text-green-400 fill-current" />
+                                  </button>
+                                )}
                                 <button
                                   className="w-8 h-8 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center active:scale-90 border border-primary/20 dark:border-primary/30"
                                   onClick={(e) => {
@@ -1156,6 +1294,19 @@ function Sidebar({
                                   : "text-muted-foreground"
                               )} />
                             </div>
+                            {project.startupScript && (
+                              <div
+                                className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center justify-center rounded cursor-pointer touch:opacity-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleProjectSelect(project);
+                                  setActiveTab('shell', { project, initialCommand: project.startupScript, forcePlainShell: true });
+                                }}
+                                title="Start Project"
+                              >
+                                <Play className="w-3 h-3 text-green-600 dark:text-green-400 fill-current" />
+                              </div>
+                            )}
                             <div
                               className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-accent flex items-center justify-center rounded cursor-pointer touch:opacity-100"
                               onClick={(e) => {

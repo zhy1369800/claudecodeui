@@ -69,8 +69,12 @@ async function validateGitRepository(projectPath) {
     const normalizedGitRoot = path.resolve(gitRoot.trim());
     const normalizedProjectPath = path.resolve(projectPath);
 
-    // Ensure the git root matches our project path (prevent using parent git repos)
-    if (normalizedGitRoot !== normalizedProjectPath) {
+    // Ensure the git root is a parent of or equal to our project path
+    // Use lowercase for Windows path comparison
+    const projectPathLower = normalizedProjectPath.toLowerCase();
+    const gitRootLower = normalizedGitRoot.toLowerCase();
+
+    if (!projectPathLower.startsWith(gitRootLower)) {
       throw new Error(`Project directory is not a git repository. This directory is inside a git repository at ${normalizedGitRoot}, but git operations should be run from the repository root.`);
     }
   } catch (error) {

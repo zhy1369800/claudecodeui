@@ -37,6 +37,7 @@ function MainContent({
   selectedSession,
   activeTab,
   setActiveTab,
+  forcePlainShell,
   ws,
   sendMessage,
   latestMessage,
@@ -393,7 +394,7 @@ function MainContent({
     );
   }
 
-  if (!selectedProject) {
+  if (!selectedProject && activeTab !== 'shell') {
     return (
       <div className="h-full flex flex-col">
         {/* Header with menu button for mobile */}
@@ -500,7 +501,7 @@ function MainContent({
                             : '连接断开'
                         }
                       />
-                      <span className="truncate">{selectedProject.displayName}</span>
+                      <span className="truncate">{selectedProject?.displayName || 'System'}</span>
                     </div>
                   </div>
                 ) : activeTab === 'chat' && !selectedSession ? (
@@ -526,7 +527,7 @@ function MainContent({
                             : '连接断开'
                         }
                       />
-                      <span className="truncate">{selectedProject.displayName}</span>
+                      <span className="truncate">{selectedProject?.displayName || 'System'}</span>
                     </div>
                   </div>
                 ) : (
@@ -535,8 +536,9 @@ function MainContent({
                       <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         {activeTab === 'files' ? t('mainContent.projectFiles') :
                           activeTab === 'git' ? t('tabs.git') :
-                            (activeTab === 'tasks' && shouldShowTasksTab) ? 'TaskMaster' :
-                              'Project'}
+                            activeTab === 'shell' ? t('tabs.shell') :
+                              (activeTab === 'tasks' && shouldShowTasksTab) ? 'TaskMaster' :
+                                'Project'}
                         {activeTab === 'files' && fileSelectionCount > 0 && (
                           <span className="text-xs font-normal text-muted-foreground bg-accent px-1.5 py-0.5 rounded">
                             {t('fileTree.selectedCount', { defaultValue: '{{count}} selected', count: fileSelectionCount })}
@@ -559,7 +561,7 @@ function MainContent({
                       )}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1.5">
-                      <span className="truncate">{selectedProject.displayName}</span>
+                      <span className="truncate">{selectedProject?.displayName || 'System'}</span>
                     </div>
                   </div>
                 )}
@@ -774,6 +776,7 @@ function MainContent({
               <StandaloneShell
                 project={selectedProject}
                 session={selectedSession}
+                isPlainShell={forcePlainShell}
                 isMobile={isMobile}
                 showHeader={false}
                 isSettingsOpen={shellSettingsOpen}

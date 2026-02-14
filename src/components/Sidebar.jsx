@@ -6,7 +6,7 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { useTranslation } from 'react-i18next';
 
-import { FolderOpen, Folder, Plus, MessageSquare, Clock, ChevronDown, ChevronRight, Edit3, Check, X, Trash2, Settings, FolderPlus, RefreshCw, Sparkles, Edit2, Star, Search, AlertTriangle } from 'lucide-react';
+import { FolderOpen, Folder, Plus, MessageSquare, Clock, ChevronDown, ChevronRight, Edit3, Check, X, Trash2, Settings, FolderPlus, RefreshCw, Sparkles, Edit2, Star, Search, AlertTriangle, Terminal } from 'lucide-react';
 import { cn } from '../lib/utils';
 import ClaudeLogo from './ClaudeLogo';
 import CursorLogo from './CursorLogo.jsx';
@@ -64,7 +64,8 @@ function Sidebar({
   onShowVersionModal,
   isPWA,
   isMobile,
-  onToggleSidebar
+  onToggleSidebar,
+  setActiveTab
 }) {
   const { t } = useTranslation('sidebar');
   const [expandedProjects, setExpandedProjects] = useState(new Set());
@@ -1523,7 +1524,20 @@ function Sidebar({
       {/* Settings Section */}
       <div className="md:p-2 md:border-t md:border-border flex-shrink-0">
         {/* Mobile Settings */}
-        <div className="md:hidden p-4 pb-20 border-t border-border/50">
+        <div className="md:hidden p-4 pb-20 border-t border-border/50 space-y-3">
+          <button
+            className="w-full h-14 bg-muted/50 hover:bg-muted/70 rounded-2xl flex items-center justify-start gap-4 px-4 active:scale-[0.98] transition-all duration-150"
+            onClick={() => {
+              if (setActiveTab) setActiveTab('shell', { forcePlainShell: true });
+              if (onToggleSidebar) onToggleSidebar();
+            }}
+          >
+            <div className="w-10 h-10 rounded-2xl bg-background/80 flex items-center justify-center">
+              <Terminal className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <span className="text-lg font-medium text-foreground">{t('navigation.terminal')}</span>
+          </button>
+
           <button
             className="w-full h-14 bg-muted/50 hover:bg-muted/70 rounded-2xl flex items-center justify-start gap-4 px-4 active:scale-[0.98] transition-all duration-150"
             onClick={onShowSettings}

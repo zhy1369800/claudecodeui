@@ -1275,10 +1275,15 @@ function handleShellConnection(ws) {
                     let shellCommand;
                     if (isPlainShell) {
                         // Plain shell mode - just run the initial command in the project directory
-                        if (os.platform() === 'win32') {
-                            shellCommand = `Set-Location -Path "${projectPath}"; ${initialCommand}`;
+                        if (initialCommand) {
+                            if (os.platform() === 'win32') {
+                                shellCommand = `Set-Location -Path "${projectPath}"; ${initialCommand}`;
+                            } else {
+                                shellCommand = `cd "${projectPath}" && ${initialCommand}`;
+                            }
                         } else {
-                            shellCommand = `cd "${projectPath}" && ${initialCommand}`;
+                            // No initial command - just start an interactive shell in the project directory
+                            shellCommand = null;
                         }
                     } else if (provider === 'cursor') {
                         // Use cursor-agent command
@@ -1329,11 +1334,18 @@ function handleShellConnection(ws) {
                         }
                     }
 
-                    console.log('🔧 Executing shell command:', shellCommand);
+                    console.log('🔧 Executing shell command:', shellCommand || '(interactive shell)');
 
                     // Use appropriate shell based on platform
                     const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
-                    const shellArgs = os.platform() === 'win32' ? ['-Command', shellCommand] : ['-c', shellCommand];
+                    let shellArgs;
+                    if (shellCommand) {
+                        shellArgs = os.platform() === 'win32' ? ['-Command', shellCommand] : ['-c', shellCommand];
+                    } else {
+                        // For interactive shell without a specific command, don't use -Command/-c
+                        // This keeps the shell open and interactive
+                        shellArgs = os.platform() === 'win32' ? ['-NoLogo'] : [];
+                    }
 
                     // Use terminal dimensions from client if provided, otherwise use defaults
                     const termCols = data.cols || 80;
@@ -1344,7 +1356,7 @@ function handleShellConnection(ws) {
                         name: 'xterm-256color',
                         cols: termCols,
                         rows: termRows,
-                        cwd: os.homedir(),
+                        cwd: projectPath || os.homedir(),
                         env: {
                             ...process.env,
                             TERM: 'xterm-256color',

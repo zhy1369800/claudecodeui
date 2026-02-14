@@ -59,6 +59,7 @@ function AppContent() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'files'
+  const [forcePlainShell, setForcePlainShell] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
@@ -73,6 +74,16 @@ function AppContent() {
   const [autoScrollToBottom, setAutoScrollToBottom] = useLocalStorage('autoScrollToBottom', true);
   const [sendByCtrlEnter, setSendByCtrlEnter] = useLocalStorage('sendByCtrlEnter', false);
   const [sidebarVisible, setSidebarVisible] = useLocalStorage('sidebarVisible', true);
+
+  // Custom setActiveTab that can handle options
+  const handleSetActiveTab = useCallback((tab, options = {}) => {
+    setActiveTab(tab);
+    if (tab !== 'shell') {
+      setForcePlainShell(false);
+    } else if (options.forcePlainShell !== undefined) {
+      setForcePlainShell(!!options.forcePlainShell);
+    }
+  }, []);
   // Session Protection System: Track sessions with active conversations to prevent
   // automatic project updates from interrupting ongoing chats. When a user sends
   // a message, the session is marked as "active" and project updates are paused
@@ -403,6 +414,7 @@ function AppContent() {
   const handleProjectSelect = (project) => {
     setSelectedProject(project);
     setSelectedSession(null);
+    setForcePlainShell(false);
     navigate('/');
     if (isMobile) {
       setSidebarOpen(false);
@@ -411,6 +423,7 @@ function AppContent() {
 
   const handleSessionSelect = (session) => {
     setSelectedSession(session);
+    setForcePlainShell(false);
     const sessionProvider = session.__provider || 'claude';
     localStorage.setItem('selected-provider', sessionProvider);
     // Only switch to chat tab when user explicitly selects a session
@@ -822,6 +835,7 @@ function AppContent() {
                 isPWA={isPWA}
                 isMobile={isMobile}
                 onToggleSidebar={() => setSidebarVisible(false)}
+                setActiveTab={handleSetActiveTab}
               />
             ) : (
               /* Collapsed Sidebar */
@@ -914,7 +928,8 @@ function AppContent() {
               onShowVersionModal={() => setShowVersionModal(true)}
               isPWA={isPWA}
               isMobile={isMobile}
-              onToggleSidebar={() => setSidebarVisible(false)}
+              onToggleSidebar={() => setSidebarOpen(false)}
+              setActiveTab={handleSetActiveTab}
             />
           </div>
         </div>
@@ -926,7 +941,8 @@ function AppContent() {
           selectedProject={selectedProject}
           selectedSession={selectedSession}
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={handleSetActiveTab}
+          forcePlainShell={forcePlainShell}
           ws={ws}
           sendMessage={sendMessage}
           latestMessage={latestMessage}

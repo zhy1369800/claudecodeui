@@ -103,16 +103,19 @@ function Shell({
           if (fitAddon.current && terminal.current) {
             fitAddon.current.fit();
 
+            const projectPath = selectedProjectRef.current?.fullPath || selectedProjectRef.current?.path || null;
+            const isActuallyPlainShell = isPlainShellRef.current || !selectedProjectRef.current;
+
             ws.current.send(JSON.stringify({
               type: 'init',
-              projectPath: selectedProjectRef.current.fullPath || selectedProjectRef.current.path,
-              sessionId: isPlainShellRef.current ? null : selectedSessionRef.current?.id,
-              hasSession: isPlainShellRef.current ? false : !!selectedSessionRef.current,
-              provider: isPlainShellRef.current ? 'plain-shell' : (selectedSessionRef.current?.__provider || 'claude'),
+              projectPath: projectPath,
+              sessionId: isActuallyPlainShell ? null : selectedSessionRef.current?.id,
+              hasSession: isActuallyPlainShell ? false : !!selectedSessionRef.current,
+              provider: isActuallyPlainShell ? 'plain-shell' : (selectedSessionRef.current?.__provider || 'claude'),
               cols: terminal.current.cols,
               rows: terminal.current.rows,
               initialCommand: initialCommandRef.current,
-              isPlainShell: isPlainShellRef.current
+              isPlainShell: isActuallyPlainShell
             }));
           }
         }, 100);
@@ -262,10 +265,12 @@ function Shell({
   }, [selectedSession?.id, isInitialized, disconnectFromShell]);
 
   useEffect(() => {
-    if (!terminalRef.current || !selectedProject || isRestarting || terminal.current) {
+    if (!terminalRef.current || isRestarting || terminal.current) {
       return;
     }
 
+    const projectPath = selectedProject?.fullPath || selectedProject?.path || null;
+    const isActuallyPlainShell = isPlainShell || !selectedProject;
 
     terminal.current = new XTerm({
       cursorBlink: true,
@@ -411,22 +416,6 @@ function Shell({
     connectToShell();
   }, [autoConnect, isInitialized, isConnecting, isConnected, connectToShell]);
 
-  if (!selectedProject) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center text-gray-500 dark:text-gray-400">
-          <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold mb-2">{t('shell.selectProject.title')}</h3>
-          <p>{t('shell.selectProject.description')}</p>
-        </div>
-      </div>
-    );
-  }
-
   if (minimal) {
     return (
       <div className="h-full w-full bg-gray-900">
@@ -554,11 +543,13 @@ function Shell({
                 <span>{t('shell.actions.connect')}</span>
               </button>
               <p className="text-gray-400 text-sm mt-3 px-2">
-                {isPlainShell ?
-                  t('shell.runCommand', { command: initialCommand || t('shell.defaultCommand'), projectName: selectedProject.displayName }) :
-                  selectedSession ?
-                    t('shell.resumeSession', { displayName: sessionDisplayNameLong }) :
-                    t('shell.startSession')
+                {!selectedProject ?
+                  '启动系统终端' :
+                  isPlainShell ?
+                    t('shell.runCommand', { command: initialCommand || t('shell.defaultCommand'), projectName: selectedProject.displayName }) :
+                    selectedSession ?
+                      t('shell.resumeSession', { displayName: sessionDisplayNameLong }) :
+                      t('shell.startSession')
                 }
               </p>
             </div>
@@ -573,9 +564,11 @@ function Shell({
                 <span className="text-base font-medium">{t('shell.connecting')}</span>
               </div>
               <p className="text-gray-400 text-sm mt-3 px-2">
-                {isPlainShell ?
-                  t('shell.runCommand', { command: initialCommand || t('shell.defaultCommand'), projectName: selectedProject.displayName }) :
-                  t('shell.startCli', { projectName: selectedProject.displayName })
+                {!selectedProject ?
+                  '正在初始化系统终端...' :
+                  isPlainShell ?
+                    t('shell.runCommand', { command: initialCommand || t('shell.defaultCommand'), projectName: selectedProject.displayName }) :
+                    t('shell.startCli', { projectName: selectedProject.displayName })
                 }
               </p>
             </div>
@@ -616,7 +609,7 @@ function Shell({
               ESC
             </button>
             <button
-              onPointerDown={(e) => { e.preventDefault(); sendTerminalKey('\t'); }}
+              onPointerDown={(e) => { e.preventDefault(); sendTerminalKey('\x1b'); }}
               className="w-10 h-10 flex items-center justify-center bg-gray-700 text-gray-200 rounded-lg active:bg-blue-600 transition-colors text-[10px] font-bold border border-gray-600 shadow-sm"
             >
               TAB

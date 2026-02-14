@@ -84,12 +84,15 @@ function Sidebar({
   const [deletingProjects, setDeletingProjects] = useState(new Set());
   const [deleteConfirmation, setDeleteConfirmation] = useState(null); // { project, sessionCount }
   const [sessionDeleteConfirmation, setSessionDeleteConfirmation] = useState(null); // { projectName, sessionId, sessionTitle, provider }
+  const [swipedProject, setSwipedProject] = useState(null); // project.name of currently swiped item
+  const touchStartX = useRef(null);
+  const touchCurrentX = useRef(null);
 
   // TaskMaster context
   const { setCurrentProject, mcpServerStatus } = useTaskMaster();
   const { tasksEnabled } = useTasksSettings();
 
-  
+
   // Starred projects state - persisted in localStorage
   const [starredProjects, setStarredProjects] = useState(() => {
     try {
@@ -136,6 +139,11 @@ function Sidebar({
     }
   }, [selectedSession, selectedProject]);
 
+  // Reset swiped project when sidebar is toggled or projects change
+  useEffect(() => {
+    setSwipedProject(null);
+  }, [onToggleSidebar, projects]);
+
   // Mark sessions as loaded when projects come in
   useEffect(() => {
     if (projects.length > 0 && !isLoading) {
@@ -174,14 +182,14 @@ function Sidebar({
     };
 
     window.addEventListener('storage', handleStorageChange);
-    
+
     // Also check periodically when component is focused (for same-tab changes)
     const checkInterval = setInterval(() => {
       if (document.hasFocus()) {
         loadSortOrder();
       }
     }, 1000);
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(checkInterval);
@@ -213,7 +221,7 @@ function Sidebar({
       newStarred.add(projectName);
     }
     setStarredProjects(newStarred);
-    
+
     // Persist to localStorage
     try {
       localStorage.setItem('starredProjects', JSON.stringify([...newStarred]));
@@ -247,13 +255,13 @@ function Sidebar({
     if (allSessions.length === 0) {
       return new Date(0); // Return epoch date for projects with no sessions
     }
-    
+
     // Find the most recent session activity
     const mostRecentDate = allSessions.reduce((latest, session) => {
       const sessionDate = new Date(session.lastActivity);
       return sessionDate > latest ? sessionDate : latest;
     }, new Date(0));
-    
+
     return mostRecentDate;
   };
 
@@ -261,11 +269,11 @@ function Sidebar({
   const sortedProjects = [...projects].sort((a, b) => {
     const aStarred = isProjectStarred(a.name);
     const bStarred = isProjectStarred(b.name);
-    
+
     // First, sort by starred status
     if (aStarred && !bStarred) return -1;
     if (!aStarred && bStarred) return 1;
-    
+
     // For projects with same starred status, sort by selected order
     if (projectSortOrder === 'date') {
       // Sort by most recent activity (descending)
@@ -305,7 +313,7 @@ function Sidebar({
     } catch (error) {
       console.error('Error renaming project:', error);
     }
-    
+
     setEditingProject(null);
     setEditingName('');
   };
@@ -436,7 +444,7 @@ function Sidebar({
   const loadMoreSessions = async (project) => {
     // Check if we can load more sessions
     const canLoadMore = project.sessionMeta?.hasMore !== false;
-    
+
     if (!canLoadMore || loadingSessions[project.name]) {
       return;
     }
@@ -446,10 +454,10 @@ function Sidebar({
     try {
       const currentSessionCount = (project.sessions?.length || 0) + (additionalSessions[project.name]?.length || 0);
       const response = await api.sessions(project.name, 5, currentSessionCount);
-      
+
       if (response.ok) {
         const result = await response.json();
-        
+
         // Store additional sessions locally
         setAdditionalSessions(prev => ({
           ...prev,
@@ -458,7 +466,7 @@ function Sidebar({
             ...result.sessions
           ]
         }));
-        
+
         // Update project metadata if needed
         if (result.hasMore === false) {
           // Mark that there are no more sessions to load
@@ -475,11 +483,11 @@ function Sidebar({
   // Filter projects based on search input
   const filteredProjects = sortedProjects.filter(project => {
     if (!searchFilter.trim()) return true;
-    
+
     const searchLower = searchFilter.toLowerCase();
     const displayName = (project.displayName || project.name).toLowerCase();
     const projectName = project.name.toLowerCase();
-    
+
     // Search in both display name and actual project name/path
     return displayName.includes(searchLower) || projectName.includes(searchLower);
   });
@@ -488,7 +496,7 @@ function Sidebar({
   const handleProjectSelect = (project) => {
     // Call the original project select handler
     onProjectSelect(project);
-    
+
     // Update TaskMaster context with the selected project
     setCurrentProject(project);
   };
@@ -666,7 +674,7 @@ function Sidebar({
             </Button>
           )}
         </div>
-        
+
         {/* Mobile Header */}
         <div
           className="md:hidden p-3 border-b border-border"
@@ -781,9 +789,12 @@ function Sidebar({
           </div>
         </div>
       )}
-      
+
       {/* Projects List */}
-      <ScrollArea className="flex-1 md:px-2 md:py-3 overflow-y-auto overscroll-contain">
+      <ScrollArea
+        className="flex-1 md:px-2 md:py-3 overflow-y-auto overscroll-contain"
+        onClick={() => setSwipedProject(null)}
+      >
         <div className="md:space-y-1 pb-safe-area-inset-bottom">
           {isLoading ? (
             <div className="text-center py-12 md:py-8 px-4">
@@ -794,7 +805,6 @@ function Sidebar({
               <p className="text-sm text-muted-foreground">
                 {t('projects.fetchingProjects')}
               </p>
-              <h3 className="text-base font-medium text-foreground mb-2 md:mb-1">{t('projects.loadingProjects')}</h3>
               {loadingProgress && loadingProgress.total > 0 ? (
                 <div className="space-y-2">
                   <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
@@ -850,29 +860,62 @@ function Sidebar({
                   {/* Project Header */}
                   <div className="group md:group">
                     {/* Mobile Project Item */}
-                    <div className="md:hidden">
+                    <div className="md:hidden relative overflow-hidden mx-3 my-1 rounded-xl border border-border/50 bg-card shadow-sm">
+                      {/* Delete Action Background */}
+                      <div
+                        className="absolute inset-0 bg-red-600 flex items-center justify-end px-8 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteProject(project);
+                          setSwipedProject(null);
+                        }}
+                      >
+                        <div className="text-white">
+                          <Trash2 className="w-6 h-6" />
+                        </div>
+                      </div>
+
+                      {/* Project Content Layer */}
                       <div
                         className={cn(
-                          "p-3 mx-3 my-1 rounded-lg bg-card border border-border/50 active:scale-[0.98] transition-all duration-150",
-                          isSelected && "bg-primary/5 border-primary/20",
-                          isStarred && !isSelected && "bg-yellow-50/50 dark:bg-yellow-900/5 border-yellow-200/30 dark:border-yellow-800/30"
+                          "relative z-10 bg-card transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
+                          swipedProject === project.name ? "-translate-x-28" : "translate-x-0"
                         )}
-                        onClick={() => {
-                          // On mobile, just toggle the folder - don't select the project
-                          toggleProject(project.name);
+                        onTouchStart={(e) => {
+                          touchStartX.current = e.touches[0].clientX;
+                          touchCurrentX.current = e.touches[0].clientX;
                         }}
-                        onTouchEnd={handleTouchClick(() => toggleProject(project.name))}
+                        onTouchMove={(e) => {
+                          touchCurrentX.current = e.touches[0].clientX;
+                          const diff = touchStartX.current - touchCurrentX.current;
+                          // Only swipe if moving left and not already swiped
+                          if (diff > 40) {
+                            setSwipedProject(project.name);
+                          } else if (diff < -40) {
+                            setSwipedProject(null);
+                          }
+                        }}
+                        onClick={() => {
+                          if (swipedProject === project.name) {
+                            setSwipedProject(null);
+                          } else {
+                            toggleProject(project.name);
+                          }
+                        }}
                       >
-                        <div className="flex items-center justify-between">
+                        <div className={cn(
+                          "p-3 flex items-center justify-between transition-colors",
+                          isSelected && "bg-primary/5"
+                        )}>
                           <div className="flex items-center gap-3 min-w-0 flex-1">
                             <div className={cn(
-                              "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-                              isExpanded ? "bg-primary/10" : "bg-muted"
+                              "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors shadow-sm",
+                              isExpanded ? "bg-primary/10 text-primary" : "bg-muted/50 text-muted-foreground"
                             )}>
                               {isExpanded ? (
-                                <FolderOpen className="w-4 h-4 text-primary" />
+                                <FolderOpen className="w-5 h-5" />
                               ) : (
-                                <Folder className="w-4 h-4 text-muted-foreground" />
+                                <Folder className="w-5 h-5" />
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -890,16 +933,12 @@ function Sidebar({
                                     if (e.key === 'Enter') saveProjectName(project.name);
                                     if (e.key === 'Escape') cancelEditing();
                                   }}
-                                  style={{
-                                    fontSize: '16px', // Prevents zoom on iOS
-                                    WebkitAppearance: 'none',
-                                    borderRadius: '8px'
-                                  }}
+                                  style={{ fontSize: '16px' }}
                                 />
                               ) : (
                                 <>
                                   <div className="flex items-center justify-between min-w-0 flex-1">
-                                    <h3 className="text-sm font-medium text-foreground truncate">
+                                    <h3 className="text-sm font-bold text-foreground truncate">
                                       {project.displayName}
                                     </h3>
                                     {tasksEnabled && (
@@ -917,38 +956,43 @@ function Sidebar({
                                       />
                                     )}
                                   </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    {(() => {
-                                      const sessionCount = getAllSessions(project).length;
-                                      const hasMore = project.sessionMeta?.hasMore !== false;
-                                      const count = hasMore && sessionCount >= 5 ? `${sessionCount}+` : sessionCount;
-                                      return `${count} session${count === 1 ? '' : 's'}`;
-                                    })()}
-                                  </p>
+                                  <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                                    <span className="bg-muted px-1.5 py-0.5 rounded text-[9px] font-bold tracking-tight">
+                                      {(() => {
+                                        const sessionCount = getAllSessions(project).length;
+                                        const hasMore = project.sessionMeta?.hasMore !== false;
+                                        return hasMore && sessionCount >= 5 ? `${sessionCount}+` : sessionCount;
+                                      })()} SESSIONS
+                                    </span>
+                                    <span className="truncate opacity-60">
+                                      {project.fullPath.split(/[\\/]/).pop()}
+                                    </span>
+                                  </div>
                                 </>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-1">
+
+                          <div className="flex items-center gap-2 ml-2">
                             {editingProject === project.name ? (
                               <>
                                 <button
-                                  className="w-8 h-8 rounded-lg bg-green-500 dark:bg-green-600 flex items-center justify-center active:scale-90 transition-all duration-150 shadow-sm active:shadow-none"
+                                  className="w-8 h-8 rounded-lg bg-green-500 text-white flex items-center justify-center active:scale-90 transition-all shadow-sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     saveProjectName(project.name);
                                   }}
                                 >
-                                  <Check className="w-4 h-4 text-white" />
+                                  <Check className="w-4 h-4" />
                                 </button>
                                 <button
-                                  className="w-8 h-8 rounded-lg bg-gray-500 dark:bg-gray-600 flex items-center justify-center active:scale-90 transition-all duration-150 shadow-sm active:shadow-none"
+                                  className="w-8 h-8 rounded-lg bg-gray-500 text-white flex items-center justify-center active:scale-90 transition-all shadow-sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     cancelEditing();
                                   }}
                                 >
-                                  <X className="w-4 h-4 text-white" />
+                                  <X className="w-4 h-4" />
                                 </button>
                               </>
                             ) : (
@@ -957,41 +1001,29 @@ function Sidebar({
                                 <button
                                   className={cn(
                                     "w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-all duration-150 border",
-                                    isStarred 
-                                      ? "bg-yellow-500/10 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800" 
+                                    isStarred
+                                      ? "bg-yellow-500/10 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800"
                                       : "bg-gray-500/10 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800"
                                   )}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     toggleStarProject(project.name);
                                   }}
-                                  onTouchEnd={handleTouchClick(() => toggleStarProject(project.name))}
                                   title={isStarred ? t('tooltips.removeFromFavorites') : t('tooltips.addToFavorites')}
                                 >
                                   <Star className={cn(
                                     "w-4 h-4 transition-colors",
-                                    isStarred 
-                                      ? "text-yellow-600 dark:text-yellow-400 fill-current" 
+                                    isStarred
+                                      ? "text-yellow-600 dark:text-yellow-400 fill-current"
                                       : "text-gray-600 dark:text-gray-400"
                                   )} />
                                 </button>
-                                <button
-                                    className="w-8 h-8 rounded-lg bg-red-500/10 dark:bg-red-900/30 flex items-center justify-center active:scale-90 border border-red-200 dark:border-red-800"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      deleteProject(project);
-                                    }}
-                                    onTouchEnd={handleTouchClick(() => deleteProject(project))}
-                                  >
-                                    <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
-                                  </button>
                                 <button
                                   className="w-8 h-8 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center active:scale-90 border border-primary/20 dark:border-primary/30"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     startEditing(project);
                                   }}
-                                  onTouchEnd={handleTouchClick(() => startEditing(project))}
                                 >
                                   <Edit3 className="w-4 h-4 text-primary" />
                                 </button>
@@ -1008,7 +1040,7 @@ function Sidebar({
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Desktop Project Item */}
                     <Button
                       variant="ghost"
@@ -1077,7 +1109,7 @@ function Sidebar({
                           )}
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-1 flex-shrink-0">
                         {editingProject === project.name ? (
                           <>
@@ -1106,8 +1138,8 @@ function Sidebar({
                             <div
                               className={cn(
                                 "w-6 h-6 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center rounded cursor-pointer touch:opacity-100",
-                                isStarred 
-                                  ? "hover:bg-yellow-50 dark:hover:bg-yellow-900/20 opacity-100" 
+                                isStarred
+                                  ? "hover:bg-yellow-50 dark:hover:bg-yellow-900/20 opacity-100"
                                   : "hover:bg-accent"
                               )}
                               onClick={(e) => {
@@ -1118,8 +1150,8 @@ function Sidebar({
                             >
                               <Star className={cn(
                                 "w-3 h-3 transition-colors",
-                                isStarred 
-                                  ? "text-yellow-600 dark:text-yellow-400 fill-current" 
+                                isStarred
+                                  ? "text-yellow-600 dark:text-yellow-400 fill-current"
                                   : "text-muted-foreground"
                               )} />
                             </div>
@@ -1204,7 +1236,7 @@ function Sidebar({
                           };
                           const sessionTime = getSessionTime();
                           const messageCount = session.messageCount || 0;
-                          
+
                           return (
                           <div key={session.id} className="group relative">
                             {/* Active session indicator dot */}
@@ -1284,7 +1316,7 @@ function Sidebar({
                                 </div>
                               </div>
                             </div>
-                            
+
                             {/* Desktop Session Item */}
                             <div className="hidden md:block">
                               <Button
@@ -1431,7 +1463,7 @@ function Sidebar({
                           )}
                         </Button>
                       )}
-                      
+
                       {/* Sessions - New Session Button */}
                       <div className="md:hidden px-3 pb-2">
                         <button
@@ -1445,7 +1477,7 @@ function Sidebar({
                           {t('sessions.newSession')}
                         </button>
                       </div>
-                      
+
                       <Button
                         variant="default"
                         size="sm"
@@ -1463,55 +1495,31 @@ function Sidebar({
           )}
         </div>
       </ScrollArea>
-      
+
       {/* Version Update Notification */}
       {updateAvailable && (
-        <div className="md:p-2 border-t border-border/50 flex-shrink-0">
-          {/* Desktop Version Notification */}
-          <div className="hidden md:block">
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 p-3 h-auto font-normal text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200 border border-blue-200 dark:border-blue-700 rounded-lg mb-2"
-              onClick={onShowVersionModal}
-            >
-              <div className="relative">
-                <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                </svg>
-                <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+        <div className="hidden md:block p-2 border-t border-border/50 flex-shrink-0">
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 p-3 h-auto font-normal text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200 border border-blue-200 dark:border-blue-700 rounded-lg mb-2"
+            onClick={onShowVersionModal}
+          >
+            <div className="relative">
+              <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+              </svg>
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                {releaseInfo?.title || `Version ${latestVersion}`}
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  {releaseInfo?.title || `Version ${latestVersion}`}
-                </div>
-                <div className="text-xs text-blue-600 dark:text-blue-400">{t('version.updateAvailable')}</div>
-              </div>
-            </Button>
-          </div>
-          
-          {/* Mobile Version Notification */}
-          <div className="md:hidden p-3 pb-2">
-            <button
-              className="w-full h-12 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl flex items-center justify-start gap-3 px-4 active:scale-[0.98] transition-all duration-150"
-              onClick={onShowVersionModal}
-            >
-              <div className="relative">
-                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                </svg>
-                <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-              </div>
-              <div className="min-w-0 flex-1 text-left">
-                <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  {releaseInfo?.title || `Version ${latestVersion}`}
-                </div>
-                <div className="text-xs text-blue-600 dark:text-blue-400">{t('version.updateAvailable')}</div>
-              </div>
-            </button>
-          </div>
+              <div className="text-xs text-blue-600 dark:text-blue-400">{t('version.updateAvailable')}</div>
+            </div>
+          </Button>
         </div>
       )}
-      
+
       {/* Settings Section */}
       <div className="md:p-2 md:border-t md:border-border flex-shrink-0">
         {/* Mobile Settings */}
@@ -1526,7 +1534,7 @@ function Sidebar({
             <span className="text-lg font-medium text-foreground">{t('actions.settings')}</span>
           </button>
         </div>
-        
+
         {/* Desktop Settings */}
         <Button
           variant="ghost"

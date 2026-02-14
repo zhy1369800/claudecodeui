@@ -4120,6 +4120,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
             if (codexData.type === 'turn_complete') {
               // Turn completed, message stream done
               setIsLoading(false);
+              setShowStopOnInputButton(false);
               setCanAbortSession(false);
               appendWorkedForMessage();
             }
@@ -4127,6 +4128,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
             // Handle turn failed
             if (codexData.type === 'turn_failed') {
               setIsLoading(false);
+              setShowStopOnInputButton(false);
               setCanAbortSession(false);
               appendWorkedForMessage();
               setChatMessages(prev => [...prev, {

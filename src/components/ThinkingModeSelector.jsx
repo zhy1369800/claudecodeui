@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Brain, Zap, Sparkles, Atom, X } from 'lucide-react';
+import { Brain, Zap, Sparkles, Atom, X, Rocket } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const thinkingModes = [
@@ -7,7 +7,7 @@ const thinkingModes = [
     id: 'none',
     name: 'Standard',
     description: 'Regular Claude response',
-    icon: null,
+    icon: Zap,
     prefix: '',
     color: 'text-gray-600'
   },
@@ -23,7 +23,7 @@ const thinkingModes = [
     id: 'think-hard',
     name: 'Think Hard',
     description: 'More thorough evaluation',
-    icon: Zap,
+    icon: Sparkles,
     prefix: 'think hard',
     color: 'text-purple-600'
   },
@@ -31,7 +31,7 @@ const thinkingModes = [
     id: 'think-harder',
     name: 'Think Harder',
     description: 'Deep analysis with alternatives',
-    icon: Sparkles,
+    icon: Atom,
     prefix: 'think harder',
     color: 'text-indigo-600'
   },
@@ -39,7 +39,7 @@ const thinkingModes = [
     id: 'ultrathink',
     name: 'Ultrathink',
     description: 'Maximum thinking budget',
-    icon: Atom,
+    icon: Rocket,
     prefix: 'ultrathink',
     color: 'text-red-600'
   }

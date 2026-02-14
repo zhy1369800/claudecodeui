@@ -15,7 +15,7 @@ import { api } from '../utils/api';
 import { useTranslation } from 'react-i18next';
 import QuickSettingsPanel from './QuickSettingsPanel';
 
-function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded = false, onToggleExpand = null }) {
+function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded = false, onToggleExpand = null, isMobile = false }) {
   const { t } = useTranslation('codeEditor');
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -551,18 +551,18 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
           'w-full h-full md:rounded-lg md:shadow-2xl md:w-full md:max-w-6xl md:h-[80vh] md:max-h-[80vh]'
         }`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b border-border flex-shrink-0 min-w-0">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="bg-background border-b border-border p-2 sm:p-3 pwa-header-safe flex-shrink-0 flex items-center justify-between min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 min-w-0">
-                <h3 className="font-medium text-gray-900 dark:text-white truncate">{t('header.projectFiles')}</h3>
+                <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white truncate">{t('header.projectFiles')}</h2>
                 {file.diffInfo && (
                   <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-1 rounded whitespace-nowrap">
                     {t('header.showingChanges')}
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{file.path || file.name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{file.path || file.name}</p>
             </div>
           </div>
 

@@ -528,7 +528,7 @@ This document outlines the requirements for building an AI-powered task manageme
           : 'md:w-full md:max-w-6xl md:h-[85vh] md:max-h-[85vh]'
       )}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 min-w-0">
+        <div className="bg-background border-b border-border p-2 sm:p-3 pwa-header-safe flex-shrink-0 flex items-center justify-between min-w-0">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="w-8 h-8 bg-purple-600 rounded flex items-center justify-center flex-shrink-0">
               <FileText className="w-4 h-4 text-white" />

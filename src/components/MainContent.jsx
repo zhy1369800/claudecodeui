@@ -877,6 +877,7 @@ function MainContent({
                 isSidebar={true}
                 isExpanded={editorExpanded}
                 onToggleExpand={handleToggleEditorExpand}
+                isMobile={isMobile}
               />
             </div>
           </>
@@ -890,6 +891,7 @@ function MainContent({
           onClose={handleCloseEditor}
           projectPath={selectedProject?.path}
           isSidebar={false}
+          isMobile={isMobile}
         />
       )}
 

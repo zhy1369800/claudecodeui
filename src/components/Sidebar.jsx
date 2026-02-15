@@ -1052,6 +1052,12 @@ function Sidebar({
                   <div className="group md:group">
                     {/* Mobile Project Item */}
                     <div className="md:hidden relative overflow-hidden mx-3 my-1 rounded-xl border border-border/50 bg-card shadow-sm">
+                      {isRunning && (
+                        <div
+                          className="absolute top-2 left-2 z-20 w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-sm"
+                          title={`Running${runningInfo?.ports?.length > 0 ? ` on port ${runningInfo.ports.join(', ')}` : ''}`}
+                        />
+                      )}
                       {/* Delete Action Background */}
                       <div
                         className="absolute inset-0 bg-red-600 flex items-center justify-end px-8 cursor-pointer"
@@ -1133,12 +1139,6 @@ function Sidebar({
                                       <h3 className="text-sm font-bold text-foreground truncate">
                                         {project.displayName}
                                       </h3>
-                                      {isRunning && (
-                                        <div
-                                          className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"
-                                          title={`Running${runningInfo?.ports?.length > 0 ? ` on port ${runningInfo.ports.join(', ')}` : ''}`}
-                                        />
-                                      )}
                                     </div>
                                     {tasksEnabled && (
                                       <TaskIndicator
@@ -1161,7 +1161,7 @@ function Sidebar({
                                         const sessionCount = getAllSessions(project).length;
                                         const hasMore = project.sessionMeta?.hasMore !== false;
                                         return hasMore && sessionCount >= 5 ? `${sessionCount}+` : sessionCount;
-                                      })()} SESSIONS
+                                      })()}
                                     </span>
                                     <span className="truncate opacity-60">
                                       {project.fullPath.split(/[\\/]/).pop()}
@@ -1272,13 +1272,13 @@ function Sidebar({
                     </div>
 
                     {/* Desktop Project Item */}
-                    <Button
-                      variant="ghost"
-                      className={cn(
-                        "hidden md:flex w-full justify-between p-2 h-auto font-normal hover:bg-accent/50",
-                        isSelected && "bg-accent text-accent-foreground",
-                        isStarred && !isSelected && "bg-yellow-50/50 dark:bg-yellow-900/10 hover:bg-yellow-100/50 dark:hover:bg-yellow-900/20"
-                      )}
+                      <Button
+                        variant="ghost"
+                        className={cn(
+                          "hidden md:flex w-full justify-between p-2 h-auto font-normal hover:bg-accent/50 relative",
+                          isSelected && "bg-accent text-accent-foreground",
+                          isStarred && !isSelected && "bg-yellow-50/50 dark:bg-yellow-900/10 hover:bg-yellow-100/50 dark:hover:bg-yellow-900/20"
+                        )}
                       onClick={() => {
                         // Desktop behavior: select project and toggle
                         if (selectedProject?.name !== project.name) {
@@ -1292,8 +1292,14 @@ function Sidebar({
                         }
                         toggleProject(project.name);
                       })}
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                      >
+                        {isRunning && (
+                          <div
+                            className="absolute top-2 left-2 z-10 w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-sm"
+                            title={`Running${runningInfo?.ports?.length > 0 ? ` on port ${runningInfo.ports.join(', ')}` : ''}`}
+                          />
+                        )}
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
                         {isExpanded ? (
                           <FolderOpen className="w-4 h-4 text-primary flex-shrink-0" />
                         ) : (
@@ -1324,12 +1330,6 @@ function Sidebar({
                                 <div className="text-sm font-semibold truncate text-foreground" title={project.displayName}>
                                   {project.displayName}
                                 </div>
-                                {isRunning && (
-                                  <div
-                                    className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"
-                                    title={`Running${runningInfo?.ports?.length > 0 ? ` on port ${runningInfo.ports.join(', ')}` : ''}`}
-                                  />
-                                )}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {(() => {

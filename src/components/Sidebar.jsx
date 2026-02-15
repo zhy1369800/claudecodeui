@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
@@ -92,6 +92,8 @@ function Sidebar({
   const touchStartX = useRef(null);
   const touchCurrentX = useRef(null);
   const [runningProjects, setRunningProjects] = useState({}); // Map of running projects
+  const [stoppingProjects, setStoppingProjects] = useState(new Set()); // Projects currently being stopped
+  const runningFetchIdRef = useRef(0);
 
   // TaskMaster context
   const { setCurrentProject, mcpServerStatus } = useTaskMaster();
@@ -131,30 +133,64 @@ function Sidebar({
     return () => clearInterval(timer);
   }, []);
 
+  const fetchRunningProjects = useCallback(async () => {
+    const requestId = ++runningFetchIdRef.current;
+    try {
+      const response = await api.getRunningProjects();
+      if (!response.ok) {
+        return;
+      }
+
+      const data = await response.json();
+      // Ignore stale responses to avoid old polling data overwriting latest UI state.
+      if (requestId !== runningFetchIdRef.current) {
+        return;
+      }
+
+      const runningMap = {};
+      if (data.running) {
+        data.running.forEach(p => {
+          runningMap[p.name] = p;
+        });
+      }
+      setRunningProjects(runningMap);
+    } catch (error) {
+      console.error('Error fetching running projects:', error);
+    }
+  }, []);
+
+  const handleStopProject = useCallback(async (projectName) => {
+    setStoppingProjects(prev => new Set([...prev, projectName]));
+    // Optimistically update UI so icon/indicator flips immediately.
+    setRunningProjects(prev => {
+      const next = { ...prev };
+      delete next[projectName];
+      return next;
+    });
+
+    try {
+      const response = await api.stopProject(projectName);
+      if (!response.ok) {
+        throw new Error(`Failed to stop project: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error stopping project:', error);
+    } finally {
+      await fetchRunningProjects();
+      setStoppingProjects(prev => {
+        const next = new Set(prev);
+        next.delete(projectName);
+        return next;
+      });
+    }
+  }, [fetchRunningProjects]);
+
   // Poll for running projects
   useEffect(() => {
-    const fetchRunningProjects = async () => {
-      try {
-        const response = await api.getRunningProjects();
-        if (response.ok) {
-          const data = await response.json();
-          const runningMap = {};
-          if (data.running) {
-            data.running.forEach(p => {
-              runningMap[p.name] = p;
-            });
-          }
-          setRunningProjects(runningMap);
-        }
-      } catch (error) {
-        console.error('Error fetching running projects:', error);
-      }
-    };
-
     fetchRunningProjects();
     const interval = setInterval(fetchRunningProjects, 3000); // Poll every 3 seconds
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchRunningProjects]);
 
   // Clear additional sessions when projects list changes (e.g., after refresh)
   useEffect(() => {
@@ -1006,6 +1042,7 @@ function Sidebar({
               const isSelected = selectedProject?.name === project.name;
               const isStarred = isProjectStarred(project.name);
               const isDeleting = deletingProjects.has(project.name);
+              const isStopping = stoppingProjects.has(project.name);
               const isRunning = !!runningProjects[project.name];
               const runningInfo = runningProjects[project.name];
 
@@ -1191,20 +1228,9 @@ function Sidebar({
                                     onClick={async (e) => {
                                       e.stopPropagation();
                                       if (isRunning) {
+                                        if (isStopping) return;
                                         if (confirm(`Stop project ${project.displayName}?`)) {
-                                          await api.stopProject(project.name);
-                                          // Refresh running projects immediately
-                                          const response = await api.getRunningProjects();
-                                          if (response.ok) {
-                                            const data = await response.json();
-                                            const runningMap = {};
-                                            if (data.running) {
-                                              data.running.forEach(p => {
-                                                runningMap[p.name] = p;
-                                              });
-                                            }
-                                            setRunningProjects(runningMap);
-                                          }
+                                          await handleStopProject(project.name);
                                         }
                                       } else {
                                         handleProjectSelect(project);
@@ -1213,7 +1239,9 @@ function Sidebar({
                                     }}
                                     title={isRunning ? "Stop Project" : "Start Project"}
                                   >
-                                    {isRunning ? (
+                                    {isStopping ? (
+                                      <Loader2 className="w-4 h-4 animate-spin text-red-600 dark:text-red-400" />
+                                    ) : isRunning ? (
                                       <div className="w-3 h-3 bg-red-600 dark:text-red-400 rounded-sm" />
                                     ) : (
                                       <Play className="w-4 h-4 text-green-600 dark:text-green-400 fill-current" />
@@ -1376,20 +1404,9 @@ function Sidebar({
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   if (isRunning) {
+                                    if (isStopping) return;
                                     if (confirm(`Stop project ${project.displayName}?`)) {
-                                      await api.stopProject(project.name);
-                                      // Refresh running projects immediately
-                                      const response = await api.getRunningProjects();
-                                      if (response.ok) {
-                                        const data = await response.json();
-                                        const runningMap = {};
-                                        if (data.running) {
-                                          data.running.forEach(p => {
-                                            runningMap[p.name] = p;
-                                          });
-                                        }
-                                        setRunningProjects(runningMap);
-                                      }
+                                      await handleStopProject(project.name);
                                     }
                                   } else {
                                     handleProjectSelect(project);
@@ -1398,7 +1415,9 @@ function Sidebar({
                                 }}
                                 title={isRunning ? "Stop Project" : "Start Project"}
                               >
-                                {isRunning ? (
+                                {isStopping ? (
+                                  <Loader2 className="w-3 h-3 animate-spin text-red-500" />
+                                ) : isRunning ? (
                                   <div className="w-3 h-3 bg-red-500 rounded-sm" />
                                 ) : (
                                   <Play className="w-3 h-3 text-green-600 dark:text-green-400 fill-current" />
@@ -1777,7 +1796,31 @@ function Sidebar({
           <button
             className="w-full h-14 bg-muted/50 hover:bg-muted/70 rounded-2xl flex items-center justify-start gap-4 px-4 active:scale-[0.98] transition-all duration-150"
             onClick={() => {
-              if (setActiveTab) setActiveTab('shell', { forcePlainShell: true });
+              if (setActiveTab) {
+                // On mobile, expanded project is treated as the active selection for terminal routing.
+                const expandedProjectName = expandedProjects.size > 0
+                  ? Array.from(expandedProjects)[0]
+                  : null;
+                const expandedProject = expandedProjectName
+                  ? projects.find(project => project.name === expandedProjectName)
+                  : null;
+                const terminalProject = expandedProject || selectedProject || null;
+
+                if (terminalProject) {
+                  handleProjectSelect(terminalProject);
+                }
+
+                const runningInfo = terminalProject?.name ? runningProjects[terminalProject.name] : null;
+                const isRunningSelectedProject = !!runningInfo;
+                const runningInitialCommand = runningInfo?.initialCommand || terminalProject?.startupScript || null;
+                const shellOptions = {
+                  forcePlainShell: true,
+                  clearSession: true,
+                  initialCommand: isRunningSelectedProject ? runningInitialCommand : null
+                };
+
+                setActiveTab('shell', shellOptions);
+              }
               if (onToggleSidebar) onToggleSidebar();
             }}
           >

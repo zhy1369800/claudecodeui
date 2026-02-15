@@ -1242,12 +1242,14 @@ function handleShellConnection(ws) {
             console.log('📨 Shell message received:', data.type);
 
             if (data.type === 'init') {
-                const projectPath = data.projectPath || process.cwd();
+                const requestedProjectPath = data.projectPath || null;
+                const projectPath = requestedProjectPath || ((data.isPlainShell || data.provider === 'plain-shell') ? os.homedir() : process.cwd());
                 const projectName = data.projectName || path.basename(projectPath); // Extract project name from path if not provided
                 const sessionId = data.sessionId;
                 const hasSession = data.hasSession;
                 const provider = data.provider || 'claude';
                 const initialCommand = data.initialCommand;
+                const commandKey = data.commandKey || initialCommand || null;
                 const isPlainShell = data.isPlainShell || (!!initialCommand && !hasSession) || provider === 'plain-shell';
 
                 // Login commands (Claude/Cursor auth) should never reuse cached sessions
@@ -1258,8 +1260,8 @@ function handleShellConnection(ws) {
                 );
 
                 // Include command hash in session key so different commands get separate sessions
-                const commandSuffix = isPlainShell && initialCommand
-                    ? `_cmd_${Buffer.from(initialCommand).toString('base64').slice(0, 16)}`
+                const commandSuffix = isPlainShell && commandKey
+                    ? `_cmd_${Buffer.from(commandKey).toString('base64').slice(0, 16)}`
                     : '';
                 // Include provider in key so Claude/Cursor/Codex sessions never reuse each other's PTY history.
                 ptySessionKey = `${provider}_${projectPath}_${sessionId || 'default'}${commandSuffix}`;

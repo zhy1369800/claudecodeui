@@ -83,6 +83,9 @@ function AppContent() {
       setForcePlainShell(false);
       setInitialShellCommand(null);
     } else {
+      if (options.clearSession) {
+        setSelectedSession(null);
+      }
       if (options.forcePlainShell !== undefined) {
         setForcePlainShell(!!options.forcePlainShell);
       }

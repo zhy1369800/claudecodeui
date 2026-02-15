@@ -51,6 +51,7 @@ function Shell({
   const [lastSessionId, setLastSessionId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [virtualKeysOpen, setVirtualKeysOpen] = useState(false);
+  const lastShellContextKeyRef = useRef(null);
 
   // Notify parent of connection status
   useEffect(() => {
@@ -128,6 +129,9 @@ function Shell({
               provider: isActuallyPlainShell ? 'plain-shell' : (selectedSessionRef.current?.__provider || 'claude'),
               cols: terminal.current.cols,
               rows: terminal.current.rows,
+              // Keep a stable command key for server-side PTY matching even when
+              // initialCommand is intentionally suppressed on reconnect.
+              commandKey: isActuallyPlainShell ? (initialCommandRef.current || null) : null,
               initialCommand: commandToSend,
               isPlainShell: isActuallyPlainShell
             }));
@@ -277,6 +281,37 @@ function Shell({
 
     setLastSessionId(currentSessionId);
   }, [selectedSession?.id, isInitialized, disconnectFromShell]);
+
+  useEffect(() => {
+    const projectPath = selectedProject?.fullPath || selectedProject?.path || null;
+    const isActuallyPlainShell = isPlainShell || !selectedProject;
+    const provider = isActuallyPlainShell ? 'plain-shell' : (selectedSession?.__provider || 'claude');
+    const sessionPart = isActuallyPlainShell ? 'plain' : (selectedSession?.id || 'new');
+    const commandPart = isActuallyPlainShell ? (initialCommand || '') : '';
+    const contextKey = `${projectPath || 'home'}|${provider}|${sessionPart}|${commandPart}`;
+
+    if (lastShellContextKeyRef.current === null) {
+      lastShellContextKeyRef.current = contextKey;
+      return;
+    }
+
+    if (lastShellContextKeyRef.current !== contextKey && isInitialized) {
+      // Full restart is required when shell context changes (project/session/command),
+      // otherwise an existing terminal instance may stay attached to old PTY state.
+      restartShell();
+    }
+
+    lastShellContextKeyRef.current = contextKey;
+  }, [
+    selectedProject?.fullPath,
+    selectedProject?.path,
+    selectedSession?.id,
+    selectedSession?.__provider,
+    isPlainShell,
+    initialCommand,
+    isInitialized,
+    restartShell
+  ]);
 
   useEffect(() => {
     if (!terminalRef.current || isRestarting || terminal.current) {

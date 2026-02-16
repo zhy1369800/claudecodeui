@@ -100,13 +100,16 @@ function Shell({
         wsUrl = `${protocol}//${window.location.host}/shell?token=${encodeURIComponent(token)}`;
       }
 
-      ws.current = new WebSocket(wsUrl);
+      const socket = new WebSocket(wsUrl);
+      ws.current = socket;
 
-      ws.current.onopen = () => {
+      socket.onopen = () => {
+        if (ws.current !== socket) return;
         setIsConnected(true);
         setIsConnecting(false);
 
         setTimeout(() => {
+          if (ws.current !== socket) return;
           if (fitAddon.current && terminal.current) {
             fitAddon.current.fit();
 
@@ -120,7 +123,7 @@ function Shell({
               initialCommandExecutedRef.current = true;
             }
 
-            ws.current.send(JSON.stringify({
+            socket.send(JSON.stringify({
               type: 'init',
               projectPath: projectPath,
               projectName: projectName,
@@ -139,7 +142,8 @@ function Shell({
         }, 100);
       };
 
-      ws.current.onmessage = (event) => {
+      socket.onmessage = (event) => {
+        if (ws.current !== socket) return;
         try {
           const data = JSON.parse(event.data);
 
@@ -169,7 +173,9 @@ function Shell({
         }
       };
 
-      ws.current.onclose = (event) => {
+      socket.onclose = () => {
+        if (ws.current !== socket) return;
+        ws.current = null;
         setIsConnected(false);
         setIsConnecting(false);
 
@@ -179,7 +185,8 @@ function Shell({
         }
       };
 
-      ws.current.onerror = (error) => {
+      socket.onerror = () => {
+        if (ws.current !== socket) return;
         setIsConnected(false);
         setIsConnecting(false);
       };

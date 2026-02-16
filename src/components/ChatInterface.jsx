@@ -1864,7 +1864,7 @@ const ImageAttachment = ({ file, onRemove, uploadProgress, error }) => {
 // - onReplaceTemporarySession: Called to replace temporary session ID with real WebSocket session ID
 //
 // This ensures uninterrupted chat experience by pausing sidebar refreshes during conversations.
-function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, latestMessage, onFileOpen, onInputFocusChange, onSessionActive, onSessionInactive, onSessionProcessing, onSessionNotProcessing, processingSessions, onReplaceTemporarySession, onNavigateToSession,
+function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0, ws, sendMessage, latestMessage, onFileOpen, onInputFocusChange, onSessionActive, onSessionInactive, onSessionProcessing, onSessionNotProcessing, processingSessions, onReplaceTemporarySession, onNavigateToSession,
   onShowSettings,
   autoExpandTools,
   showRawParameters,
@@ -1937,6 +1937,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [atSymbolPosition, setAtSymbolPosition] = useState(-1);
   const [canAbortSession, setCanAbortSession] = useState(false);
   const activeRunIdRef = useRef(null);
+  const lastNewSessionTriggerRef = useRef(newSessionTrigger);
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
   const scrollPositionRef = useRef({ height: 0, top: 0 });
   const [showCommandMenu, setShowCommandMenu] = useState(false);
@@ -3305,6 +3306,29 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
 
     loadMessages();
   }, [selectedSession, selectedProject, loadCursorSessionMessages, scrollToBottom, isSystemSessionChange, resetStreamingState]);
+
+  useEffect(() => {
+    if (lastNewSessionTriggerRef.current === newSessionTrigger) {
+      return;
+    }
+    lastNewSessionTriggerRef.current = newSessionTrigger;
+
+    // Explicit "new session" action should always clear previous ad-hoc context.
+    resetStreamingState();
+    pendingViewSessionRef.current = null;
+    setChatMessages([]);
+    setSessionMessages([]);
+    setClaudeStatus(null);
+    setCanAbortSession(false);
+    setIsLoading(false);
+    setCurrentSessionId(null);
+    sessionStorage.removeItem('cursorSessionId');
+    sessionStorage.removeItem('pendingSessionId');
+    setMessagesOffset(0);
+    setHasMoreMessages(false);
+    setTotalMessages(0);
+    setTokenBudget(null);
+  }, [newSessionTrigger, resetStreamingState]);
 
   // External Message Update Handler: Reload messages when external CLI modifies current session
   // This triggers when App.jsx detects a JSONL file change for the currently-viewed session

@@ -39,6 +39,7 @@ function MainContent({
   setActiveTab,
   forcePlainShell,
   initialShellCommand,
+  newSessionTrigger,
   ws,
   sendMessage,
   latestMessage,
@@ -738,6 +739,7 @@ function MainContent({
               <ChatInterface
               selectedProject={selectedProject}
               selectedSession={selectedSession}
+              newSessionTrigger={newSessionTrigger}
               ws={ws}
               sendMessage={sendMessage}
               latestMessage={latestMessage}

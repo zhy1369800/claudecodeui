@@ -61,6 +61,7 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'files'
   const [forcePlainShell, setForcePlainShell] = useState(false);
   const [initialShellCommand, setInitialShellCommand] = useState(null);
+  const [newSessionTrigger, setNewSessionTrigger] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
@@ -467,6 +468,7 @@ function AppContent() {
     setSelectedProject(project);
     setSelectedSession(null);
     setActiveTab('chat');
+    setNewSessionTrigger(prev => prev + 1);
     navigate('/');
     if (isMobile) {
       setSidebarOpen(false);
@@ -954,6 +956,7 @@ function AppContent() {
           setActiveTab={handleSetActiveTab}
           forcePlainShell={forcePlainShell}
           initialShellCommand={initialShellCommand}
+          newSessionTrigger={newSessionTrigger}
           ws={ws}
           sendMessage={sendMessage}
           latestMessage={latestMessage}

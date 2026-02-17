@@ -350,7 +350,8 @@ function AppContent() {
           return (
             newProject.name !== prevProject.name ||
             newProject.displayName !== prevProject.displayName ||
-            newProject.fullPath !== prevProject.fullPath ||
+             newProject.startupScript !== prevProject.startupScript ||
+             newProject.fullPath !== prevProject.fullPath ||
             JSON.stringify(newProject.sessionMeta) !== JSON.stringify(prevProject.sessionMeta) ||
             JSON.stringify(newProject.sessions) !== JSON.stringify(prevProject.sessions) ||
             JSON.stringify(newProject.codexSessions) !== JSON.stringify(prevProject.codexSessions) ||
@@ -535,7 +536,8 @@ function AppContent() {
           return (
             newProject.name !== prevProject.name ||
             newProject.displayName !== prevProject.displayName ||
-            newProject.fullPath !== prevProject.fullPath ||
+             newProject.startupScript !== prevProject.startupScript ||
+             newProject.fullPath !== prevProject.fullPath ||
             JSON.stringify(newProject.sessionMeta) !== JSON.stringify(prevProject.sessionMeta) ||
             JSON.stringify(newProject.sessions) !== JSON.stringify(prevProject.sessions) ||
             JSON.stringify(newProject.codexSessions) !== JSON.stringify(prevProject.codexSessions) ||

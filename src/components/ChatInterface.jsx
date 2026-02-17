@@ -3182,18 +3182,25 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
         isLoadingSessionRef.current = true;
 
         // Only reset state if the session ID actually changed (not initial load)
+        const pendingSessionId = sessionStorage.getItem('pendingSessionId');
+        const shouldPreserveForSystemChange = isSystemSessionChange && (
+          selectedSession.id === currentSessionId ||
+          (!currentSessionId && pendingSessionId && selectedSession.id === pendingSessionId)
+        );
+        const shouldResetState = !shouldPreserveForSystemChange && (currentSessionId === null || currentSessionId !== selectedSession.id);
         const sessionChanged = currentSessionId !== null && currentSessionId !== selectedSession.id;
 
+        if (shouldResetState) {
+          // Clear any streaming leftovers from the previous session (or ad-hoc new-session view)
+          resetStreamingState();
+          pendingViewSessionRef.current = null;
+          setChatMessages([]);
+          setSessionMessages([]);
+          setClaudeStatus(null);
+          setCanAbortSession(false);
+        }
+
         if (sessionChanged) {
-          if (!isSystemSessionChange) {
-            // Clear any streaming leftovers from the previous session
-            resetStreamingState();
-            pendingViewSessionRef.current = null;
-            setChatMessages([]);
-            setSessionMessages([]);
-            setClaudeStatus(null);
-            setCanAbortSession(false);
-          }
           // Reset pagination state when switching sessions
           setMessagesOffset(0);
           setHasMoreMessages(false);
@@ -3503,6 +3510,30 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
         if (latestMessage.sessionId !== activeViewSessionId) {
           if (latestMessage.sessionId && lifecycleMessageTypes.has(latestMessage.type)) {
             handleBackgroundLifecycle(latestMessage.sessionId);
+
+            const pendingSessionId = sessionStorage.getItem('pendingSessionId');
+            const pendingViewSessionId = pendingViewSessionRef.current?.sessionId || null;
+            const isPendingBackgroundSession =
+              latestMessage.sessionId === pendingSessionId ||
+              (pendingViewSessionId && latestMessage.sessionId === pendingViewSessionId);
+
+            if (isPendingBackgroundSession) {
+              if (pendingSessionId === latestMessage.sessionId) {
+                sessionStorage.removeItem('pendingSessionId');
+              }
+              if (pendingViewSessionRef.current?.sessionId === latestMessage.sessionId) {
+                pendingViewSessionRef.current = null;
+              }
+
+              const shouldRefreshProjects =
+                latestMessage.type === 'cursor-result' ||
+                latestMessage.type === 'codex-complete' ||
+                (latestMessage.type === 'claude-complete' && latestMessage.exitCode === 0);
+
+              if (shouldRefreshProjects && window.refreshProjects) {
+                setTimeout(() => window.refreshProjects(), 500);
+              }
+            }
           }
           // Message is for a different session, ignore it
           console.log('??-?,? Skipping message for different session:', latestMessage.sessionId, 'current:', activeViewSessionId);

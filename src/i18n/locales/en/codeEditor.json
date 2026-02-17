@@ -3,6 +3,7 @@
     "changes": "changes",
     "previousChange": "Previous change",
     "nextChange": "Next change",
+    "revertCurrentChange": "Revert current change",
     "hideDiff": "Hide diff highlighting",
     "showDiff": "Show diff highlighting",
     "settings": "Editor Settings",
@@ -27,5 +28,8 @@
     "lines": "Lines:",
     "characters": "Characters:",
     "shortcuts": "Press Ctrl+S to save • Esc to close"
+  },
+  "prompts": {
+    "closeConfirm": "You have unsaved changes (including reverted changes). Close without saving?"
   }
 }

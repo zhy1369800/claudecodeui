@@ -410,7 +410,7 @@ function GitPanel({ selectedProject, isMobile, onFileOpen }) {
       const response = await authenticatedFetch(`/api/git/diff?project=${encodeURIComponent(selectedProject.name)}&file=${encodeURIComponent(filePath)}`);
       const data = await response.json();
 
-      if (!data.error && data.diff) {
+      if (!data.error && typeof data.diff === 'string') {
         setGitDiff(prev => ({
           ...prev,
           [filePath]: data.diff
@@ -420,7 +420,6 @@ function GitPanel({ selectedProject, isMobile, onFileOpen }) {
       console.error('Error fetching file diff:', error);
     }
   };
-
   const handleFileOpen = async (filePath) => {
     if (!onFileOpen) return;
 
@@ -469,7 +468,7 @@ function GitPanel({ selectedProject, isMobile, onFileOpen }) {
       const response = await authenticatedFetch(`/api/git/commit-diff?project=${encodeURIComponent(selectedProject.name)}&commit=${commitHash}`);
       const data = await response.json();
 
-      if (!data.error && data.diff) {
+      if (!data.error && typeof data.diff === 'string') {
         setCommitDiffs(prev => ({
           ...prev,
           [commitHash]: data.diff
@@ -777,7 +776,7 @@ function GitPanel({ selectedProject, isMobile, onFileOpen }) {
             )}
           </div>
           <div className="max-h-96 overflow-y-auto">
-            {diff && <DiffViewer diff={diff} fileName={filePath} isMobile={isMobile} wrapText={wrapText} />}
+            {typeof diff === 'string' && <DiffViewer diff={diff} fileName={filePath} isMobile={isMobile} wrapText={wrapText} />}
           </div>
         </div>
       </div>

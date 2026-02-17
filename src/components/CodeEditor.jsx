@@ -41,6 +41,8 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
   const [quickSettingsOpen, setQuickSettingsOpen] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth < 768);
   const editorRef = useRef(null);
+  const initialContentRef = useRef('');
+  const hasUnsavedChanges = content !== initialContentRef.current;
 
   // Create minimap extension with chunk-based gutters
   const minimapExtension = useMemo(() => {
@@ -128,6 +130,7 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
         // Left side - diff navigation (if applicable)
         toolbarHTML += '<div style="display: flex; align-items: center; gap: 8px;">';
         if (hasDiff) {
+          if (chunkCount > 0 && currentIndex >= chunkCount) currentIndex = 0;
           toolbarHTML += `
             <span style="font-weight: 500;">${chunkCount > 0 ? `${currentIndex + 1}/${chunkCount}` : '0'} ${t('toolbar.changes')}</span>
             <button class="cm-diff-nav-btn cm-diff-nav-prev" title="${t('toolbar.previousChange')}" ${chunkCount === 0 ? 'disabled' : ''}>
@@ -138,6 +141,12 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
             <button class="cm-diff-nav-btn cm-diff-nav-next" title="${t('toolbar.nextChange')}" ${chunkCount === 0 ? 'disabled' : ''}>
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <button class="cm-toolbar-btn cm-diff-revert-btn" title="${t('toolbar.revertCurrentChange')}" ${chunkCount === 0 ? 'disabled' : ''}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h11a4 4 0 010 8H9" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10l4-4m-4 4l4 4" />
               </svg>
             </button>
           `;
@@ -206,6 +215,31 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
           });
         }
 
+        if (hasDiff) {
+          const revertBtn = dom.querySelector('.cm-diff-revert-btn');
+          revertBtn?.addEventListener('click', () => {
+            if (chunks.length === 0) return;
+            const chunk = chunks[currentIndex];
+            if (!chunk) return;
+            const original = file.diffInfo?.old_string;
+            if (typeof original !== 'string') return;
+
+            const fromA = Number.isInteger(chunk.fromA) ? chunk.fromA : 0;
+            const toA = Number.isInteger(chunk.toA) ? chunk.toA : fromA;
+            const fromB = Number.isInteger(chunk.fromB) ? chunk.fromB : 0;
+            const toB = Number.isInteger(chunk.toB) ? chunk.toB : fromB;
+
+            const safeFromA = Math.max(0, Math.min(original.length, fromA));
+            const safeToA = Math.max(safeFromA, Math.min(original.length, toA));
+            const insertText = original.slice(fromA, toA);
+            const currentText = view.state.doc.toString();
+            const safeFromB = Math.max(0, Math.min(currentText.length, fromB));
+            const safeToB = Math.max(safeFromB, Math.min(currentText.length, toB));
+            const nextText = currentText.slice(0, safeFromB) + original.slice(safeFromA, safeToA) + currentText.slice(safeToB);
+            setContent(nextText);
+          });
+        }
+
       };
 
       updatePanel();
@@ -218,7 +252,7 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
     };
 
     return [showPanel.of(createPanel)];
-  }, [file.diffInfo, showDiff, isSidebar, isExpanded, onToggleExpand]);
+  }, [file.diffInfo, showDiff, isSidebar, isExpanded, onToggleExpand, t]);
 
   const showEditorToolbar = !!file.diffInfo;
 
@@ -268,6 +302,7 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
           // Use the new_string as the content to display
           // The unifiedMergeView will compare it against old_string
           setContent(file.diffInfo.new_string);
+          initialContentRef.current = file.diffInfo.new_string;
           setLoading(false);
           return;
         }
@@ -281,9 +316,11 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
 
         const data = await response.json();
         setContent(data.content);
+        initialContentRef.current = data.content;
       } catch (error) {
         console.error('Error loading file:', error);
         setContent(`// Error loading file: ${error.message}\n// File: ${file.name}\n// Path: ${file.path}`);
+        initialContentRef.current = '';
       } finally {
         setLoading(false);
       }
@@ -324,6 +361,7 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
       const result = await response.json();
       console.log('Save successful:', result);
 
+      initialContentRef.current = content;
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
 
@@ -414,6 +452,14 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
   }, []);
 
   // Handle keyboard shortcuts
+  const handleRequestClose = () => {
+    if (hasUnsavedChanges) {
+      const confirmed = window.confirm(t('prompts.closeConfirm'));
+      if (!confirmed) return;
+    }
+    onClose();
+  };
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.ctrlKey || e.metaKey) {
@@ -422,14 +468,14 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
           handleSave();
         } else if (e.key === 'Escape') {
           e.preventDefault();
-          onClose();
+          handleRequestClose();
         }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [content]);
+  }, [content, hasUnsavedChanges]);
 
   if (loading) {
     return (
@@ -600,7 +646,7 @@ function CodeEditor({ file, onClose, projectPath, isSidebar = false, isExpanded 
             </button>
 
             <button
-              onClick={onClose}
+              onClick={handleRequestClose}
               className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 h-10 w-10 flex items-center justify-center"
               title={t('actions.close')}
             >

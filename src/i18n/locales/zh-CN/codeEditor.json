@@ -1,8 +1,9 @@
 {
   "toolbar": {
-    "changes": "个更改",
-    "previousChange": "上一个更改",
-    "nextChange": "下一个更改",
+    "changes": "处改动",
+    "previousChange": "上一处改动",
+    "nextChange": "下一处改动",
+    "revertCurrentChange": "撤回当前改动",
     "hideDiff": "隐藏差异高亮",
     "showDiff": "显示差异高亮",
     "settings": "编辑器设置",
@@ -12,7 +13,7 @@
   "loading": "正在加载 {{fileName}}...",
   "header": {
     "projectFiles": "项目文件",
-    "showingChanges": "显示更改"
+    "showingChanges": "显示改动"
   },
   "actions": {
     "download": "下载文件",
@@ -24,8 +25,11 @@
     "close": "关闭"
   },
   "footer": {
-    "lines": "行数：",
-    "characters": "字符数：",
+    "lines": "行数:",
+    "characters": "字符数:",
     "shortcuts": "按 Ctrl+S 保存 • Esc 关闭"
+  },
+  "prompts": {
+    "closeConfirm": "你有未保存的更改（包括撤回后的更改），确认不保存并关闭吗？"
   }
 }

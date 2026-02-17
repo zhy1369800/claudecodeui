@@ -1,5 +1,5 @@
 import express from 'express';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import { promises as fs } from 'fs';
@@ -54,6 +54,216 @@ function stripDiffHeaders(diff) {
   return filteredLines.join('\n');
 }
 
+
+function assertSafeGitPath(file) {
+  if (typeof file !== 'string' || file.length === 0) return false;
+  if (file.includes('\n') || file.includes('\r') || file.includes('\0')) return false;
+  return true;
+}
+
+function parseDiffHunks(diff) {
+  const lines = diff.split('\n');
+  const hunks = [];
+
+  let current = null;
+  let oldLine = 0;
+  let newLine = 0;
+
+  const hunkHeaderRe = /^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@/;
+
+  for (const line of lines) {
+    const headerMatch = line.match(hunkHeaderRe);
+    if (headerMatch) {
+      if (current) hunks.push(current);
+
+      const oldStart = Number(headerMatch[1]);
+      const oldCount = headerMatch[2] ? Number(headerMatch[2]) : 1;
+      const newStart = Number(headerMatch[3]);
+      const newCount = headerMatch[4] ? Number(headerMatch[4]) : 1;
+
+      current = {
+        header: line,
+        oldStart,
+        oldCount,
+        newStart,
+        newCount,
+        lines: []
+      };
+
+      oldLine = oldStart;
+      newLine = newStart;
+      continue;
+    }
+
+    if (!current) continue;
+
+    const prefix = line[0] || '';
+    const oldLineAt = oldLine;
+    const newLineAt = newLine;
+
+    current.lines.push({ prefix, oldLineAt, newLineAt, raw: line });
+
+    if (prefix === ' ') {
+      oldLine += 1;
+      newLine += 1;
+    } else if (prefix === '-') {
+      oldLine += 1;
+    } else if (prefix === '+') {
+      newLine += 1;
+    }
+  }
+
+  if (current) hunks.push(current);
+  return hunks;
+}
+
+function buildSelectedReversePatch({ file, diff, selections, contextLines = 3 }) {
+  const hunks = parseDiffHunks(diff);
+  const selectionMap = new Map();
+
+  for (const sel of selections) {
+    if (!sel || typeof sel.hunkHeader !== 'string') continue;
+    if (typeof sel.lineIndex !== 'number') continue;
+    if (!selectionMap.has(sel.hunkHeader)) selectionMap.set(sel.hunkHeader, new Map());
+    selectionMap.get(sel.hunkHeader).set(sel.lineIndex, sel);
+  }
+
+  const normalizedFile = String(file).replace(/\\/g, '/');
+  const patchLines = [
+    `diff --git a/${normalizedFile} b/${normalizedFile}`,
+    `--- a/${normalizedFile}`,
+    `+++ b/${normalizedFile}`
+  ];
+
+  const isChange = (ln) => ln.prefix === '+' || ln.prefix === '-';
+  const isContext = (ln) => ln.prefix === ' ';
+
+  const miniHunks = [];
+
+  for (const hunk of hunks) {
+    const selected = selectionMap.get(hunk.header);
+    if (!selected) continue;
+
+    const selectedIdxs = new Set();
+    for (const [idx, sel] of selected.entries()) {
+      const ln = hunk.lines[idx];
+      if (!ln) continue;
+      if (sel.lineText && typeof sel.lineText === 'string' && ln.raw !== sel.lineText) {
+        continue;
+      }
+      if (!isChange(ln)) continue;
+      selectedIdxs.add(idx);
+    }
+
+    if (selectedIdxs.size === 0) continue;
+
+    const segments = [];
+    const maxIdx = hunk.lines.length - 1;
+    const sorted = [...selectedIdxs].sort((a, b) => a - b);
+
+    for (const idx of sorted) {
+      const ln = hunk.lines[idx];
+      if (!ln || !isChange(ln)) continue;
+
+      let left = idx;
+      let right = idx;
+
+      let taken = 0;
+      for (let i = idx - 1; i >= 0 && taken < contextLines; i--) {
+        const l = hunk.lines[i];
+        if (!l) break;
+        if (isChange(l)) break;
+        if (isContext(l)) {
+          left = i;
+          taken += 1;
+        }
+      }
+
+      taken = 0;
+      for (let i = idx + 1; i <= maxIdx && taken < contextLines; i++) {
+        const r = hunk.lines[i];
+        if (!r) break;
+        if (isChange(r)) break;
+        if (isContext(r)) {
+          right = i;
+          taken += 1;
+        }
+      }
+
+      segments.push([left, right]);
+    }
+
+    segments.sort((a, b) => a[0] - b[0]);
+
+    const merged = [];
+    for (const seg of segments) {
+      if (merged.length === 0) {
+        merged.push(seg);
+        continue;
+      }
+      const last = merged[merged.length - 1];
+      if (seg[0] <= last[1] + 1) {
+        last[1] = Math.max(last[1], seg[1]);
+      } else {
+        merged.push(seg);
+      }
+    }
+
+    for (const [l, r] of merged) {
+      let ok = true;
+      for (let i = l; i <= r; i++) {
+        const ln = hunk.lines[i];
+        if (ln && isChange(ln) && !selectedIdxs.has(i)) {
+          ok = false;
+          break;
+        }
+      }
+      if (!ok) continue;
+
+      const seg = hunk.lines.slice(l, r + 1);
+      const first = seg[0];
+
+      const oldStart = first.oldLineAt;
+      const newStart = first.newLineAt;
+      const oldCount = seg.filter(ln => ln.prefix === ' ' || ln.prefix === '-').length;
+      const newCount = seg.filter(ln => ln.prefix === ' ' || ln.prefix === '+').length;
+
+      miniHunks.push({
+        header: `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@`,
+        lines: seg.map(ln => ln.raw)
+      });
+    }
+  }
+
+  if (miniHunks.length === 0) return null;
+
+  for (const h of miniHunks) {
+    patchLines.push(h.header);
+    patchLines.push(...h.lines);
+  }
+
+  return patchLines.join('\n') + '\n';
+}
+
+function runGitApply({ cwd, patch, args }) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', args, { cwd });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (d) => { stdout += d.toString(); });
+    child.stderr.on('data', (d) => { stderr += d.toString(); });
+    child.on('error', reject);
+
+    child.on('close', (code) => {
+      if (code === 0) resolve({ stdout, stderr });
+      else reject(new Error(stderr || stdout || `git apply failed with code ${code}`));
+    });
+
+    child.stdin.write(patch);
+    child.stdin.end();
+  });
+}
 // Helper function to validate git repository
 async function validateGitRepository(projectPath) {
   try {
@@ -181,8 +391,10 @@ router.get('/diff', async (req, res) => {
     const isDeleted = statusOutput.trim().startsWith('D ') || statusOutput.trim().startsWith(' D');
 
     let diff;
+    let mode = 'unstaged';
     if (isUntracked) {
       // For untracked files, show the entire file content as additions
+      mode = 'untracked';
       const filePath = path.join(projectPath, file);
       const stats = await fs.stat(filePath);
 
@@ -197,6 +409,7 @@ router.get('/diff', async (req, res) => {
       }
     } else if (isDeleted) {
       // For deleted files, show the entire file content from HEAD as deletions
+      mode = 'deleted';
       const { stdout: fileContent } = await execAsync(`git show HEAD:"${file}"`, { cwd: projectPath });
       const lines = fileContent.split('\n');
       diff = `--- a/${file}\n+++ /dev/null\n@@ -1,${lines.length} +0,0 @@\n` +
@@ -208,15 +421,17 @@ router.get('/diff', async (req, res) => {
 
       if (unstagedDiff) {
         // Show unstaged changes if they exist
+        mode = 'unstaged';
         diff = stripDiffHeaders(unstagedDiff);
       } else {
         // If no unstaged changes, check for staged changes (index vs HEAD)
         const { stdout: stagedDiff } = await execAsync(`git diff --cached -- "${file}"`, { cwd: projectPath });
+        mode = 'staged';
         diff = stripDiffHeaders(stagedDiff) || '';
       }
     }
 
-    res.json({ diff });
+    res.json({ diff, mode });
   } catch (error) {
     console.error('Git diff error:', error);
     res.json({ error: error.message });
@@ -1133,4 +1348,49 @@ router.post('/delete-untracked', async (req, res) => {
   }
 });
 
+// Revert selected diff lines for a file (unstaged or staged)
+router.post('/revert-lines', async (req, res) => {
+  const { project, file, mode, selections } = req.body || {};
+
+  if (!project || !file || !Array.isArray(selections) || selections.length === 0) {
+    return res.status(400).json({ error: 'Project, file, and selections are required' });
+  }
+
+  if (!assertSafeGitPath(file)) {
+    return res.status(400).json({ error: 'Invalid file path' });
+  }
+
+  const requestedMode = mode === 'staged' ? 'staged' : 'unstaged';
+
+  try {
+    const projectPath = await getActualProjectPath(project);
+    await validateGitRepository(projectPath);
+
+    const diffCmd = requestedMode === 'staged'
+      ? `git diff --cached -- "${file}"`
+      : `git diff -- "${file}"`;
+    const { stdout: rawDiff } = await execAsync(diffCmd, { cwd: projectPath, maxBuffer: 1024 * 1024 * 10 });
+
+    if (!rawDiff || rawDiff.trim().length === 0) {
+      return res.status(400).json({ error: `No ${requestedMode} changes found for this file` });
+    }
+
+    const patch = buildSelectedReversePatch({ file, diff: stripDiffHeaders(rawDiff), selections });
+    if (!patch) {
+      return res.status(400).json({ error: 'No applicable selections found in current diff' });
+    }
+
+    const applyBaseArgs = ['apply', '--recount', '--whitespace=nowarn'];
+    if (requestedMode === 'staged') applyBaseArgs.push('--cached');
+    applyBaseArgs.push('-R');
+
+    await runGitApply({ cwd: projectPath, patch, args: [...applyBaseArgs, '--check'] });
+    await runGitApply({ cwd: projectPath, patch, args: applyBaseArgs });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Git revert-lines error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 export default router;

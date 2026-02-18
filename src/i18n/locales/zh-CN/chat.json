@@ -208,4 +208,6 @@
     "startCli": "在 {{projectName}} 中启动 Claude CLI",
     "defaultCommand": "命令"
   }
+  ,
+  "sessionInterruptedByUser":  "会话被用户中断。"
 }

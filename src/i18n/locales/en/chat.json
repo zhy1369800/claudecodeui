@@ -208,4 +208,6 @@
     "startCli": "Starting Claude CLI in {{projectName}}",
     "defaultCommand": "command"
   }
+,
+  "sessionInterruptedByUser": "Session interrupted by user."
 }

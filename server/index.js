@@ -392,6 +392,7 @@ app.post('/api/system/update', authenticateToken, async (req, res) => {
 app.get('/api/projects', authenticateToken, async (req, res) => {
     try {
         const projects = await getProjects(broadcastProgress);
+        res.set('Cache-Control', 'no-store');
         res.json(projects);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -499,6 +500,7 @@ app.put('/api/projects/:projectName/rename', authenticateToken, async (req, res)
     try {
         const { displayName, startupScript } = req.body;
         await renameProject(req.params.projectName, displayName, startupScript);
+        res.set('Cache-Control', 'no-store');
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });

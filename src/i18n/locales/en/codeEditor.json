@@ -31,5 +31,9 @@
   },
   "prompts": {
     "closeConfirm": "You have unsaved changes (including reverted changes). Close without saving?"
+  },
+  "diff": {
+    "noDiff": "No diff available",
+    "selectHunkHint": "Click to select/unselect this change for revert"
   }
 }

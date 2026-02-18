@@ -8,25 +8,36 @@ REM   restart-prod.bat
 REM   restart-prod.bat 3001
 REM   restart-prod.bat --no-build 3001
 REM   restart-prod.bat --no-elevate --no-build 3001
+REM   restart-prod.bat --check --no-elevate --no-build 3001
 
 cd /d "%~dp0"
 
 set "NO_BUILD=0"
 set "NO_ELEVATE=0"
+set "CHECK_ONLY=0"
 set "PORT="
 
 :PARSE_ARGS
 if "%~1"=="" goto ARGS_DONE
 
 set "ARG=%~1"
-echo(%ARG%| findstr /I /C:"no-build" >nul
+echo(%ARG%| findstr /I /R /C:"check" >nul
+if "%errorlevel%"=="0" (
+  set "CHECK_ONLY=1"
+  shift
+  goto PARSE_ARGS
+)
+
+REM Match "no-build" even if the dash character was pasted as a unicode dash.
+echo(%ARG%| findstr /I /R /C:"no[^ ]*build" >nul
 if "%errorlevel%"=="0" (
   set "NO_BUILD=1"
   shift
   goto PARSE_ARGS
 )
 
-echo(%ARG%| findstr /I /C:"no-elevate" >nul
+REM Match "no-elevate" even if the dash character was pasted as a unicode dash.
+echo(%ARG%| findstr /I /R /C:"no[^ ]*elevate" >nul
 if "%errorlevel%"=="0" (
   set "NO_ELEVATE=1"
   shift
@@ -70,6 +81,12 @@ if not "%errorlevel%"=="0" (
 )
 
 echo.
+if "%CHECK_ONLY%"=="1" (
+  echo.
+  echo [restart-prod] check-only: ok
+  exit /b 0
+)
+
 if "%NO_BUILD%"=="1" (
   echo [restart-prod] start: npm run server
   echo.

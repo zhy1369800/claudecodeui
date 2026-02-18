@@ -29,6 +29,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "restart:prod": "restart-prod.bat --no-elevate --no-build 3001",
+    "restart:prod:build": "restart-prod.bat --no-elevate 3001",
     "start": "npm run build && npm run server",
     "release": "./release.sh"
   },

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * ChatInterface.jsx - Chat Component with Session Protection Integration
  * 
  * SESSION PROTECTION INTEGRATION:
@@ -516,7 +516,7 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
     const seconds = totalSeconds % 60;
     const isZh = (i18n?.resolvedLanguage || i18n?.language || '').toLowerCase().startsWith('zh');
     return isZh
-      ? `耗时 ${minutes}分 ${seconds}秒`
+      ? `工作用时 ${minutes}分${seconds}秒`
       : `Worked for ${minutes}m ${seconds}s`;
   }, [message?.workedForSeconds, i18n?.language, i18n?.resolvedLanguage]);
 
@@ -1570,7 +1570,6 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
                 );
               })()
             ) : message.isInteractivePrompt ? (
-              // Special handling for interactive prompts
               <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -1580,73 +1579,16 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
                   </div>
                   <div className="flex-1">
                     <h4 className="font-semibold text-amber-900 dark:text-amber-100 text-base mb-3">
-                      Interactive Prompt
+                      {t('interactive.title')}
                     </h4>
-                    {(() => {
-                      const lines = message.content.split('\n').filter(line => line.trim());
-                      const questionLine = lines.find(line => line.includes('?')) || lines[0] || '';
-                      const options = [];
-
-                      // Parse the menu options
-                      lines.forEach(line => {
-                        // Match lines like "✓ 1. Yes" or "  2. No"
-                        const optionMatch = line.match(/[✓\s]*(\d+)\.\s+(.+)/);
-                        if (optionMatch) {
-                          const isSelected = line.includes('✓');
-                          options.push({
-                            number: optionMatch[1],
-                            text: optionMatch[2].trim(),
-                            isSelected
-                          });
-                        }
-                      });
-
-                      return (
-                        <>
-                          <p className="text-sm text-amber-800 dark:text-amber-200 mb-4">
-                            {questionLine}
-                          </p>
-
-                          {/* Option buttons */}
-                          <div className="space-y-2 mb-4">
-                            {options.map((option) => (
-                              <button
-                                key={option.number}
-                                className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-all ${option.isSelected
-                                  ? 'bg-amber-600 dark:bg-amber-700 text-white border-amber-600 dark:border-amber-700 shadow-md'
-                                  : 'bg-white dark:bg-gray-800 text-amber-900 dark:text-amber-100 border-amber-300 dark:border-amber-700'
-                                  } cursor-not-allowed opacity-75`}
-                                disabled
-                              >
-                                <div className="flex items-center gap-3">
-                                  <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${option.isSelected
-                                    ? 'bg-white/20'
-                                    : 'bg-amber-100 dark:bg-amber-800/50'
-                                    }`}>
-                                    {option.number}
-                                  </span>
-                                  <span className="text-sm sm:text-base font-medium flex-1">
-                                    {option.text}
-                                  </span>
-                                  {option.isSelected && (
-                                    <span className="text-lg">✅</span>
-                                  )}
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-
-                          <div className="bg-amber-100 dark:bg-amber-800/30 rounded-lg p-3">
-                            <p className="text-amber-900 dark:text-amber-100 text-sm font-medium mb-1">
-                              ⏳ Waiting for your response in the CLI
-                            </p>
-                            <p className="text-amber-800 dark:text-amber-200 text-xs">
-                              Please select an option in your terminal where Claude is running.
-                            </p>
-                          </div>
-                        </>
-                      );
-                    })()}
+                    <div className="bg-amber-100 dark:bg-amber-800/30 rounded-lg p-3">
+                      <p className="text-amber-900 dark:text-amber-100 text-sm font-medium mb-1">
+                        {t('interactive.waiting')}
+                      </p>
+                      <p className="text-amber-800 dark:text-amber-200 text-xs">
+                        {t('interactive.instruction')}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1893,6 +1835,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     return [];
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isThinkingUi, setIsThinkingUi] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState(selectedSession?.id || null);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [sessionMessages, setSessionMessages] = useState([]);
@@ -1923,7 +1866,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
   const streamBufferRef = useRef('');
   const streamTimerRef = useRef(null);
   const scrollRafRef = useRef(null);
-  // Track the session that this view expects when starting a brand‑new chat
+  // Track the session that this view expects when starting a brand闂佺偨鍎查崬鐜 chat
   // (prevents background sessions from streaming into a different view).
   const pendingViewSessionRef = useRef(null);
   const commandQueryTimerRef = useRef(null);
@@ -1937,6 +1880,8 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
   const [atSymbolPosition, setAtSymbolPosition] = useState(-1);
   const [canAbortSession, setCanAbortSession] = useState(false);
   const activeRunIdRef = useRef(null);
+  const abortRequestedRunIdRef = useRef(null);
+  const hasAssistantOutputForRunRef = useRef(false);
   const lastNewSessionTriggerRef = useRef(newSessionTrigger);
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
   const scrollPositionRef = useRef({ height: 0, top: 0 });
@@ -3587,6 +3532,10 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           // Handle Cursor streaming format (content_block_delta / content_block_stop)
           if (messageData && typeof messageData === 'object' && messageData.type) {
             if (messageData.type === 'content_block_delta' && messageData.delta?.text) {
+              if (!hasAssistantOutputForRunRef.current) {
+                hasAssistantOutputForRunRef.current = true;
+                setIsThinkingUi(false);
+              }
               // Decode HTML entities and buffer deltas
               const decodedText = decodeHtmlEntities(messageData.delta.text);
               streamBufferRef.current += decodedText;
@@ -3638,6 +3587,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
                 }
                 return updated;
               });
+              setIsThinkingUi(false);
               return;
             }
           }
@@ -3858,6 +3808,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           setShowStopOnInputButton(false);
           appendWorkedForMessage();
           setIsLoading(false);
+          setIsThinkingUi(false);
           setCanAbortSession(false);
           setClaudeStatus(null);
           if (latestMessage.sessionId) {
@@ -3947,6 +3898,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           // Only update UI state if this is the current session
           if (cursorCompletedSessionId === currentSessionId) {
             setIsLoading(false);
+            setIsThinkingUi(false);
             setCanAbortSession(false);
             setClaudeStatus(null);
           }
@@ -4047,6 +3999,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           // Update UI state if this is the current session OR if we don't have a session ID yet (new session)
           if (completedSessionId === currentSessionId || !currentSessionId) {
             setIsLoading(false);
+            setIsThinkingUi(false);
             setCanAbortSession(false);
             setClaudeStatus(null);
           }
@@ -4175,6 +4128,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
             if (codexData.type === 'turn_complete') {
               // Turn completed, message stream done
               setIsLoading(false);
+              setIsThinkingUi(false);
               setShowStopOnInputButton(false);
               setCanAbortSession(false);
               appendWorkedForMessage();
@@ -4183,6 +4137,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
             // Handle turn failed
             if (codexData.type === 'turn_failed') {
               setIsLoading(false);
+              setIsThinkingUi(false);
               setShowStopOnInputButton(false);
               setCanAbortSession(false);
               appendWorkedForMessage();
@@ -4204,6 +4159,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
 
           if (codexCompletedSessionId === currentSessionId || !currentSessionId) {
             setIsLoading(false);
+            setIsThinkingUi(false);
             setCanAbortSession(false);
             setClaudeStatus(null);
           }
@@ -4253,10 +4209,12 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           activeRunIdRef.current = null;
           setShowStopOnInputButton(false);
           appendWorkedForMessage();
+          setIsThinkingUi(false);
 
           // Only update UI state if this is the current session
           if (abortedSessionId === currentSessionId) {
             setIsLoading(false);
+            setIsThinkingUi(false);
             setCanAbortSession(false);
             setClaudeStatus(null);
           }
@@ -4275,10 +4233,21 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           // This does not change allowlists; it only clears the current banner.
           setPendingPermissionRequests([]);
 
-          if (!latestMessage.ignoredStaleRun) {
+          const abortedRunId = latestMessage.runId || null;
+          const abortRunId = abortRequestedRunIdRef.current;
+          abortRequestedRunIdRef.current = null;
+          hasAssistantOutputForRunRef.current = false;
+
+          const shouldAnnounceAbort = Boolean(latestMessage.success) &&
+            Boolean(abortRunId) &&
+            Boolean(abortedRunId) &&
+            abortedRunId === abortRunId &&
+            !latestMessage.ignoredStaleRun;
+
+          if (shouldAnnounceAbort) {
             setChatMessages(prev => [...prev, {
               type: 'assistant',
-              content: 'Session interrupted by user.',
+              content: t('sessionInterruptedByUser'),
               timestamp: new Date()
             }]);
           }
@@ -4291,8 +4260,13 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
             (selectedSession && statusSessionId === selectedSession.id);
           if (isCurrentSession && latestMessage.isProcessing) {
             // Session is currently processing, restore UI state
-            setIsLoading(true);
-            setCanAbortSession(true);
+            if (activeRunIdRef.current && !abortRequestedRunIdRef.current && !hasAssistantOutputForRunRef.current) {
+              setIsLoading(true);
+              setIsThinkingUi(true);
+            }
+            if (activeRunIdRef.current && !abortRequestedRunIdRef.current) {
+              setCanAbortSession(true);
+            }
             if (onSessionProcessing) {
               onSessionProcessing(statusSessionId);
             }
@@ -4333,8 +4307,12 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
             }
 
             setClaudeStatus(statusInfo);
-            setIsLoading(true);
-            setCanAbortSession(statusInfo.can_interrupt);
+            if (activeRunIdRef.current && !abortRequestedRunIdRef.current) {
+              if (!hasAssistantOutputForRunRef.current) {
+                setIsThinkingUi(true);
+              }
+              setCanAbortSession(statusInfo.can_interrupt);
+            }
           }
           break;
 
@@ -4690,6 +4668,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     runStartedAtRef.current = Date.now();
     pendingWorkedForSecondsRef.current = null;
     setIsLoading(true);
+    setIsThinkingUi(true);
     setShowStopOnInputButton(true);
 
     // Apply thinking mode prefix if selected
@@ -4754,6 +4733,8 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     });
     const runId = createRunId();
     activeRunIdRef.current = runId;
+    abortRequestedRunIdRef.current = null;
+    hasAssistantOutputForRunRef.current = false;
     setCanAbortSession(true);
     // Set a default status when starting
     setClaudeStatus({
@@ -5195,13 +5176,6 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
   };
 
 
-// ! Unused
-  const handleNewSession = () => {
-    setChatMessages([]);
-    setInput('');
-    setIsLoading(false);
-    setCanAbortSession(false);
-  };
 
   const handleAbortSession = useCallback(() => {
     if (!canAbortSession) return;
@@ -5210,9 +5184,12 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     // depend on WebSocket/backend round-trip latency.
     setShowStopOnInputButton(false);
     setIsLoading(false);
+    setIsThinkingUi(false);
     setCanAbortSession(false);
     setClaudeStatus(null);
     appendWorkedForMessage();
+
+    abortRequestedRunIdRef.current = activeRunIdRef.current;
 
     const isWebSocketReady = ws && ws.readyState === WebSocket.OPEN;
     if (!isWebSocketReady) {
@@ -5543,7 +5520,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
             </>
           )}
 
-          {isLoading && (
+          {isThinkingUi && (
             <div className="chat-message assistant">
               <div className="w-full">
                 <div className="flex items-center space-x-3 mb-2">

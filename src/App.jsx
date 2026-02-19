@@ -477,7 +477,9 @@ function AppContent() {
     }
   };
 
-  const handleSessionDelete = (sessionId) => {
+  const handleSessionDelete = (sessionId, context = {}) => {
+    const { projectName, provider } = context;
+
     // If the deleted session was currently selected, clear it
     if (selectedSession?.id === sessionId) {
       setSelectedSession(null);
@@ -485,16 +487,51 @@ function AppContent() {
     }
 
     // Update projects state locally instead of full refresh
-    setProjects(prevProjects =>
-      prevProjects.map(project => ({
-        ...project,
-        sessions: project.sessions?.filter(session => session.id !== sessionId) || [],
-        sessionMeta: {
+    setProjects(prevProjects => prevProjects.map(project => {
+      if (projectName && project.name !== projectName) return project;
+
+      let changed = false;
+      let removedFromClaude = false;
+
+      const nextProject = { ...project };
+
+      if (!provider || provider === 'claude') {
+        const prevClaude = project.sessions || [];
+        const nextClaude = prevClaude.filter(session => session.id !== sessionId);
+        if (nextClaude.length !== prevClaude.length) {
+          nextProject.sessions = nextClaude;
+          changed = true;
+          removedFromClaude = true;
+        }
+      }
+
+      if (!provider || provider === 'cursor') {
+        const prevCursor = project.cursorSessions || [];
+        const nextCursor = prevCursor.filter(session => session.id !== sessionId);
+        if (nextCursor.length !== prevCursor.length) {
+          nextProject.cursorSessions = nextCursor;
+          changed = true;
+        }
+      }
+
+      if (!provider || provider === 'codex') {
+        const prevCodex = project.codexSessions || [];
+        const nextCodex = prevCodex.filter(session => session.id !== sessionId);
+        if (nextCodex.length !== prevCodex.length) {
+          nextProject.codexSessions = nextCodex;
+          changed = true;
+        }
+      }
+
+      if (removedFromClaude) {
+        nextProject.sessionMeta = {
           ...project.sessionMeta,
           total: Math.max(0, (project.sessionMeta?.total || 0) - 1)
-        }
-      }))
-    );
+        };
+      }
+
+      return changed ? nextProject : project;
+    }));
   };
 
 

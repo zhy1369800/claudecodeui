@@ -432,10 +432,21 @@ function Sidebar({
         console.log('[Sidebar] Session deleted successfully, calling callback');
         // Call parent callback if provided
         if (onSessionDelete) {
-          onSessionDelete(sessionId);
+          onSessionDelete(sessionId, { projectName, provider });
         } else {
           console.warn('[Sidebar] No onSessionDelete callback provided');
         }
+        // Remove from locally loaded paginated sessions so UI updates immediately
+        setAdditionalSessions(prev => {
+          const existing = prev[projectName];
+          if (!Array.isArray(existing) || existing.length === 0) return prev;
+          const filtered = existing.filter(session => session.id !== sessionId);
+          if (filtered.length === existing.length) return prev;
+          return {
+            ...prev,
+            [projectName]: filtered
+          };
+        });
       } else {
         const errorText = await response.text();
         console.error('[Sidebar] Failed to delete session:', { status: response.status, error: errorText });

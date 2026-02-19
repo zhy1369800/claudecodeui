@@ -248,6 +248,7 @@ const safeLocalStorage = {
 };
 
 const CLAUDE_SETTINGS_KEY = 'claude-settings';
+const WORKED_FOR_SESSION_LAST_CACHE_KEY = 'worked-for-seconds-session-last-v1';
 
 
 function getClaudeSettings() {
@@ -1899,7 +1900,8 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
   const [claudeStatus, setClaudeStatus] = useState(null);
   const [thinkingMode, setThinkingMode] = useState('none');
   const runStartedAtRef = useRef(null);
-  const pendingWorkedForSecondsRef = useRef(null);
+  const runSessionIdRef = useRef(null);
+  const pendingWorkedForRef = useRef(null);
   const [provider, setProvider] = useState(() => {
     return localStorage.getItem('selected-provider') || 'claude';
   });
@@ -1934,6 +1936,10 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     };
   }, []);
 
+  const getActiveViewSessionId = useCallback(() => {
+    return selectedSession?.id || currentSessionId || pendingViewSessionRef.current?.sessionId || null;
+  }, [selectedSession?.id, currentSessionId]);
+
   useEffect(() => {
     if (!isLoading) {
       setLoadingElapsedSec(0);
@@ -1941,13 +1947,42 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
       return;
     }
 
-    const startedAt = Date.now();
+    const activeViewSessionId = getActiveViewSessionId();
+    const isSameRunSession =
+      runStartedAtRef.current &&
+      (runSessionIdRef.current === activeViewSessionId ||
+        (!activeViewSessionId && !selectedSession?.id && !currentSessionId));
+    const startedAt = isSameRunSession ? runStartedAtRef.current : Date.now();
+
+    setLoadingElapsedSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
     const timer = setInterval(() => {
-      setLoadingElapsedSec(Math.floor((Date.now() - startedAt) / 1000));
+      setLoadingElapsedSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isLoading]);
+  }, [isLoading, getActiveViewSessionId, selectedSession?.id, currentSessionId]);
+
+  const getCachedSessionWorkedForSeconds = useCallback((sessionId) => {
+    if (!sessionId || !selectedProject?.name) return null;
+    const raw = safeLocalStorage.getItem(WORKED_FOR_SESSION_LAST_CACHE_KEY);
+    const parsed = safeJsonParse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const value = parsed?.[selectedProject.name]?.[sessionId];
+    return typeof value === 'number' ? value : null;
+  }, [selectedProject?.name]);
+
+  const setCachedSessionWorkedForSeconds = useCallback((sessionId, elapsedSec) => {
+    if (!sessionId || typeof elapsedSec !== 'number' || !selectedProject?.name) return;
+    const raw = safeLocalStorage.getItem(WORKED_FOR_SESSION_LAST_CACHE_KEY);
+    const parsed = safeJsonParse(raw);
+    const cache = parsed && typeof parsed === 'object' ? parsed : {};
+    const projectCache = (cache[selectedProject.name] && typeof cache[selectedProject.name] === 'object')
+      ? { ...cache[selectedProject.name] }
+      : {};
+    projectCache[sessionId] = elapsedSec;
+    cache[selectedProject.name] = projectCache;
+    safeLocalStorage.setItem(WORKED_FOR_SESSION_LAST_CACHE_KEY, JSON.stringify(cache));
+  }, [selectedProject?.name]);
 
   const findWorkedForTargetIndex = useCallback((messages) => {
     if (!Array.isArray(messages) || messages.length === 0) return -1;
@@ -1965,11 +2000,12 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     return -1;
   }, []);
 
-  const appendWorkedForMessage = useCallback(() => {
-    if (!runStartedAtRef.current && typeof pendingWorkedForSecondsRef.current !== 'number') return;
-    const elapsedSec = typeof pendingWorkedForSecondsRef.current === 'number'
-      ? pendingWorkedForSecondsRef.current
+  const appendWorkedForMessage = useCallback((targetSessionId = null) => {
+    if (!runStartedAtRef.current && typeof pendingWorkedForRef.current?.elapsedSec !== 'number') return;
+    const elapsedSec = typeof pendingWorkedForRef.current?.elapsedSec === 'number'
+      ? pendingWorkedForRef.current.elapsedSec
       : Math.max(0, Math.floor((Date.now() - runStartedAtRef.current) / 1000));
+    const sessionId = targetSessionId || runSessionIdRef.current || getActiveViewSessionId();
     setChatMessages(prev => {
       const targetIndex = findWorkedForTargetIndex(prev);
       if (targetIndex < 0) return prev;
@@ -1981,14 +2017,23 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
       };
       return updated;
     });
+    if (sessionId) {
+      setCachedSessionWorkedForSeconds(sessionId, elapsedSec);
+    }
     runStartedAtRef.current = null;
-    pendingWorkedForSecondsRef.current = elapsedSec;
-  }, [findWorkedForTargetIndex]);
+    runSessionIdRef.current = null;
+    pendingWorkedForRef.current = { sessionId, elapsedSec };
+  }, [findWorkedForTargetIndex, getActiveViewSessionId, setCachedSessionWorkedForSeconds]);
 
   useEffect(() => {
-    if (typeof pendingWorkedForSecondsRef.current !== 'number') return;
+    if (typeof pendingWorkedForRef.current?.elapsedSec !== 'number') return;
+    const pending = pendingWorkedForRef.current;
+    const activeViewSessionId = getActiveViewSessionId();
+    if (pending.sessionId && activeViewSessionId && pending.sessionId !== activeViewSessionId) {
+      return;
+    }
     let attached = false;
-    const elapsedSec = pendingWorkedForSecondsRef.current;
+    const elapsedSec = pending.elapsedSec;
     setChatMessages(prev => {
       const targetIndex = findWorkedForTargetIndex(prev);
       if (targetIndex < 0) return prev;
@@ -2002,9 +2047,9 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
       return updated;
     });
     if (attached) {
-      pendingWorkedForSecondsRef.current = null;
+      pendingWorkedForRef.current = null;
     }
-  }, [chatMessages, findWorkedForTargetIndex]);
+  }, [chatMessages, findWorkedForTargetIndex, getActiveViewSessionId]);
 
   const messageSignature = useCallback((message) => {
     if (!message) return '';
@@ -2016,36 +2061,57 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     const loaded = Array.isArray(loadedMessages) ? loadedMessages : [];
     const previous = Array.isArray(previousMessages) ? previousMessages : [];
     const transient = previous.filter(msg => msg?.isLocalTransient);
-    if (transient.length === 0) return loaded;
-
-    const transientBySignature = new Map();
-    transient.forEach(msg => {
-      transientBySignature.set(messageSignature(msg), msg);
-    });
-
-    // If a loaded message matches a transient one, preserve transient-only UI fields
-    // (for example workedForSeconds) instead of dropping them on reload.
-    const mergedLoaded = loaded.map(msg => {
-      const key = messageSignature(msg);
-      const transientMatch = transientBySignature.get(key);
-      if (!transientMatch) return msg;
-      const merged = {
-        ...msg,
-        workedForSeconds: transientMatch.workedForSeconds ?? msg.workedForSeconds
-      };
-      // Message is now present in backend-loaded history, so clear transient marker.
-      delete merged.isLocalTransient;
-      return merged;
-    });
-
+    const activeViewSessionId = getActiveViewSessionId();
+    if (transient.length === 0) {
+      const hasWorkedFor = loaded.some(msg => typeof msg?.workedForSeconds === 'number');
+      if (!hasWorkedFor) {
+        const sessionFallback = getCachedSessionWorkedForSeconds(activeViewSessionId);
+        if (typeof sessionFallback === 'number') {
+          const targetIndex = findWorkedForTargetIndex(loaded);
+          if (targetIndex >= 0) {
+            const updated = [...loaded];
+            updated[targetIndex] = {
+              ...updated[targetIndex],
+              workedForSeconds: updated[targetIndex].workedForSeconds ?? sessionFallback
+            };
+            return updated;
+          }
+        }
+      }
+      return loaded;
+    }
     const loadedSignatures = new Set(loaded.map(messageSignature));
     const remainTransient = transient.filter(msg => !loadedSignatures.has(messageSignature(msg)));
-    return [...mergedLoaded, ...remainTransient];
-  }, [messageSignature]);
+    const mergedWithTransient = [...loaded, ...remainTransient];
+    const hasWorkedFor = mergedWithTransient.some(msg => typeof msg?.workedForSeconds === 'number');
+    if (hasWorkedFor) return mergedWithTransient;
+    const transientFallback = [...transient].reverse().find(msg => typeof msg?.workedForSeconds === 'number')?.workedForSeconds;
+    if (typeof transientFallback === 'number') {
+      const targetIndex = findWorkedForTargetIndex(mergedWithTransient);
+      if (targetIndex >= 0) {
+        const updated = [...mergedWithTransient];
+        updated[targetIndex] = {
+          ...updated[targetIndex],
+          workedForSeconds: updated[targetIndex].workedForSeconds ?? transientFallback
+        };
+        return updated;
+      }
+    }
+    const sessionFallback = getCachedSessionWorkedForSeconds(activeViewSessionId);
+    if (typeof sessionFallback !== 'number') return mergedWithTransient;
+    const targetIndex = findWorkedForTargetIndex(mergedWithTransient);
+    if (targetIndex < 0) return mergedWithTransient;
+    const updated = [...mergedWithTransient];
+    updated[targetIndex] = {
+      ...updated[targetIndex],
+      workedForSeconds: updated[targetIndex].workedForSeconds ?? sessionFallback
+    };
+    return updated;
+  }, [messageSignature, getCachedSessionWorkedForSeconds, getActiveViewSessionId, findWorkedForTargetIndex]);
 
   // Fallback: whenever a run leaves loading state, ensure worked-time is emitted once.
   useEffect(() => {
-    if (!isLoading && runStartedAtRef.current) {
+    if (!isLoading && runStartedAtRef.current && !activeRunIdRef.current) {
       appendWorkedForMessage();
     }
   }, [isLoading, appendWorkedForMessage]);
@@ -3509,6 +3575,17 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           // New session created by Claude CLI - we receive the real session ID here
           // Store it temporarily until conversation completes (prevents premature session association)
           if (latestMessage.sessionId && !currentSessionId) {
+            if (typeof runSessionIdRef.current === 'string' && runSessionIdRef.current.startsWith('new-session-')) {
+              runSessionIdRef.current = latestMessage.sessionId;
+            }
+            if (pendingWorkedForRef.current?.sessionId &&
+              typeof pendingWorkedForRef.current.sessionId === 'string' &&
+              pendingWorkedForRef.current.sessionId.startsWith('new-session-')) {
+              pendingWorkedForRef.current = {
+                ...pendingWorkedForRef.current,
+                sessionId: latestMessage.sessionId
+              };
+            }
             sessionStorage.setItem('pendingSessionId', latestMessage.sessionId);
             if (pendingViewSessionRef.current && !pendingViewSessionRef.current.sessionId) {
               pendingViewSessionRef.current.sessionId = latestMessage.sessionId;
@@ -4684,7 +4761,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
 
     // Start timing immediately to capture the full duration including image uploads
     runStartedAtRef.current = Date.now();
-    pendingWorkedForSecondsRef.current = null;
+    pendingWorkedForRef.current = null;
     setIsLoading(true);
     setIsThinkingUi(true);
     setShowStopOnInputButton(true);
@@ -4775,6 +4852,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     // Session Protection: Mark session as active to prevent automatic project updates during conversation
     // Use existing session if available; otherwise a temporary placeholder until backend provides real ID
     const sessionToActivate = effectiveSessionId || `new-session-${Date.now()}`;
+    runSessionIdRef.current = sessionToActivate;
     if (!effectiveSessionId && !selectedSession?.id) {
       // We are starting a brand-new session in this view. Track it so we only
       // accept streaming updates for this run.

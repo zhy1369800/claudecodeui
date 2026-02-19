@@ -3587,7 +3587,10 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
               };
             }
             sessionStorage.setItem('pendingSessionId', latestMessage.sessionId);
-            if (pendingViewSessionRef.current && !pendingViewSessionRef.current.sessionId) {
+            if (pendingViewSessionRef.current &&
+              (!pendingViewSessionRef.current.sessionId ||
+                (typeof pendingViewSessionRef.current.sessionId === 'string' &&
+                  pendingViewSessionRef.current.sessionId.startsWith('new-session-')))) {
               pendingViewSessionRef.current.sessionId = latestMessage.sessionId;
             }
 

@@ -3143,6 +3143,8 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           setSessionMessages([]);
           setClaudeStatus(null);
           setCanAbortSession(false);
+          setIsThinkingUi(false);
+          setShowStopOnInputButton(false);
         }
 
         if (sessionChanged) {
@@ -3156,6 +3158,8 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           // Reset loading state when switching sessions (unless the new session is processing)
           // The restore effect will set it back to true if needed
           setIsLoading(false);
+          setIsThinkingUi(false);
+          setShowStopOnInputButton(false);
 
           // Check if the session is currently processing on the backend
           if (ws && sendMessage) {
@@ -3240,6 +3244,8 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           setClaudeStatus(null);
           setCanAbortSession(false);
           setIsLoading(false);
+          setIsThinkingUi(false);
+          setShowStopOnInputButton(false);
         }
         setCurrentSessionId(null);
         sessionStorage.removeItem('cursorSessionId');
@@ -3273,6 +3279,8 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     setClaudeStatus(null);
     setCanAbortSession(false);
     setIsLoading(false);
+    setIsThinkingUi(false);
+    setShowStopOnInputButton(false);
     setCurrentSessionId(null);
     sessionStorage.removeItem('cursorSessionId');
     sessionStorage.removeItem('pendingSessionId');
@@ -3382,6 +3390,10 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
       if (shouldBeProcessing && !isLoading) {
         setIsLoading(true);
         setCanAbortSession(true); // Assume processing sessions can be aborted
+        setShowStopOnInputButton(true);
+        if (!hasAssistantOutputForRunRef.current) {
+          setIsThinkingUi(true);
+        }
       }
     }
   }, [currentSessionId, processingSessions]);
@@ -4260,6 +4272,12 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
             (selectedSession && statusSessionId === selectedSession.id);
           if (isCurrentSession && latestMessage.isProcessing) {
             // Session is currently processing, restore UI state
+            setIsLoading(true);
+            setCanAbortSession(true);
+            setShowStopOnInputButton(true);
+            if (!hasAssistantOutputForRunRef.current) {
+              setIsThinkingUi(true);
+            }
             if (activeRunIdRef.current && !abortRequestedRunIdRef.current && !hasAssistantOutputForRunRef.current) {
               setIsLoading(true);
               setIsThinkingUi(true);

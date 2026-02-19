@@ -108,6 +108,7 @@ function AppContent() {
   // External Message Update Trigger: Incremented when external CLI modifies current session's JSONL
   // Triggers ChatInterface to reload messages without switching sessions
   const [externalMessageUpdate, setExternalMessageUpdate] = useState(0);
+  const projectsLoadRequestRef = useRef(0);
 
   const { ws, sendMessage, latestMessage } = useWebSocket();
 
@@ -163,6 +164,31 @@ function AppContent() {
     // Fetch projects on component mount
     fetchProjects();
   }, []);
+
+  const fetchCursorSessionsForProject = useCallback(async (project) => {
+    try {
+      const url = `/api/cursor/sessions?projectPath=${encodeURIComponent(project.fullPath || project.path)}`;
+      const cursorResponse = await authenticatedFetch(url);
+      if (!cursorResponse.ok) return [];
+      const cursorData = await cursorResponse.json();
+      return cursorData.success && Array.isArray(cursorData.sessions) ? cursorData.sessions : [];
+    } catch (error) {
+      console.error(`Error fetching Cursor sessions for project ${project.name}:`, error);
+      return [];
+    }
+  }, []);
+
+  const enrichProjectsWithCursorSessions = useCallback(async (projects) => {
+    if (!Array.isArray(projects) || projects.length === 0) return [];
+    const enriched = await Promise.all(projects.map(async (project) => {
+      const cursorSessions = await fetchCursorSessionsForProject(project);
+      return {
+        ...project,
+        cursorSessions
+      };
+    }));
+    return enriched;
+  }, [fetchCursorSessionsForProject]);
 
   // Helper function to determine if an update is purely additive (new sessions/projects)
   // vs modifying existing selected items that would interfere with active conversations
@@ -308,41 +334,28 @@ function AppContent() {
   }, [latestMessage, selectedProject, selectedSession, activeSessions]);
 
   const fetchProjects = async () => {
+    const requestId = ++projectsLoadRequestRef.current;
     try {
       setIsLoadingProjects(true);
       const response = await api.projects();
       const data = await response.json();
+      if (requestId !== projectsLoadRequestRef.current) return;
 
-      // Always fetch Cursor sessions for each project so we can combine views
-      for (let project of data) {
-        try {
-          const url = `/api/cursor/sessions?projectPath=${encodeURIComponent(project.fullPath || project.path)}`;
-          const cursorResponse = await authenticatedFetch(url);
-          if (cursorResponse.ok) {
-            const cursorData = await cursorResponse.json();
-            if (cursorData.success && cursorData.sessions) {
-              project.cursorSessions = cursorData.sessions;
-            } else {
-              project.cursorSessions = [];
-            }
-          } else {
-            project.cursorSessions = [];
-          }
-        } catch (error) {
-          console.error(`Error fetching Cursor sessions for project ${project.name}:`, error);
-          project.cursorSessions = [];
-        }
-      }
+      // Render project list immediately, then hydrate Cursor sessions in background.
+      const baseProjects = (Array.isArray(data) ? data : []).map(project => ({
+        ...project,
+        cursorSessions: Array.isArray(project.cursorSessions) ? project.cursorSessions : []
+      }));
 
       // Optimize to preserve object references when data hasn't changed
       setProjects(prevProjects => {
         // If no previous projects, just set the new data
         if (prevProjects.length === 0) {
-          return data;
+          return baseProjects;
         }
 
         // Check if the projects data has actually changed
-        const hasChanges = data.some((newProject, index) => {
+        const hasChanges = baseProjects.some((newProject, index) => {
           const prevProject = prevProjects[index];
           if (!prevProject) return true;
 
@@ -357,17 +370,46 @@ function AppContent() {
             JSON.stringify(newProject.codexSessions) !== JSON.stringify(prevProject.codexSessions) ||
             JSON.stringify(newProject.cursorSessions) !== JSON.stringify(prevProject.cursorSessions)
           );
-        }) || data.length !== prevProjects.length;
+        }) || baseProjects.length !== prevProjects.length;
 
         // Only update if there are actual changes
-        return hasChanges ? data : prevProjects;
+        return hasChanges ? baseProjects : prevProjects;
       });
 
       // Don't auto-select any project - user should choose manually
+      setIsLoadingProjects(false);
+
+      // Hydrate Cursor sessions asynchronously to reduce startup blocking on mobile PWA.
+      enrichProjectsWithCursorSessions(baseProjects)
+        .then(enrichedProjects => {
+          if (requestId !== projectsLoadRequestRef.current) return;
+          setProjects(prevProjects => {
+            const hasChanges = enrichedProjects.some((newProject, index) => {
+              const prevProject = prevProjects[index];
+              if (!prevProject) return true;
+              return (
+                newProject.name !== prevProject.name ||
+                newProject.displayName !== prevProject.displayName ||
+                newProject.startupScript !== prevProject.startupScript ||
+                newProject.fullPath !== prevProject.fullPath ||
+                JSON.stringify(newProject.sessionMeta) !== JSON.stringify(prevProject.sessionMeta) ||
+                JSON.stringify(newProject.sessions) !== JSON.stringify(prevProject.sessions) ||
+                JSON.stringify(newProject.codexSessions) !== JSON.stringify(prevProject.codexSessions) ||
+                JSON.stringify(newProject.cursorSessions) !== JSON.stringify(prevProject.cursorSessions)
+              );
+            }) || enrichedProjects.length !== prevProjects.length;
+            return hasChanges ? enrichedProjects : prevProjects;
+          });
+        })
+        .catch(error => {
+          console.error('Error hydrating Cursor sessions:', error);
+        });
     } catch (error) {
       console.error('Error fetching projects:', error);
     } finally {
-      setIsLoadingProjects(false);
+      if (requestId === projectsLoadRequestRef.current) {
+        setIsLoadingProjects(false);
+      }
     }
   };
 
@@ -542,31 +584,16 @@ function AppContent() {
       const response = await api.projects();
       const freshProjects = await response.json();
 
-      // Always fetch Cursor sessions so the sidebar stays consistent with initial load
-      for (let project of freshProjects) {
-        try {
-          const url = `/api/cursor/sessions?projectPath=${encodeURIComponent(project.fullPath || project.path)}`;
-          const cursorResponse = await authenticatedFetch(url);
-          if (cursorResponse.ok) {
-            const cursorData = await cursorResponse.json();
-            if (cursorData.success && cursorData.sessions) {
-              project.cursorSessions = cursorData.sessions;
-            } else {
-              project.cursorSessions = [];
-            }
-          } else {
-            project.cursorSessions = [];
-          }
-        } catch (error) {
-          console.error(`Error fetching Cursor sessions for project ${project.name}:`, error);
-          project.cursorSessions = [];
-        }
-      }
+      const baseProjects = (Array.isArray(freshProjects) ? freshProjects : []).map(project => ({
+        ...project,
+        cursorSessions: Array.isArray(project.cursorSessions) ? project.cursorSessions : []
+      }));
+      const enrichedProjects = await enrichProjectsWithCursorSessions(baseProjects);
 
       // Optimize to preserve object references and minimize re-renders
       setProjects(prevProjects => {
         // Check if projects data has actually changed
-        const hasChanges = freshProjects.some((newProject, index) => {
+        const hasChanges = enrichedProjects.some((newProject, index) => {
           const prevProject = prevProjects[index];
           if (!prevProject) return true;
 
@@ -580,14 +607,14 @@ function AppContent() {
             JSON.stringify(newProject.codexSessions) !== JSON.stringify(prevProject.codexSessions) ||
             JSON.stringify(newProject.cursorSessions) !== JSON.stringify(prevProject.cursorSessions)
           );
-        }) || freshProjects.length !== prevProjects.length;
+        }) || enrichedProjects.length !== prevProjects.length;
 
-        return hasChanges ? freshProjects : prevProjects;
+        return hasChanges ? enrichedProjects : prevProjects;
       });
 
       // If we have a selected project, make sure it's still selected after refresh
       if (selectedProject) {
-        const refreshedProject = freshProjects.find(p => p.name === selectedProject.name);
+        const refreshedProject = enrichedProjects.find(p => p.name === selectedProject.name);
         if (refreshedProject) {
           // Only update selected project if it actually changed
           if (JSON.stringify(refreshedProject) !== JSON.stringify(selectedProject)) {

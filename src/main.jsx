@@ -12,3 +12,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
   </React.StrictMode>,
 )
+
+// Hide static startup splash after first React paint.
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    const splash = document.getElementById('app-splash')
+    if (!splash) return
+    splash.classList.add('app-splash-hide')
+    setTimeout(() => splash.remove(), 220)
+  })
+})

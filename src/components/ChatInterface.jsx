@@ -1906,6 +1906,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     return localStorage.getItem('selected-provider') || 'claude';
   });
   const isClaudeLightTheme = provider === 'claude' && !isDarkMode;
+  const supportsImageAttachments = provider === 'claude' || provider === 'codex';
   const [cursorModel, setCursorModel] = useState(() => {
     return localStorage.getItem('cursor-model') || CURSOR_MODELS.DEFAULT;
   });
@@ -2141,6 +2142,11 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
   useEffect(() => {
     if (lastProviderRef.current !== provider) {
       setPendingPermissionRequests([]);
+      if (provider === 'cursor') {
+        setAttachedImages([]);
+        setUploadingImages(new Map());
+        setImageErrors(new Map());
+      }
       lastProviderRef.current = provider;
     }
   }, [provider]);
@@ -4684,6 +4690,8 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
 
   // Handle image files from drag & drop or file picker
   const handleImageFiles = useCallback((files) => {
+    if (!supportsImageAttachments) return;
+
     const validFiles = files.filter(file => {
       try {
         // Validate file object and properties
@@ -4717,10 +4725,12 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     if (validFiles.length > 0) {
       setAttachedImages(prev => [...prev, ...validFiles].slice(0, 5)); // Max 5 images
     }
-  }, []);
+  }, [supportsImageAttachments]);
 
   // Handle clipboard paste for images
   const handlePaste = useCallback(async (e) => {
+    if (!supportsImageAttachments) return;
+
     const items = Array.from(e.clipboardData.items);
 
     for (const item of items) {
@@ -4740,7 +4750,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
         handleImageFiles(imageFiles);
       }
     }
-  }, [handleImageFiles]);
+  }, [handleImageFiles, supportsImageAttachments]);
 
   // Setup dropzone
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
@@ -4750,6 +4760,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     maxSize: 5 * 1024 * 1024, // 5MB
     maxFiles: 5,
     onDrop: handleImageFiles,
+    disabled: !supportsImageAttachments,
     noClick: true, // We'll use our own button
     noKeyboard: true
   });
@@ -4760,7 +4771,8 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    if (!input.trim() || isLoading || !selectedProject) return;
+    const hasSupportedAttachments = supportsImageAttachments && attachedImages.length > 0;
+    if ((!input.trim() && !hasSupportedAttachments) || isLoading || !selectedProject) return;
 
     // Start timing immediately to capture the full duration including image uploads
     runStartedAtRef.current = Date.now();
@@ -4778,7 +4790,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
 
     // Upload images first if any
     let uploadedImages = [];
-    if (attachedImages.length > 0) {
+    if (supportsImageAttachments && attachedImages.length > 0) {
       const formData = new FormData();
       attachedImages.forEach(file => {
         formData.append('images', file);
@@ -4804,6 +4816,11 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           content: `Failed to upload images: ${error.message}`,
           timestamp: new Date()
         }]);
+        setIsLoading(false);
+        setIsThinkingUi(false);
+        setShowStopOnInputButton(false);
+        setCanAbortSession(false);
+        setClaudeStatus(null);
         return;
       }
     }
@@ -4919,7 +4936,8 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           runId,
           resume: !!effectiveSessionId,
           model: codexModel,
-          permissionMode: permissionMode === 'plan' ? 'default' : permissionMode
+          permissionMode: permissionMode === 'plan' ? 'default' : permissionMode,
+          images: uploadedImages // Pass images to backend
         }
       });
     } else {
@@ -4968,7 +4986,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
       setIsTextareaExpanded(false);
       textareaRef.current.style.height = '60px';
     }
-  }, [input, isLoading, selectedProject, attachedImages, currentSessionId, selectedSession, provider, permissionMode, onSessionActive, cursorModel, claudeModel, codexModel, sendMessage, setInput, setAttachedImages, setUploadingImages, setImageErrors, setIsTextareaExpanded, textareaRef, setChatMessages, setIsLoading, setCanAbortSession, setClaudeStatus, setIsUserScrolledUp, scrollToBottom, thinkingMode, isMobile, createRunId]);
+  }, [input, isLoading, selectedProject, attachedImages, currentSessionId, selectedSession, provider, permissionMode, onSessionActive, cursorModel, claudeModel, codexModel, sendMessage, setInput, setAttachedImages, setUploadingImages, setImageErrors, setIsTextareaExpanded, textareaRef, setChatMessages, setIsLoading, setCanAbortSession, setClaudeStatus, setIsUserScrolledUp, scrollToBottom, thinkingMode, isMobile, createRunId, supportsImageAttachments]);
 
   const handleGrantToolPermission = useCallback((suggestion) => {
     if (!suggestion || provider !== 'claude') {
@@ -5765,7 +5783,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
             )}
 
             {/* Drag overlay */}
-            {isDragActive && (
+            {supportsImageAttachments && isDragActive && (
               <div className="absolute inset-0 bg-blue-500/20 border-2 border-dashed border-blue-500 rounded-lg flex items-center justify-center z-50">
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-lg">
                   <svg className="w-8 h-8 text-blue-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5906,17 +5924,18 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
                     ? (shouldShowExpandedInputUi ? 'opacity-100 scale-100 w-auto' : 'opacity-0 scale-90 w-0 h-0 overflow-hidden')
                     : (shouldShowExpandedInputUi ? 'opacity-100 scale-100 w-auto bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-1' : 'opacity-0 scale-90 w-0 h-0 overflow-hidden')
                     }`}>
-                    {/* Image upload button */}
-                    <button
-                      type="button"
-                      onClick={open}
-                      className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                      title={t('input.attachImages')}
-                    >
-                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </button>
+                    {supportsImageAttachments && (
+                      <button
+                        type="button"
+                        onClick={open}
+                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        title={t('input.attachImages')}
+                      >
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    )}
 
                     {/* Permission Mode Selector */}
                     <button
@@ -6018,7 +6037,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
                   {/* Send/Stop button */}
                   <button
                     type="button"
-                    disabled={!showStopOnInputButton && !input.trim()}
+                    disabled={!showStopOnInputButton && !hasInputContent}
                     onClick={(e) => {
                       e.preventDefault();
                       if (showStopOnInputButton) {

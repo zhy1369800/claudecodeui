@@ -14,9 +14,89 @@
  */
 
 import { Codex } from '@openai/codex-sdk';
+import fs from 'fs/promises';
+import path from 'path';
 
 // Track active sessions
 const activeCodexSessions = new Map();
+
+/**
+ * Prepare Codex input with optional local image files.
+ * Converts base64 data URLs into temp image files and returns SDK-compatible input.
+ * @param {string} command
+ * @param {Array} images
+ * @param {string} cwd
+ * @returns {Promise<{input: string|Array, tempImagePaths: string[], tempDir: string|null}>}
+ */
+async function prepareCodexInput(command, images, cwd) {
+  const tempImagePaths = [];
+  let tempDir = null;
+
+  if (!images || images.length === 0) {
+    return { input: command, tempImagePaths, tempDir };
+  }
+
+  try {
+    const workingDir = cwd || process.cwd();
+    tempDir = path.join(workingDir, '.tmp', 'codex-images', Date.now().toString());
+    await fs.mkdir(tempDir, { recursive: true });
+
+    for (const [index, image] of images.entries()) {
+      if (!image?.data || typeof image.data !== 'string') {
+        continue;
+      }
+
+      const matches = image.data.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) {
+        continue;
+      }
+
+      const [, mimeType, base64Data] = matches;
+      const extensionRaw = mimeType.split('/')[1] || 'png';
+      const extension = extensionRaw.replace(/[^a-zA-Z0-9]/g, '') || 'png';
+      const filename = `image_${index}.${extension}`;
+      const imagePath = path.join(tempDir, filename);
+      await fs.writeFile(imagePath, Buffer.from(base64Data, 'base64'));
+      tempImagePaths.push(imagePath);
+    }
+
+    if (tempImagePaths.length === 0) {
+      return { input: command, tempImagePaths, tempDir };
+    }
+
+    const codexInput = [];
+    if (command && command.trim()) {
+      codexInput.push({ type: 'text', text: command });
+    }
+    for (const imagePath of tempImagePaths) {
+      codexInput.push({ type: 'local_image', path: imagePath });
+    }
+
+    return { input: codexInput, tempImagePaths, tempDir };
+  } catch (error) {
+    console.error('[Codex] Failed to process images:', error);
+    return { input: command, tempImagePaths, tempDir };
+  }
+}
+
+/**
+ * Remove temp image files created for Codex turns.
+ * @param {string[]} tempImagePaths
+ * @param {string|null} tempDir
+ */
+async function cleanupTempImages(tempImagePaths, tempDir) {
+  if (tempImagePaths && tempImagePaths.length > 0) {
+    await Promise.all(
+      tempImagePaths.map((imagePath) =>
+        fs.unlink(imagePath).catch(() => { })
+      )
+    );
+  }
+
+  if (tempDir) {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => { });
+  }
+}
 
 /**
  * Transform Codex SDK event to WebSocket message format
@@ -195,6 +275,7 @@ export async function queryCodex(command, options = {}, ws) {
     projectPath,
     model,
     permissionMode = 'default',
+    images,
     runId = null
   } = options;
 
@@ -204,6 +285,8 @@ export async function queryCodex(command, options = {}, ws) {
   let codex;
   let thread;
   let currentSessionId = sessionId;
+  let tempImagePaths = [];
+  let tempDir = null;
 
   try {
     // Initialize Codex SDK
@@ -244,8 +327,19 @@ export async function queryCodex(command, options = {}, ws) {
       runId
     });
 
+    const preparedInput = await prepareCodexInput(command, images, workingDirectory);
+    tempImagePaths = preparedInput.tempImagePaths;
+    tempDir = preparedInput.tempDir;
+    const codexInput = preparedInput.input;
+
+    const trackedSession = activeCodexSessions.get(currentSessionId);
+    if (trackedSession) {
+      trackedSession.tempImagePaths = tempImagePaths;
+      trackedSession.tempDir = tempDir;
+    }
+
     // Execute with streaming
-    const streamedTurn = await thread.runStreamed(command);
+    const streamedTurn = await thread.runStreamed(codexInput);
 
     for await (const event of streamedTurn.events) {
       // Check if session was aborted
@@ -301,6 +395,8 @@ export async function queryCodex(command, options = {}, ws) {
     });
 
   } finally {
+    await cleanupTempImages(tempImagePaths, tempDir);
+
     // Update session status
     if (currentSessionId) {
       const session = activeCodexSessions.get(currentSessionId);

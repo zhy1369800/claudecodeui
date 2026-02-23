@@ -2956,11 +2956,11 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     // Second pass: process messages and attach tool results to tool uses
     for (const msg of rawMessages) {
       // Handle user messages
-      if (msg.message?.role === 'user' && msg.message?.content) {
+      if (msg.message?.role === 'user' && (typeof msg.message?.content !== 'undefined' || msg.images?.length > 0)) {
         let content = '';
         let messageType = 'user';
 
-        if (Array.isArray(msg.message.content)) {
+        if (Array.isArray(msg.message?.content)) {
           // Handle array content, but skip tool results (they're attached to tool uses)
           const textParts = [];
 
@@ -2972,14 +2972,14 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           }
 
           content = textParts.join('\n');
-        } else if (typeof msg.message.content === 'string') {
+        } else if (typeof msg.message?.content === 'string') {
           content = decodeHtmlEntities(msg.message.content);
-        } else {
+        } else if (msg.message?.content) {
           content = decodeHtmlEntities(String(msg.message.content));
         }
 
-        // Skip command messages, system messages, and empty content
-        const shouldSkip = !content ||
+        // Skip command messages, system messages, and empty content (unless there are images)
+        const shouldSkip = (!content && (!msg.images || msg.images.length === 0)) ||
           content.startsWith('<command-name>') ||
           content.startsWith('<command-message>') ||
           content.startsWith('<command-args>') ||
@@ -2995,6 +2995,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
           converted.push({
             type: messageType,
             content: content,
+            images: msg.images || [],
             timestamp: msg.timestamp || new Date().toISOString()
           });
         }
@@ -3474,6 +3475,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
     // Handle WebSocket messages
     if (latestMessage) {
       const messageData = latestMessage.data?.message || latestMessage.data;
+      const incomingRunId = latestMessage.runId || null;
 
       // Filter messages by session ID to prevent cross-session interference
       // Skip filtering for global messages that apply to all sessions
@@ -3554,10 +3556,16 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
                 pendingViewSessionRef.current = null;
               }
 
+              const isActiveRunEvent =
+                !activeRunIdRef.current ||
+                !incomingRunId ||
+                incomingRunId === activeRunIdRef.current;
               const shouldRefreshProjects =
-                latestMessage.type === 'cursor-result' ||
-                latestMessage.type === 'codex-complete' ||
-                (latestMessage.type === 'claude-complete' && latestMessage.exitCode === 0);
+                isActiveRunEvent && (
+                  latestMessage.type === 'cursor-result' ||
+                  latestMessage.type === 'codex-complete' ||
+                  (latestMessage.type === 'claude-complete' && latestMessage.exitCode === 0)
+                );
 
               if (shouldRefreshProjects && window.refreshProjects) {
                 setTimeout(() => window.refreshProjects(), 500);
@@ -3570,7 +3578,6 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
         }
       }
 
-      const incomingRunId = latestMessage.runId || null;
       if (activeRunIdRef.current && incomingRunId && incomingRunId !== activeRunIdRef.current) {
         // Drop stale events from older runs in the same session.
         return;

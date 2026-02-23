@@ -16,9 +16,93 @@
 import { Codex } from '@openai/codex-sdk';
 import fs from 'fs/promises';
 import path from 'path';
+import os from 'os';
 
 // Track active sessions
 const activeCodexSessions = new Map();
+
+// --- Session Links Management ---
+// When the Codex SDK creates a new thread during resume (e.g., with image input),
+// we link the new thread ID to the original parent session ID so the UI presents
+// all messages as belonging to one session.
+const sessionLinksCache = new Map(); // parentId -> [childId1, childId2, ...]
+let sessionLinksLoaded = false;
+
+function getSessionLinksPath() {
+  return path.join(os.homedir(), '.codex', 'session-links.json');
+}
+
+async function loadSessionLinks() {
+  if (sessionLinksLoaded) return;
+  try {
+    const data = await fs.readFile(getSessionLinksPath(), 'utf8');
+    const links = JSON.parse(data);
+    for (const [parent, children] of Object.entries(links)) {
+      sessionLinksCache.set(parent, children);
+    }
+  } catch {
+    // File doesn't exist or is invalid, start fresh
+  }
+  sessionLinksLoaded = true;
+}
+
+async function saveSessionLinks() {
+  try {
+    await fs.mkdir(path.dirname(getSessionLinksPath()), { recursive: true });
+    await fs.writeFile(
+      getSessionLinksPath(),
+      JSON.stringify(Object.fromEntries(sessionLinksCache), null, 2)
+    );
+  } catch (error) {
+    console.error('[Codex] Failed to save session links:', error);
+  }
+}
+
+async function addSessionLink(parentId, childId) {
+  await loadSessionLinks();
+  // Always link to the root parent
+  let rootParent = parentId;
+  for (const [p, children] of sessionLinksCache) {
+    if (children.includes(parentId)) {
+      rootParent = p;
+      break;
+    }
+  }
+  const list = sessionLinksCache.get(rootParent) || [];
+  if (!list.includes(childId)) {
+    list.push(childId);
+    sessionLinksCache.set(rootParent, list);
+    await saveSessionLinks();
+  }
+}
+
+// Get the latest session ID in a link chain (for SDK resume with full context)
+async function getLatestLinkedSessionId(sessionId) {
+  await loadSessionLinks();
+  const children = sessionLinksCache.get(sessionId);
+  if (children && children.length > 0) {
+    return children[children.length - 1];
+  }
+  return sessionId;
+}
+
+// Exported helpers for projects.js
+export async function ensureSessionLinksLoaded() {
+  await loadSessionLinks();
+}
+
+export function getLinkedSessionIds(sessionId) {
+  return sessionLinksCache.get(sessionId) || [];
+}
+
+export function isChildSession(sessionId) {
+  for (const [, children] of sessionLinksCache) {
+    if (children.includes(sessionId)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /**
  * Prepare Codex input with optional local image files.
@@ -284,6 +368,7 @@ export async function queryCodex(command, options = {}, ws) {
 
   let codex;
   let thread;
+  // The session ID used for all WS messages (always the original from frontend)
   let currentSessionId = sessionId;
   let tempImagePaths = [];
   let tempDir = null;
@@ -303,23 +388,41 @@ export async function queryCodex(command, options = {}, ws) {
 
     // Start or resume thread
     if (sessionId) {
-      thread = codex.resumeThread(sessionId, threadOptions);
+      // When resuming, use the latest linked session for SDK operations.
+      // This ensures the SDK has full context including previous image conversations.
+      const sdkSessionId = await getLatestLinkedSessionId(sessionId);
+      thread = codex.resumeThread(sdkSessionId, threadOptions);
     } else {
       thread = codex.startThread(threadOptions);
     }
 
-    // Get the thread ID
-    currentSessionId = thread.id || sessionId || `codex-${Date.now()}`;
+    // For new sessions (no original sessionId), use the thread's ID.
+    // For existing sessions, ALWAYS keep the original sessionId for WS messages
+    // so the frontend treats everything as belonging to the same session.
+    if (!sessionId) {
+      currentSessionId = thread.id || `codex-${Date.now()}`;
+    }
 
-    // Track the session
+    console.log(`[Codex] Thread created: thread.id=${thread.id}, originalSessionId=${sessionId}, currentSessionId=${currentSessionId}`);
+
+    // Track the session (use thread.id for internal tracking)
     activeCodexSessions.set(currentSessionId, {
       thread,
       codex,
       status: 'running',
       startedAt: new Date().toISOString()
     });
+    // Also track by thread.id so abort by either ID works
+    if (thread.id && thread.id !== currentSessionId) {
+      activeCodexSessions.set(thread.id, {
+        thread,
+        codex,
+        status: 'running',
+        startedAt: new Date().toISOString()
+      });
+    }
 
-    // Send session created event
+    // Send session created event with the ORIGINAL session ID
     sendMessage(ws, {
       type: 'session-created',
       sessionId: currentSessionId,
@@ -376,11 +479,25 @@ export async function queryCodex(command, options = {}, ws) {
       }
     }
 
+    // Post-streaming drift detection: thread.id may only be available after runStreamed.
+    // If the SDK created a new thread (e.g., due to image input on resume),
+    // record the link so the sidebar hides the child session and message loading merges them.
+    if (sessionId && thread.id && thread.id !== sessionId) {
+      const latestLinked = await getLatestLinkedSessionId(sessionId);
+      if (thread.id !== latestLinked) {
+        console.log(`[Codex] Session drift detected (post-stream): original=${sessionId}, new=${thread.id}`);
+        await addSessionLink(sessionId, thread.id);
+      }
+    }
+
     // Send completion event
+    // Use currentSessionId for both fields. When resuming, currentSessionId is
+    // the original session ID even if the SDK created a new thread internally.
+    // This prevents the frontend from navigating to the SDK's internal thread.
     sendMessage(ws, {
       type: 'codex-complete',
       sessionId: currentSessionId,
-      actualSessionId: thread.id,
+      actualSessionId: currentSessionId,
       runId
     });
 

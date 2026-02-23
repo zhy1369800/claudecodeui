@@ -65,133 +65,134 @@ import crypto from 'crypto';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import os from 'os';
+import { ensureSessionLinksLoaded, getLinkedSessionIds, isChildSession } from './openai-codex.js';
 
 // Import TaskMaster detection functions
 async function detectTaskMasterFolder(projectPath) {
+  try {
+    const taskMasterPath = path.join(projectPath, '.taskmaster');
+
+    // Check if .taskmaster directory exists
     try {
-        const taskMasterPath = path.join(projectPath, '.taskmaster');
-        
-        // Check if .taskmaster directory exists
-        try {
-            const stats = await fs.stat(taskMasterPath);
-            if (!stats.isDirectory()) {
-                return {
-                    hasTaskmaster: false,
-                    reason: '.taskmaster exists but is not a directory'
-                };
-            }
-        } catch (error) {
-            if (error.code === 'ENOENT') {
-                return {
-                    hasTaskmaster: false,
-                    reason: '.taskmaster directory not found'
-                };
-            }
-            throw error;
-        }
-
-        // Check for key TaskMaster files
-        const keyFiles = [
-            'tasks/tasks.json',
-            'config.json'
-        ];
-        
-        const fileStatus = {};
-        let hasEssentialFiles = true;
-
-        for (const file of keyFiles) {
-            const filePath = path.join(taskMasterPath, file);
-            try {
-                await fs.access(filePath);
-                fileStatus[file] = true;
-            } catch (error) {
-                fileStatus[file] = false;
-                if (file === 'tasks/tasks.json') {
-                    hasEssentialFiles = false;
-                }
-            }
-        }
-
-        // Parse tasks.json if it exists for metadata
-        let taskMetadata = null;
-        if (fileStatus['tasks/tasks.json']) {
-            try {
-                const tasksPath = path.join(taskMasterPath, 'tasks/tasks.json');
-                const tasksContent = await fs.readFile(tasksPath, 'utf8');
-                const tasksData = JSON.parse(tasksContent);
-                
-                // Handle both tagged and legacy formats
-                let tasks = [];
-                if (tasksData.tasks) {
-                    // Legacy format
-                    tasks = tasksData.tasks;
-                } else {
-                    // Tagged format - get tasks from all tags
-                    Object.values(tasksData).forEach(tagData => {
-                        if (tagData.tasks) {
-                            tasks = tasks.concat(tagData.tasks);
-                        }
-                    });
-                }
-
-                // Calculate task statistics
-                const stats = tasks.reduce((acc, task) => {
-                    acc.total++;
-                    acc[task.status] = (acc[task.status] || 0) + 1;
-                    
-                    // Count subtasks
-                    if (task.subtasks) {
-                        task.subtasks.forEach(subtask => {
-                            acc.subtotalTasks++;
-                            acc.subtasks = acc.subtasks || {};
-                            acc.subtasks[subtask.status] = (acc.subtasks[subtask.status] || 0) + 1;
-                        });
-                    }
-                    
-                    return acc;
-                }, { 
-                    total: 0, 
-                    subtotalTasks: 0,
-                    pending: 0, 
-                    'in-progress': 0, 
-                    done: 0, 
-                    review: 0,
-                    deferred: 0,
-                    cancelled: 0,
-                    subtasks: {}
-                });
-
-                taskMetadata = {
-                    taskCount: stats.total,
-                    subtaskCount: stats.subtotalTasks,
-                    completed: stats.done || 0,
-                    pending: stats.pending || 0,
-                    inProgress: stats['in-progress'] || 0,
-                    review: stats.review || 0,
-                    completionPercentage: stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0,
-                    lastModified: (await fs.stat(tasksPath)).mtime.toISOString()
-                };
-            } catch (parseError) {
-                console.warn('Failed to parse tasks.json:', parseError.message);
-                taskMetadata = { error: 'Failed to parse tasks.json' };
-            }
-        }
-
+      const stats = await fs.stat(taskMasterPath);
+      if (!stats.isDirectory()) {
         return {
-            hasTaskmaster: true,
-            hasEssentialFiles,
-            files: fileStatus,
-            metadata: taskMetadata,
-            path: taskMasterPath
+          hasTaskmaster: false,
+          reason: '.taskmaster exists but is not a directory'
         };
-
+      }
     } catch (error) {
-        console.error('Error detecting TaskMaster folder:', error);
+      if (error.code === 'ENOENT') {
         return {
-            hasTaskmaster: false,
-            reason: `Error checking directory: ${error.message}`
+          hasTaskmaster: false,
+          reason: '.taskmaster directory not found'
         };
+      }
+      throw error;
     }
+
+    // Check for key TaskMaster files
+    const keyFiles = [
+      'tasks/tasks.json',
+      'config.json'
+    ];
+
+    const fileStatus = {};
+    let hasEssentialFiles = true;
+
+    for (const file of keyFiles) {
+      const filePath = path.join(taskMasterPath, file);
+      try {
+        await fs.access(filePath);
+        fileStatus[file] = true;
+      } catch (error) {
+        fileStatus[file] = false;
+        if (file === 'tasks/tasks.json') {
+          hasEssentialFiles = false;
+        }
+      }
+    }
+
+    // Parse tasks.json if it exists for metadata
+    let taskMetadata = null;
+    if (fileStatus['tasks/tasks.json']) {
+      try {
+        const tasksPath = path.join(taskMasterPath, 'tasks/tasks.json');
+        const tasksContent = await fs.readFile(tasksPath, 'utf8');
+        const tasksData = JSON.parse(tasksContent);
+
+        // Handle both tagged and legacy formats
+        let tasks = [];
+        if (tasksData.tasks) {
+          // Legacy format
+          tasks = tasksData.tasks;
+        } else {
+          // Tagged format - get tasks from all tags
+          Object.values(tasksData).forEach(tagData => {
+            if (tagData.tasks) {
+              tasks = tasks.concat(tagData.tasks);
+            }
+          });
+        }
+
+        // Calculate task statistics
+        const stats = tasks.reduce((acc, task) => {
+          acc.total++;
+          acc[task.status] = (acc[task.status] || 0) + 1;
+
+          // Count subtasks
+          if (task.subtasks) {
+            task.subtasks.forEach(subtask => {
+              acc.subtotalTasks++;
+              acc.subtasks = acc.subtasks || {};
+              acc.subtasks[subtask.status] = (acc.subtasks[subtask.status] || 0) + 1;
+            });
+          }
+
+          return acc;
+        }, {
+          total: 0,
+          subtotalTasks: 0,
+          pending: 0,
+          'in-progress': 0,
+          done: 0,
+          review: 0,
+          deferred: 0,
+          cancelled: 0,
+          subtasks: {}
+        });
+
+        taskMetadata = {
+          taskCount: stats.total,
+          subtaskCount: stats.subtotalTasks,
+          completed: stats.done || 0,
+          pending: stats.pending || 0,
+          inProgress: stats['in-progress'] || 0,
+          review: stats.review || 0,
+          completionPercentage: stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0,
+          lastModified: (await fs.stat(tasksPath)).mtime.toISOString()
+        };
+      } catch (parseError) {
+        console.warn('Failed to parse tasks.json:', parseError.message);
+        taskMetadata = { error: 'Failed to parse tasks.json' };
+      }
+    }
+
+    return {
+      hasTaskmaster: true,
+      hasEssentialFiles,
+      files: fileStatus,
+      metadata: taskMetadata,
+      path: taskMasterPath
+    };
+
+  } catch (error) {
+    console.error('Error detecting TaskMaster folder:', error);
+    return {
+      hasTaskmaster: false,
+      reason: `Error checking directory: ${error.message}`
+    };
+  }
 }
 
 // Cache for extracted project directories
@@ -218,7 +219,7 @@ async function loadProjectConfig() {
 async function saveProjectConfig(config) {
   const claudeDir = path.join(os.homedir(), '.claude');
   const configPath = path.join(claudeDir, 'project-config.json');
-  
+
   // Ensure the .claude directory exists
   try {
     await fs.mkdir(claudeDir, { recursive: true });
@@ -227,7 +228,7 @@ async function saveProjectConfig(config) {
       throw error;
     }
   }
-  
+
   await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf8');
 }
 
@@ -235,13 +236,13 @@ async function saveProjectConfig(config) {
 async function generateDisplayName(projectName, actualProjectDir = null) {
   // Use actual project directory if provided, otherwise decode from project name
   let projectPath = actualProjectDir || projectName.replace(/-/g, '/');
-  
+
   // Try to read package.json from the project path
   try {
     const packageJsonPath = path.join(projectPath, 'package.json');
     const packageData = await fs.readFile(packageJsonPath, 'utf8');
     const packageJson = JSON.parse(packageData);
-    
+
     // Return the name from package.json if it exists
     if (packageJson.name) {
       return packageJson.name;
@@ -249,14 +250,14 @@ async function generateDisplayName(projectName, actualProjectDir = null) {
   } catch (error) {
     // Fall back to path-based naming if package.json doesn't exist or can't be read
   }
-  
+
   // If it starts with /, it's an absolute path
   if (projectPath.startsWith('/')) {
     const parts = projectPath.split('/').filter(Boolean);
     // Return only the last folder name
     return parts[parts.length - 1] || projectPath;
   }
-  
+
   return projectPath;
 }
 
@@ -321,14 +322,14 @@ async function extractProjectDirectory(projectName) {
   let latestTimestamp = 0;
   let latestCwd = null;
   let extractedPath;
-  
+
   try {
     // Check if the project directory exists
     await fs.access(projectDir);
-    
+
     const files = await fs.readdir(projectDir);
     const jsonlFiles = files.filter(file => file.endsWith('.jsonl'));
-    
+
     if (jsonlFiles.length === 0) {
       // Fall back to decoded project name if no sessions
       extractedPath = projectName.replace(/-/g, '/');
@@ -374,7 +375,7 @@ async function extractProjectDirectory(projectName) {
           }
         }
       }
-      
+
       // Determine the best cwd to use
       if (cwdCounts.size === 0) {
         // No cwd found, fall back to decoded project name
@@ -386,7 +387,7 @@ async function extractProjectDirectory(projectName) {
         // Multiple cwd values - prefer the most recent one if it has reasonable usage
         const mostRecentCount = cwdCounts.get(latestCwd) || 0;
         const maxCount = Math.max(...cwdCounts.values());
-        
+
         // Use most recent if it has at least 25% of the max count
         if (mostRecentCount >= maxCount * 0.25) {
           extractedPath = latestCwd;
@@ -399,19 +400,19 @@ async function extractProjectDirectory(projectName) {
             }
           }
         }
-        
+
         // Fallback (shouldn't reach here)
         if (!extractedPath) {
           extractedPath = latestCwd || projectName.replace(/-/g, '/');
         }
       }
     }
-    
+
     // Cache the result
     projectDirectoryCache.set(projectName, extractedPath);
-    
+
     return extractedPath;
-    
+
   } catch (error) {
     // If the directory doesn't exist, just use the decoded project name
     if (error.code === 'ENOENT') {
@@ -421,10 +422,10 @@ async function extractProjectDirectory(projectName) {
       // Fall back to decoded project name for other errors
       extractedPath = projectName.replace(/-/g, '/');
     }
-    
+
     // Cache the fallback result too
     projectDirectoryCache.set(projectName, extractedPath);
-    
+
     return extractedPath;
   }
 }
@@ -457,84 +458,84 @@ async function getProjects(progressCallback = null) {
     totalProjects = directories.length + manualProjectsCount;
 
     for (const entry of directories) {
-        processedProjects++;
+      processedProjects++;
 
-        // Emit progress
-        if (progressCallback) {
-          progressCallback({
-            phase: 'loading',
-            current: processedProjects,
-            total: totalProjects,
-            currentProject: entry.name
-          });
-        }
+      // Emit progress
+      if (progressCallback) {
+        progressCallback({
+          phase: 'loading',
+          current: processedProjects,
+          total: totalProjects,
+          currentProject: entry.name
+        });
+      }
 
-        const projectPath = path.join(claudeDir, entry.name);
-        
-        // Extract actual project directory from JSONL sessions
-        const actualProjectDir = await extractProjectDirectory(entry.name);
-        
-        // Get display name from config or generate one
-        const customName = config[entry.name]?.displayName;
-        const autoDisplayName = await generateDisplayName(entry.name, actualProjectDir);
-        const fullPath = actualProjectDir;
-        
-        const project = {
-          name: entry.name,
-          path: actualProjectDir,
-          displayName: customName || autoDisplayName,
-          fullPath: fullPath,
-          isCustomName: !!customName,
-          startupScript: config[entry.name]?.startupScript || null,
-          sessions: []
+      const projectPath = path.join(claudeDir, entry.name);
+
+      // Extract actual project directory from JSONL sessions
+      const actualProjectDir = await extractProjectDirectory(entry.name);
+
+      // Get display name from config or generate one
+      const customName = config[entry.name]?.displayName;
+      const autoDisplayName = await generateDisplayName(entry.name, actualProjectDir);
+      const fullPath = actualProjectDir;
+
+      const project = {
+        name: entry.name,
+        path: actualProjectDir,
+        displayName: customName || autoDisplayName,
+        fullPath: fullPath,
+        isCustomName: !!customName,
+        startupScript: config[entry.name]?.startupScript || null,
+        sessions: []
+      };
+
+      // Try to get sessions for this project (just first 5 for performance)
+      try {
+        const sessionResult = await getSessions(entry.name, 5, 0);
+        project.sessions = sessionResult.sessions || [];
+        project.sessionMeta = {
+          hasMore: sessionResult.hasMore,
+          total: sessionResult.total
         };
-        
-        // Try to get sessions for this project (just first 5 for performance)
-        try {
-          const sessionResult = await getSessions(entry.name, 5, 0);
-          project.sessions = sessionResult.sessions || [];
-          project.sessionMeta = {
-            hasMore: sessionResult.hasMore,
-            total: sessionResult.total
-          };
-        } catch (e) {
-          console.warn(`Could not load sessions for project ${entry.name}:`, e.message);
-        }
-        
-        // Also fetch Cursor sessions for this project
-        try {
-          project.cursorSessions = await getCursorSessions(actualProjectDir);
-        } catch (e) {
-          console.warn(`Could not load Cursor sessions for project ${entry.name}:`, e.message);
-          project.cursorSessions = [];
-        }
+      } catch (e) {
+        console.warn(`Could not load sessions for project ${entry.name}:`, e.message);
+      }
 
-        // Also fetch Codex sessions for this project
-        try {
-          project.codexSessions = await getCodexSessions(actualProjectDir);
-        } catch (e) {
-          console.warn(`Could not load Codex sessions for project ${entry.name}:`, e.message);
-          project.codexSessions = [];
-        }
+      // Also fetch Cursor sessions for this project
+      try {
+        project.cursorSessions = await getCursorSessions(actualProjectDir);
+      } catch (e) {
+        console.warn(`Could not load Cursor sessions for project ${entry.name}:`, e.message);
+        project.cursorSessions = [];
+      }
 
-        // Add TaskMaster detection
-        try {
-          const taskMasterResult = await detectTaskMasterFolder(actualProjectDir);
-          project.taskmaster = {
-            hasTaskmaster: taskMasterResult.hasTaskmaster,
-            hasEssentialFiles: taskMasterResult.hasEssentialFiles,
-            metadata: taskMasterResult.metadata,
-            status: taskMasterResult.hasTaskmaster && taskMasterResult.hasEssentialFiles ? 'configured' : 'not-configured'
-          };
-        } catch (e) {
-          console.warn(`Could not detect TaskMaster for project ${entry.name}:`, e.message);
-          project.taskmaster = {
-            hasTaskmaster: false,
-            hasEssentialFiles: false,
-            metadata: null,
-            status: 'error'
-          };
-        }
+      // Also fetch Codex sessions for this project
+      try {
+        project.codexSessions = await getCodexSessions(actualProjectDir);
+      } catch (e) {
+        console.warn(`Could not load Codex sessions for project ${entry.name}:`, e.message);
+        project.codexSessions = [];
+      }
+
+      // Add TaskMaster detection
+      try {
+        const taskMasterResult = await detectTaskMasterFolder(actualProjectDir);
+        project.taskmaster = {
+          hasTaskmaster: taskMasterResult.hasTaskmaster,
+          hasEssentialFiles: taskMasterResult.hasEssentialFiles,
+          metadata: taskMasterResult.metadata,
+          status: taskMasterResult.hasTaskmaster && taskMasterResult.hasEssentialFiles ? 'configured' : 'not-configured'
+        };
+      } catch (e) {
+        console.warn(`Could not detect TaskMaster for project ${entry.name}:`, e.message);
+        project.taskmaster = {
+          hasTaskmaster: false,
+          hasEssentialFiles: false,
+          metadata: null,
+          status: 'error'
+        };
+      }
 
       projects.push(project);
     }
@@ -548,7 +549,7 @@ async function getProjects(progressCallback = null) {
       .filter(([name, cfg]) => cfg.manuallyAdded)
       .length;
   }
-  
+
   // Add manually configured projects that don't exist as folders yet
   for (const [projectName, projectConfig] of Object.entries(config)) {
     if (!existingProjects.has(projectName) && projectConfig.manuallyAdded) {
@@ -566,7 +567,7 @@ async function getProjects(progressCallback = null) {
 
       // Use the original path if available, otherwise extract from potential sessions
       let actualProjectDir = projectConfig.originalPath;
-      
+
       if (!actualProjectDir) {
         try {
           actualProjectDir = await extractProjectDirectory(projectName);
@@ -575,19 +576,19 @@ async function getProjects(progressCallback = null) {
           actualProjectDir = projectName.replace(/-/g, '/');
         }
       }
-      
-              const project = {
-          name: projectName,
-          path: actualProjectDir,
-          displayName: projectConfig.displayName || await generateDisplayName(projectName, actualProjectDir),
-          fullPath: actualProjectDir,
-          isCustomName: !!projectConfig.displayName,
-          isManuallyAdded: true,
-          startupScript: projectConfig.startupScript || null,
-          sessions: [],
-          cursorSessions: [],
-          codexSessions: []
-        };
+
+      const project = {
+        name: projectName,
+        path: actualProjectDir,
+        displayName: projectConfig.displayName || await generateDisplayName(projectName, actualProjectDir),
+        fullPath: actualProjectDir,
+        isCustomName: !!projectConfig.displayName,
+        isManuallyAdded: true,
+        startupScript: projectConfig.startupScript || null,
+        sessions: [],
+        cursorSessions: [],
+        codexSessions: []
+      };
 
       // Try to fetch Cursor sessions for manual projects too
       try {
@@ -606,13 +607,13 @@ async function getProjects(progressCallback = null) {
       // Add TaskMaster detection for manual projects
       try {
         const taskMasterResult = await detectTaskMasterFolder(actualProjectDir);
-        
+
         // Determine TaskMaster status
         let taskMasterStatus = 'not-configured';
         if (taskMasterResult.hasTaskmaster && taskMasterResult.hasEssentialFiles) {
           taskMasterStatus = 'taskmaster-only'; // We don't check MCP for manual projects in bulk
         }
-        
+
         project.taskmaster = {
           status: taskMasterStatus,
           hasTaskmaster: taskMasterResult.hasTaskmaster,
@@ -628,7 +629,7 @@ async function getProjects(progressCallback = null) {
           error: error.message
         };
       }
-      
+
       projects.push(project);
     }
   }
@@ -653,11 +654,11 @@ async function getSessions(projectName, limit = 5, offset = 0) {
     // agent-*.jsonl files contain session start data at this point. This needs to be revisited
     // periodically to make sure only accurate data is there and no new functionality is added there
     const jsonlFiles = files.filter(file => file.endsWith('.jsonl') && !file.startsWith('agent-'));
-    
+
     if (jsonlFiles.length === 0) {
       return { sessions: [], hasMore: false, total: 0 };
     }
-    
+
     // Sort files by modification time (newest first)
     const filesWithStats = await Promise.all(
       jsonlFiles.map(async (file) => {
@@ -667,37 +668,37 @@ async function getSessions(projectName, limit = 5, offset = 0) {
       })
     );
     filesWithStats.sort((a, b) => b.mtime - a.mtime);
-    
+
     const allSessions = new Map();
     const allEntries = [];
     const uuidToSessionMap = new Map();
-    
+
     // Collect all sessions and entries from all files
     for (const { file } of filesWithStats) {
       const jsonlFile = path.join(projectDir, file);
       const result = await parseJsonlSessions(jsonlFile);
-      
+
       result.sessions.forEach(session => {
         if (!allSessions.has(session.id)) {
           allSessions.set(session.id, session);
         }
       });
-      
+
       allEntries.push(...result.entries);
-      
+
       // Early exit optimization for large projects
       if (allSessions.size >= (limit + offset) * 2 && allEntries.length >= Math.min(3, filesWithStats.length)) {
         break;
       }
     }
-    
+
     // Build UUID-to-session mapping for timeline detection
     allEntries.forEach(entry => {
       if (entry.uuid && entry.sessionId) {
         uuidToSessionMap.set(entry.uuid, entry.sessionId);
       }
     });
-    
+
     // Group sessions by first user message ID
     const sessionGroups = new Map(); // firstUserMsgId -> { latestSession, allSessions[] }
     const sessionToFirstUserMsgId = new Map(); // sessionId -> firstUserMsgId
@@ -759,7 +760,7 @@ async function getSessions(projectName, limit = 5, offset = 0) {
     const total = visibleSessions.length;
     const paginatedSessions = visibleSessions.slice(offset, offset + limit);
     const hasMore = offset + limit < total;
-    
+
     return {
       sessions: paginatedSessions,
       hasMore,
@@ -935,13 +936,13 @@ async function getSessionMessages(projectName, sessionId, limit = null, offset =
     // agent-*.jsonl files contain session start data at this point. This needs to be revisited
     // periodically to make sure only accurate data is there and no new functionality is added there
     const jsonlFiles = files.filter(file => file.endsWith('.jsonl') && !file.startsWith('agent-'));
-    
+
     if (jsonlFiles.length === 0) {
       return { messages: [], total: 0, hasMore: false };
     }
-    
+
     const messages = [];
-    
+
     // Process all JSONL files to find messages for this session
     for (const file of jsonlFiles) {
       const jsonlFile = path.join(projectDir, file);
@@ -950,7 +951,7 @@ async function getSessionMessages(projectName, sessionId, limit = null, offset =
         input: fileStream,
         crlfDelay: Infinity
       });
-      
+
       for await (const line of rl) {
         if (line.trim()) {
           try {
@@ -964,26 +965,26 @@ async function getSessionMessages(projectName, sessionId, limit = null, offset =
         }
       }
     }
-    
+
     // Sort messages by timestamp
-    const sortedMessages = messages.sort((a, b) => 
+    const sortedMessages = messages.sort((a, b) =>
       new Date(a.timestamp || 0) - new Date(b.timestamp || 0)
     );
-    
+
     const total = sortedMessages.length;
-    
+
     // If no limit is specified, return all messages (backward compatibility)
     if (limit === null) {
       return sortedMessages;
     }
-    
+
     // Apply pagination - for recent messages, we need to slice from the end
     // offset 0 should give us the most recent messages
     const startIndex = Math.max(0, total - offset - limit);
     const endIndex = total - offset;
     const paginatedMessages = sortedMessages.slice(startIndex, endIndex);
     const hasMore = startIndex > 0;
-    
+
     return {
       messages: paginatedMessages,
       total,
@@ -1035,21 +1036,21 @@ async function renameProject(projectName, newDisplayName, startupScript) {
 // Delete a session from a project
 async function deleteSession(projectName, sessionId) {
   const projectDir = path.join(os.homedir(), '.claude', 'projects', projectName);
-  
+
   try {
     const files = await fs.readdir(projectDir);
     const jsonlFiles = files.filter(file => file.endsWith('.jsonl'));
-    
+
     if (jsonlFiles.length === 0) {
       throw new Error('No session files found for this project');
     }
-    
+
     // Check all JSONL files to find which one contains the session
     for (const file of jsonlFiles) {
       const jsonlFile = path.join(projectDir, file);
       const content = await fs.readFile(jsonlFile, 'utf8');
       const lines = content.split('\n').filter(line => line.trim());
-      
+
       // Check if this file contains the session
       const hasSession = lines.some(line => {
         try {
@@ -1059,7 +1060,7 @@ async function deleteSession(projectName, sessionId) {
           return false;
         }
       });
-      
+
       if (hasSession) {
         // Filter out all entries for this session
         const filteredLines = lines.filter(line => {
@@ -1070,13 +1071,13 @@ async function deleteSession(projectName, sessionId) {
             return true; // Keep malformed lines
           }
         });
-        
+
         // Write back the filtered content
         await fs.writeFile(jsonlFile, filteredLines.join('\n') + (filteredLines.length > 0 ? '\n' : ''));
         return true;
       }
     }
-    
+
     throw new Error(`Session ${sessionId} not found in any files`);
   } catch (error) {
     console.error(`Error deleting session ${sessionId} from project ${projectName}:`, error);
@@ -1212,7 +1213,7 @@ async function getCursorSessions(projectPath) {
     // Calculate cwdID hash for the project path (Cursor uses MD5 hash)
     const cwdId = crypto.createHash('md5').update(projectPath).digest('hex');
     const cursorChatsPath = path.join(os.homedir(), '.cursor', 'chats', cwdId);
-    
+
     // Check if the directory exists
     try {
       await fs.access(cursorChatsPath);
@@ -1220,25 +1221,25 @@ async function getCursorSessions(projectPath) {
       // No sessions for this project
       return [];
     }
-    
+
     // List all session directories
     const sessionDirs = await fs.readdir(cursorChatsPath);
     const sessions = [];
-    
+
     for (const sessionId of sessionDirs) {
       const sessionPath = path.join(cursorChatsPath, sessionId);
       const storeDbPath = path.join(sessionPath, 'store.db');
-      
+
       try {
         // Check if store.db exists
         await fs.access(storeDbPath);
-        
+
         // Capture store.db mtime as a reliable fallback timestamp
         let dbStatMtimeMs = null;
         try {
           const stat = await fs.stat(storeDbPath);
           dbStatMtimeMs = stat.mtimeMs;
-        } catch (_) {}
+        } catch (_) { }
 
         // Open SQLite database
         const db = await open({
@@ -1246,12 +1247,12 @@ async function getCursorSessions(projectPath) {
           driver: sqlite3.Database,
           mode: sqlite3.OPEN_READONLY
         });
-        
+
         // Get metadata from meta table
         const metaRows = await db.all(`
           SELECT key, value FROM meta
         `);
-        
+
         // Parse metadata
         let metadata = {};
         for (const row of metaRows) {
@@ -1270,17 +1271,17 @@ async function getCursorSessions(projectPath) {
             }
           }
         }
-        
+
         // Get message count
         const messageCountResult = await db.get(`
           SELECT COUNT(*) as count FROM blobs
         `);
-        
+
         await db.close();
-        
+
         // Extract session info
         const sessionName = metadata.title || metadata.sessionTitle || 'Untitled Session';
-        
+
         // Determine timestamp - prefer createdAt from metadata, fall back to db file mtime
         let createdAt = null;
         if (metadata.createdAt) {
@@ -1290,7 +1291,7 @@ async function getCursorSessions(projectPath) {
         } else {
           createdAt = new Date().toISOString();
         }
-        
+
         sessions.push({
           id: sessionId,
           name: sessionName,
@@ -1299,18 +1300,18 @@ async function getCursorSessions(projectPath) {
           messageCount: messageCountResult.count || 0,
           projectPath: projectPath
         });
-        
+
       } catch (error) {
         console.warn(`Could not read Cursor session ${sessionId}:`, error.message);
       }
     }
-    
+
     // Sort sessions by creation time (newest first)
     sessions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    
+
     // Return only the first 5 sessions for performance
     return sessions.slice(0, 5);
-    
+
   } catch (error) {
     console.error('Error fetching Cursor sessions:', error);
     return [];
@@ -1385,8 +1386,13 @@ async function getCodexSessions(projectPath, options = {}) {
     // Sort sessions by last activity (newest first)
     sessions.sort((a, b) => new Date(b.lastActivity) - new Date(a.lastActivity));
 
+    // Filter out child sessions that are linked to a parent (created during image uploads).
+    // They should not appear as separate sessions in the sidebar.
+    await ensureSessionLinksLoaded();
+    const visibleSessions = sessions.filter(s => !isChildSession(s.id));
+
     // Return limited sessions for performance (0 = unlimited for deletion)
-    return limit > 0 ? sessions.slice(0, limit) : sessions;
+    return limit > 0 ? visibleSessions.slice(0, limit) : visibleSessions;
 
   } catch (error) {
     console.error('Error fetching Codex sessions:', error);
@@ -1471,16 +1477,16 @@ async function getCodexSessionMessages(sessionId, limit = null, offset = 0) {
   try {
     const codexSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
 
-    // Find the session file by searching for the session ID
-    const findSessionFile = async (dir) => {
+    // Find session files by searching for a session ID in filenames
+    const findSessionFile = async (dir, targetId) => {
       try {
         const entries = await fs.readdir(dir, { withFileTypes: true });
         for (const entry of entries) {
           const fullPath = path.join(dir, entry.name);
           if (entry.isDirectory()) {
-            const found = await findSessionFile(fullPath);
+            const found = await findSessionFile(fullPath, targetId);
             if (found) return found;
-          } else if (entry.name.includes(sessionId) && entry.name.endsWith('.jsonl')) {
+          } else if (entry.name.includes(targetId) && entry.name.endsWith('.jsonl')) {
             return fullPath;
           }
         }
@@ -1490,186 +1496,220 @@ async function getCodexSessionMessages(sessionId, limit = null, offset = 0) {
       return null;
     };
 
-    const sessionFilePath = await findSessionFile(codexSessionsDir);
+    // Collect all session IDs to load: primary + linked children
+    await ensureSessionLinksLoaded();
+    const linkedIds = getLinkedSessionIds(sessionId);
+    const allIds = [sessionId, ...linkedIds];
 
-    if (!sessionFilePath) {
+    // Find JSONL files for all session IDs
+    const sessionFilePaths = [];
+    for (const id of allIds) {
+      const filePath = await findSessionFile(codexSessionsDir, id);
+      if (filePath) {
+        sessionFilePaths.push(filePath);
+      }
+    }
+
+    if (sessionFilePaths.length === 0) {
       console.warn(`Codex session file not found for session ${sessionId}`);
       return { messages: [], total: 0, hasMore: false };
     }
 
     const messages = [];
     let tokenUsage = null;
-    const fileStream = fsSync.createReadStream(sessionFilePath);
-    const rl = readline.createInterface({
-      input: fileStream,
-      crlfDelay: Infinity
-    });
 
-    // Helper to extract text from Codex content array
-    const extractText = (content) => {
-      if (!Array.isArray(content)) return content;
-      return content
-        .map(item => {
-          if (item.type === 'input_text' || item.type === 'output_text') {
-            return item.text;
+    // Helper to extract content (text and images) from Codex array
+    const extractContent = (content) => {
+      let text = '';
+      let images = [];
+
+      if (!Array.isArray(content)) {
+        return { text: content || '', images };
+      }
+
+      content.forEach(item => {
+        if (item.type === 'input_text' || item.type === 'output_text' || item.type === 'text') {
+          let itemText = item.text || '';
+          if (itemText.includes('Codex could not read the local image at')) {
+            // Filter out those bug lines from the SDK
+            itemText = itemText.split('\n')
+              .filter(line => !line.includes('Codex could not read the local image at'))
+              .join('\n');
           }
-          if (item.type === 'text') {
-            return item.text;
+          if (itemText) text += (text ? '\n' : '') + itemText;
+        } else if (item.type === 'input_image' || item.type === 'local_image' || item.type === 'image') {
+          if (item.image_url) {
+            images.push({ data: item.image_url });
+          } else if (item.url) {
+            images.push({ data: item.url });
+          } else if (item.path) {
+            images.push({ path: item.path });
           }
-          return '';
-        })
-        .filter(Boolean)
-        .join('\n');
+        }
+      });
+
+      return { text: text.trim(), images };
     };
 
-    for await (const line of rl) {
-      if (line.trim()) {
-        try {
-          const entry = JSON.parse(line);
+    // Read messages from all session files (parent + linked children)
+    for (const sessionFilePath of sessionFilePaths) {
+      const fileStream = fsSync.createReadStream(sessionFilePath);
+      const rl = readline.createInterface({
+        input: fileStream,
+        crlfDelay: Infinity
+      });
 
-          // Extract token usage from token_count events (keep latest)
-          if (entry.type === 'event_msg' && entry.payload?.type === 'token_count' && entry.payload?.info) {
-            const info = entry.payload.info;
-            if (info.total_token_usage) {
-              tokenUsage = {
-                used: info.total_token_usage.total_tokens || 0,
-                total: info.model_context_window || 200000
-              };
-            }
-          }
+      for await (const line of rl) {
+        if (line.trim()) {
+          try {
+            const entry = JSON.parse(line);
 
-          // Extract messages from response_item
-          if (entry.type === 'response_item' && entry.payload?.type === 'message') {
-            const content = entry.payload.content;
-            const role = entry.payload.role || 'assistant';
-            const textContent = extractText(content);
-
-            // Skip system context messages (environment_context)
-            if (textContent?.includes('<environment_context>')) {
-              continue;
-            }
-
-            // Only add if there's actual content
-            if (textContent?.trim()) {
-              messages.push({
-                type: role === 'user' ? 'user' : 'assistant',
-                timestamp: entry.timestamp,
-                message: {
-                  role: role,
-                  content: textContent
-                }
-              });
-            }
-          }
-
-          if (entry.type === 'response_item' && entry.payload?.type === 'reasoning') {
-            const summaryText = entry.payload.summary
-              ?.map(s => s.text)
-              .filter(Boolean)
-              .join('\n');
-            if (summaryText?.trim()) {
-              messages.push({
-                type: 'thinking',
-                timestamp: entry.timestamp,
-                message: {
-                  role: 'assistant',
-                  content: summaryText
-                }
-              });
-            }
-          }
-
-          if (entry.type === 'response_item' && entry.payload?.type === 'function_call') {
-            let toolName = entry.payload.name;
-            let toolInput = entry.payload.arguments;
-
-            // Map Codex tool names to Claude equivalents
-            if (toolName === 'shell_command') {
-              toolName = 'Bash';
-              try {
-                const args = JSON.parse(entry.payload.arguments);
-                toolInput = JSON.stringify({ command: args.command });
-              } catch (e) {
-                // Keep original if parsing fails
+            // Extract token usage from token_count events (keep latest)
+            if (entry.type === 'event_msg' && entry.payload?.type === 'token_count' && entry.payload?.info) {
+              const info = entry.payload.info;
+              if (info.total_token_usage) {
+                tokenUsage = {
+                  used: info.total_token_usage.total_tokens || 0,
+                  total: info.model_context_window || 200000
+                };
               }
             }
 
-            messages.push({
-              type: 'tool_use',
-              timestamp: entry.timestamp,
-              toolName: toolName,
-              toolInput: toolInput,
-              toolCallId: entry.payload.call_id
-            });
-          }
+            // Extract messages from response_item
+            if (entry.type === 'response_item' && entry.payload?.type === 'message') {
+              const content = entry.payload.content;
+              const role = entry.payload.role || 'assistant';
+              const contentData = extractContent(content);
+              const textContent = contentData.text;
 
-          if (entry.type === 'response_item' && entry.payload?.type === 'function_call_output') {
-            messages.push({
-              type: 'tool_result',
-              timestamp: entry.timestamp,
-              toolCallId: entry.payload.call_id,
-              output: entry.payload.output
-            });
-          }
+              // Skip system context messages (environment_context)
+              if (textContent?.includes('<environment_context>')) {
+                continue;
+              }
 
-          if (entry.type === 'response_item' && entry.payload?.type === 'custom_tool_call') {
-            const toolName = entry.payload.name || 'custom_tool';
-            const input = entry.payload.input || '';
+              // Only add if there's actual content or images
+              if (textContent?.trim() || contentData.images.length > 0) {
+                messages.push({
+                  type: role === 'user' ? 'user' : 'assistant',
+                  timestamp: entry.timestamp,
+                  images: contentData.images,
+                  message: {
+                    role: role,
+                    content: textContent
+                  }
+                });
+              }
+            }
 
-            if (toolName === 'apply_patch') {
-              // Parse Codex patch format and convert to Claude Edit format
-              const fileMatch = input.match(/\*\*\* Update File: (.+)/);
-              const filePath = fileMatch ? fileMatch[1].trim() : 'unknown';
+            if (entry.type === 'response_item' && entry.payload?.type === 'reasoning') {
+              const summaryText = entry.payload.summary
+                ?.map(s => s.text)
+                .filter(Boolean)
+                .join('\n');
+              if (summaryText?.trim()) {
+                messages.push({
+                  type: 'thinking',
+                  timestamp: entry.timestamp,
+                  message: {
+                    role: 'assistant',
+                    content: summaryText
+                  }
+                });
+              }
+            }
 
-              // Extract old and new content from patch
-              const lines = input.split('\n');
-              const oldLines = [];
-              const newLines = [];
+            if (entry.type === 'response_item' && entry.payload?.type === 'function_call') {
+              let toolName = entry.payload.name;
+              let toolInput = entry.payload.arguments;
 
-              for (const line of lines) {
-                if (line.startsWith('-') && !line.startsWith('---')) {
-                  oldLines.push(line.substring(1));
-                } else if (line.startsWith('+') && !line.startsWith('+++')) {
-                  newLines.push(line.substring(1));
+              // Map Codex tool names to Claude equivalents
+              if (toolName === 'shell_command') {
+                toolName = 'Bash';
+                try {
+                  const args = JSON.parse(entry.payload.arguments);
+                  toolInput = JSON.stringify({ command: args.command });
+                } catch (e) {
+                  // Keep original if parsing fails
                 }
               }
 
-              messages.push({
-                type: 'tool_use',
-                timestamp: entry.timestamp,
-                toolName: 'Edit',
-                toolInput: JSON.stringify({
-                  file_path: filePath,
-                  old_string: oldLines.join('\n'),
-                  new_string: newLines.join('\n')
-                }),
-                toolCallId: entry.payload.call_id
-              });
-            } else {
               messages.push({
                 type: 'tool_use',
                 timestamp: entry.timestamp,
                 toolName: toolName,
-                toolInput: input,
+                toolInput: toolInput,
                 toolCallId: entry.payload.call_id
               });
             }
-          }
 
-          if (entry.type === 'response_item' && entry.payload?.type === 'custom_tool_call_output') {
-            messages.push({
-              type: 'tool_result',
-              timestamp: entry.timestamp,
-              toolCallId: entry.payload.call_id,
-              output: entry.payload.output || ''
-            });
-          }
+            if (entry.type === 'response_item' && entry.payload?.type === 'function_call_output') {
+              messages.push({
+                type: 'tool_result',
+                timestamp: entry.timestamp,
+                toolCallId: entry.payload.call_id,
+                output: entry.payload.output
+              });
+            }
 
-        } catch (parseError) {
-          // Skip malformed lines
+            if (entry.type === 'response_item' && entry.payload?.type === 'custom_tool_call') {
+              const toolName = entry.payload.name || 'custom_tool';
+              const input = entry.payload.input || '';
+
+              if (toolName === 'apply_patch') {
+                // Parse Codex patch format and convert to Claude Edit format
+                const fileMatch = input.match(/\*\*\* Update File: (.+)/);
+                const filePath = fileMatch ? fileMatch[1].trim() : 'unknown';
+
+                // Extract old and new content from patch
+                const lines = input.split('\n');
+                const oldLines = [];
+                const newLines = [];
+
+                for (const line of lines) {
+                  if (line.startsWith('-') && !line.startsWith('---')) {
+                    oldLines.push(line.substring(1));
+                  } else if (line.startsWith('+') && !line.startsWith('+++')) {
+                    newLines.push(line.substring(1));
+                  }
+                }
+
+                messages.push({
+                  type: 'tool_use',
+                  timestamp: entry.timestamp,
+                  toolName: 'Edit',
+                  toolInput: JSON.stringify({
+                    file_path: filePath,
+                    old_string: oldLines.join('\n'),
+                    new_string: newLines.join('\n')
+                  }),
+                  toolCallId: entry.payload.call_id
+                });
+              } else {
+                messages.push({
+                  type: 'tool_use',
+                  timestamp: entry.timestamp,
+                  toolName: toolName,
+                  toolInput: input,
+                  toolCallId: entry.payload.call_id
+                });
+              }
+            }
+
+            if (entry.type === 'response_item' && entry.payload?.type === 'custom_tool_call_output') {
+              messages.push({
+                type: 'tool_result',
+                timestamp: entry.timestamp,
+                toolCallId: entry.payload.call_id,
+                output: entry.payload.output || ''
+              });
+            }
+
+          } catch (parseError) {
+            // Skip malformed lines
+          }
         }
       }
-    }
+    } // end for sessionFilePaths
 
     // Sort by timestamp
     messages.sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
@@ -1717,7 +1757,7 @@ async function deleteCodexSession(sessionId) {
             files.push(fullPath);
           }
         }
-      } catch (error) {}
+      } catch (error) { }
       return files;
     };
 

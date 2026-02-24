@@ -764,7 +764,7 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
                     <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
-                    <span>💭 Thinking...</span>
+                    <span>{t('thinking.emoji')}</span>
                   </summary>
                   <div className="mt-2 pl-4 border-l-2 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 text-sm">
                     <Markdown className="prose prose-sm max-w-none dark:prose-invert prose-gray">
@@ -779,7 +779,7 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
                 {showThinking && message.reasoning && (
                   <details className="mb-3">
                     <summary className="cursor-pointer text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium">
-                      💭 Thinking...
+                      {t('thinking.emoji')}
                     </summary>
                     <div className="mt-2 pl-4 border-l-2 border-gray-300 dark:border-gray-600 italic text-gray-600 dark:text-gray-400 text-sm">
                       <div className="whitespace-pre-wrap">
@@ -4750,7 +4750,7 @@ function ChatInterface({ selectedProject, selectedSession, newSessionTrigger = 0
                     <div className="animate-pulse">●</div>
                     <div className="animate-pulse" style={{ animationDelay: '0.2s' }}>●</div>
                     <div className="animate-pulse" style={{ animationDelay: '0.4s' }}>●</div>
-                    <span className="ml-2">Thinking...</span>
+                    <span className="ml-2">{t('thinking.title')}</span>
                     <span className="text-xs text-gray-400">({loadingElapsedSec}s)</span>
                   </div>
                 </div>

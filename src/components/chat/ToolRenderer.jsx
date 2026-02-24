@@ -12,6 +12,15 @@ function safeParse(data) {
   }
 }
 
+function getToolCategory(toolName) {
+  if (['Edit', 'Write', 'ApplyPatch'].includes(toolName)) return 'edit';
+  if (['Grep', 'Glob'].includes(toolName)) return 'search';
+  if (toolName === 'Bash') return 'bash';
+  if (['TodoWrite', 'TodoRead'].includes(toolName)) return 'todo';
+  if (toolName === 'exit_plan_mode' || toolName === 'ExitPlanMode') return 'plan';
+  return 'default';
+}
+
 function getToolConfig(toolName) {
   const configs = {
     Bash: {
@@ -273,6 +282,11 @@ function OneLineDisplay({ toolName, label, value, secondary, action = 'none', on
     return (
       <div className="group my-1">
         <div className="flex items-start gap-2">
+          <div className="flex items-center gap-1.5 flex-shrink-0 pt-0.5">
+            <svg className="w-3 h-3 text-green-500 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
           <div className="flex-1 min-w-0 bg-gray-900 dark:bg-black rounded px-2.5 py-1">
             <code className={`text-xs text-green-400 font-mono ${wrapText ? 'whitespace-pre-wrap break-all' : 'truncate block'}`}>
               <span className="text-green-600 dark:text-green-500 select-none">$ </span>{value}
@@ -287,7 +301,7 @@ function OneLineDisplay({ toolName, label, value, secondary, action = 'none', on
             {copied ? '✓' : '⧉'}
           </button>
         </div>
-        {secondary && <div className="mt-1 text-[11px] text-gray-400 italic">{secondary}</div>}
+        {secondary && <div className="ml-7 mt-1 text-[11px] text-gray-400 italic">{secondary}</div>}
       </div>
     );
   }
@@ -331,19 +345,31 @@ function OneLineDisplay({ toolName, label, value, secondary, action = 'none', on
   );
 }
 
-function CollapsibleDisplay({ title, defaultOpen = false, children, showRawParameters = false, rawContent, onTitleClick }) {
+function CollapsibleDisplay({ toolName, toolCategory = 'default', title, defaultOpen = false, children, showRawParameters = false, rawContent, onTitleClick }) {
+  const borderColorMap = {
+    edit: 'border-amber-500 dark:border-amber-400',
+    search: 'border-gray-400 dark:border-gray-500',
+    bash: 'border-green-500 dark:border-green-400',
+    todo: 'border-violet-500 dark:border-violet-400',
+    plan: 'border-indigo-500 dark:border-indigo-400',
+    default: 'border-gray-300 dark:border-gray-600',
+  };
+  const borderColor = borderColorMap[toolCategory] || borderColorMap.default;
+
   return (
-    <div className="border-l-2 border-gray-300 dark:border-gray-600 pl-3 py-0.5 my-1">
+    <div className={`border-l-2 ${borderColor} pl-3 py-0.5 my-1`}>
       <details open={defaultOpen} className="group/details">
-        <summary className="cursor-pointer text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5">
-          <svg className="w-3.5 h-3.5 transition-transform group-open/details:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        <summary className="cursor-pointer text-xs text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5">
+          <svg className="w-3 h-3 text-gray-400 dark:text-gray-500 transition-transform group-open/details:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
+          {toolName && <span className="font-medium text-gray-500 dark:text-gray-400 flex-shrink-0">{toolName}</span>}
+          {toolName && <span className="text-gray-300 dark:text-gray-600 text-[10px] flex-shrink-0">/</span>}
           {onTitleClick ? (
-            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTitleClick(); }} className="hover:underline">
+            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTitleClick(); }} className="text-blue-600 dark:text-blue-400 hover:underline truncate flex-1 text-left">
               {title}
             </button>
-          ) : title}
+          ) : <span className="text-gray-600 dark:text-gray-400 truncate flex-1">{title}</span>}
         </summary>
         <div className="mt-2">{children}</div>
         {showRawParameters && rawContent && (
@@ -509,6 +535,8 @@ export default function ToolRenderer({
 
   return (
     <CollapsibleDisplay
+      toolName={toolName}
+      toolCategory={getToolCategory(toolName)}
       title={title}
       defaultOpen={defaultOpen}
       showRawParameters={mode === 'input' && showRawParameters}

@@ -7,7 +7,7 @@ import '@xterm/xterm/css/xterm.css';
 import { useTranslation } from 'react-i18next';
 import { IS_PLATFORM } from '../constants/config';
 import { Settings2, X, ChevronRight, Terminal as TerminalIcon, ChevronLeft, ChevronUp, ChevronDown, GripVertical } from 'lucide-react';
-
+import TerminalShortcutsPanel from './TerminalShortcutsPanel';
 const xtermStyles = `
   .xterm .xterm-screen {
     outline: none !important;
@@ -80,6 +80,19 @@ function Shell({
     }
   });
 
+    // Send raw input to the terminal (used by TerminalShortcutsPanel)
+  const sendInput = useCallback((data) => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type: 'input', data }));
+    }
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    if (terminal.current) {
+      terminal.current.scrollToBottom();
+    }
+  }, []);
+  
   const connectWebSocket = useCallback(async () => {
     if (isConnecting || isConnected) return;
 
@@ -630,6 +643,8 @@ function Shell({
             </div>
           </div>
         )}
+
+        <TerminalShortcutsPanel onSendInput={sendInput} onScrollDown={scrollToBottom} isConnected={isConnected} />
       </div>
 
       {/* Mobile Virtual Keys Drawer - Right Side Pull Tab */}

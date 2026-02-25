@@ -106,7 +106,7 @@ export default function AppContent() {
         </div>
       )}
 
-      <div className={`flex-1 flex flex-col min-w-0 ${isMobile ? 'pb-mobile-nav' : ''}`}>
+      <div className="flex-1 flex flex-col min-w-0">
         <MainContent
           selectedProject={selectedProject}
           selectedSession={selectedSession}
@@ -131,11 +131,12 @@ export default function AppContent() {
         />
       </div>
 
-      {isMobile && (
+      {isMobile && !isLoadingProjects && Boolean(selectedProject) && (
         <MobileNav
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           isInputFocused={isInputFocused}
+          sessionId={selectedSession?.id ?? null}
         />
       )}
 

@@ -43,6 +43,7 @@ interface ChatComposerProps {
   handleGrantToolPermission: (suggestion: { entry: string; toolName: string }) => { success: boolean };
   claudeStatus: { text: string; tokens: number; can_interrupt: boolean } | null;
   isLoading: boolean;
+  canAbortSession: boolean;
   onAbortSession: () => void;
   provider: Provider | string;
   permissionMode: PermissionMode | string;
@@ -100,6 +101,7 @@ export default function ChatComposer({
   handleGrantToolPermission,
   claudeStatus,
   isLoading,
+  canAbortSession,
   onAbortSession,
   provider,
   permissionMode,
@@ -164,6 +166,8 @@ export default function ChatComposer({
     (r) => r.toolName === 'AskUserQuestion'
   );
   const shouldShowExpandedInputUi = hasInput || isInputFocused;
+  const showStopOnInputButton =
+    isLoading && canAbortSession && claudeStatus?.can_interrupt !== false;
 
   const handleComposerSubmit = (
     event: FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>
@@ -359,21 +363,39 @@ export default function ChatComposer({
               </div>
 
               <button
-                type="submit"
-                disabled={!input.trim() || isLoading}
+                type="button"
+                disabled={!showStopOnInputButton && !input.trim()}
                 onMouseDown={(event) => {
                   event.preventDefault();
+                  if (showStopOnInputButton) {
+                    onAbortSession();
+                    return;
+                  }
                   handleComposerSubmit(event);
                 }}
                 onTouchStart={(event) => {
                   event.preventDefault();
+                  if (showStopOnInputButton) {
+                    onAbortSession();
+                    return;
+                  }
                   handleComposerSubmit(event);
                 }}
-                className="pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed rounded-xl flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-1 focus:ring-offset-background"
+                className={`pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-background ${
+                  showStopOnInputButton
+                    ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500/30'
+                    : 'bg-primary hover:bg-primary/90 focus:ring-primary/30 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed'
+                }`}
               >
-                <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-primary-foreground transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
+                {showStopOnInputButton ? (
+                  <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M6 6l12 12M18 6l-12 12" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-primary-foreground transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                )}
               </button>
             </div>
 

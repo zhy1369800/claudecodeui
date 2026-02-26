@@ -188,7 +188,9 @@ export default function ChatComposer({
     : '';
 
   return (
-    <div className={`p-2 sm:p-4 md:p-4 flex-shrink-0 pb-2 sm:pb-4 md:pb-6 ${mobileFloatingClass}`}>
+    <div
+      className={`chat-composer-mobile p-2 sm:p-4 md:p-4 flex-shrink-0 pb-2 sm:pb-4 md:pb-6 ${isInputFocused ? 'chat-composer-mobile-floating' : ''} ${mobileFloatingClass}`}
+    >
       {!hasQuestionPanel && (
         <div className="flex-1">
           <ClaudeStatus

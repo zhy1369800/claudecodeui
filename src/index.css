@@ -721,6 +721,10 @@
     .chat-input-mobile {
       padding-bottom: calc(60px + env(safe-area-inset-bottom));
     }
+
+    body.pwa-mode .chat-composer-mobile:not(.chat-composer-mobile-floating) {
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6px) !important;
+    }
   }
 
   /* Text wrapping improvements */

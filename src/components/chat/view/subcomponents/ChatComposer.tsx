@@ -5,6 +5,7 @@ import ImageAttachment from './ImageAttachment';
 import PermissionRequestsBanner from './PermissionRequestsBanner';
 import ChatInputControls from './ChatInputControls';
 import { useTranslation } from 'react-i18next';
+import { useRef } from 'react';
 import type {
   ChangeEvent,
   ClipboardEvent,
@@ -153,6 +154,7 @@ export default function ChatComposer({
   onTranscript,
 }: ChatComposerProps) {
   const { t } = useTranslation('chat');
+  const lastInternalTouchAtRef = useRef(0);
   const AnyCommandMenu = CommandMenu as any;
   const textareaRect = textareaRef.current?.getBoundingClientRect();
   const commandMenuPosition = {
@@ -212,10 +214,16 @@ export default function ChatComposer({
 
       {!hasQuestionPanel && <form
         onSubmit={handleComposerSubmit as (event: FormEvent<HTMLFormElement>) => void}
+        onTouchStartCapture={() => {
+          lastInternalTouchAtRef.current = Date.now();
+        }}
         onFocus={() => onInputFocusChange?.(true)}
         onBlur={(event) => {
           const nextFocused = event.relatedTarget as Node | null;
           if (nextFocused && event.currentTarget.contains(nextFocused)) {
+            return;
+          }
+          if (!nextFocused && Date.now() - lastInternalTouchAtRef.current < 300) {
             return;
           }
           onInputFocusChange?.(false);

@@ -31,7 +31,15 @@ type PendingViewSession = {
   startedAt: number;
 };
 
+type PendingWorkedFor = {
+  sessionId: string | null;
+  elapsedSec: number;
+} | null;
+
+const WORKED_FOR_SESSION_LAST_CACHE_KEY = 'worked_for_session_last_v1';
+
 interface UseChatComposerStateArgs {
+  chatMessages: ChatMessage[];
   selectedProject: Project | null;
   selectedSession: ProjectSession | null;
   currentSessionId: string | null;
@@ -83,6 +91,7 @@ const isTemporarySessionId = (sessionId: string | null | undefined) =>
   Boolean(sessionId && sessionId.startsWith('new-session-'));
 
 export function useChatComposerState({
+  chatMessages,
   selectedProject,
   selectedSession,
   currentSessionId,
@@ -126,10 +135,120 @@ export function useChatComposerState({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const inputHighlightRef = useRef<HTMLDivElement>(null);
+  const runStartedAtRef = useRef<number | null>(null);
+  const runSessionIdRef = useRef<string | null>(null);
+  const pendingWorkedForRef = useRef<PendingWorkedFor>(null);
+  const prevIsLoadingRef = useRef(isLoading);
   const handleSubmitRef = useRef<
     ((event: FormEvent<HTMLFormElement> | MouseEvent | TouchEvent | KeyboardEvent<HTMLTextAreaElement>) => Promise<void>) | null
   >(null);
   const inputValueRef = useRef(input);
+
+  const getActiveViewSessionId = useCallback(
+    () => selectedSession?.id || currentSessionId || pendingViewSessionRef.current?.sessionId || null,
+    [currentSessionId, pendingViewSessionRef, selectedSession?.id],
+  );
+
+  const findWorkedForTargetIndex = useCallback((messages: ChatMessage[]) => {
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return -1;
+    }
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const message = messages[i];
+      if (!message) {
+        continue;
+      }
+      const isAssistantLike = message.type === 'assistant' || message.type === 'error';
+      const isVisibleContent = !message.isThinking && !message.isToolUse;
+      if (isAssistantLike && isVisibleContent) {
+        return i;
+      }
+    }
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const message = messages[i];
+      if (message && (message.type === 'assistant' || message.type === 'error')) {
+        return i;
+      }
+    }
+    return -1;
+  }, []);
+
+  const getCachedSessionWorkedForSeconds = useCallback(
+    (sessionId: string | null) => {
+      if (!sessionId || !selectedProject?.name) {
+        return null;
+      }
+      const raw = safeLocalStorage.getItem(WORKED_FOR_SESSION_LAST_CACHE_KEY);
+      if (!raw) {
+        return null;
+      }
+      try {
+        const parsed = JSON.parse(raw) as Record<string, Record<string, number>>;
+        const value = parsed?.[selectedProject.name]?.[sessionId];
+        return typeof value === 'number' ? value : null;
+      } catch {
+        return null;
+      }
+    },
+    [selectedProject?.name],
+  );
+
+  const setCachedSessionWorkedForSeconds = useCallback(
+    (sessionId: string | null, elapsedSec: number) => {
+      if (!sessionId || !selectedProject?.name || typeof elapsedSec !== 'number') {
+        return;
+      }
+      const raw = safeLocalStorage.getItem(WORKED_FOR_SESSION_LAST_CACHE_KEY);
+      let cache: Record<string, Record<string, number>> = {};
+      if (raw) {
+        try {
+          cache = JSON.parse(raw) as Record<string, Record<string, number>>;
+        } catch {
+          cache = {};
+        }
+      }
+      const projectCache = cache[selectedProject.name] || {};
+      cache[selectedProject.name] = {
+        ...projectCache,
+        [sessionId]: elapsedSec,
+      };
+      safeLocalStorage.setItem(WORKED_FOR_SESSION_LAST_CACHE_KEY, JSON.stringify(cache));
+    },
+    [selectedProject?.name],
+  );
+
+  const appendWorkedForMessage = useCallback(
+    (targetSessionId: string | null = null) => {
+      if (!runStartedAtRef.current && typeof pendingWorkedForRef.current?.elapsedSec !== 'number') {
+        return;
+      }
+      const elapsedSec =
+        typeof pendingWorkedForRef.current?.elapsedSec === 'number'
+          ? pendingWorkedForRef.current.elapsedSec
+          : Math.max(0, Math.floor((Date.now() - runStartedAtRef.current!) / 1000));
+      const sessionId = targetSessionId || runSessionIdRef.current || getActiveViewSessionId();
+      setChatMessages((previous) => {
+        const targetIndex = findWorkedForTargetIndex(previous);
+        if (targetIndex < 0) {
+          return previous;
+        }
+        const updated = [...previous];
+        updated[targetIndex] = {
+          ...updated[targetIndex],
+          workedForSeconds: elapsedSec,
+          isLocalTransient: true,
+        };
+        return updated;
+      });
+      if (sessionId) {
+        setCachedSessionWorkedForSeconds(sessionId, elapsedSec);
+      }
+      runStartedAtRef.current = null;
+      runSessionIdRef.current = null;
+      pendingWorkedForRef.current = { sessionId, elapsedSec };
+    },
+    [findWorkedForTargetIndex, getActiveViewSessionId, setCachedSessionWorkedForSeconds, setChatMessages],
+  );
 
   const handleBuiltInCommand = useCallback(
     (result: CommandExecutionResult) => {
@@ -475,6 +594,8 @@ export function useChatComposerState({
       if (!currentInput.trim() || isLoading || !selectedProject) {
         return;
       }
+      runStartedAtRef.current = Date.now();
+      pendingWorkedForRef.current = null;
 
       // Intercept slash commands: if input starts with /commandName, execute as command with args
       const trimmedInput = currentInput.trim();
@@ -561,6 +682,7 @@ export function useChatComposerState({
       const effectiveSessionId =
         currentSessionId || selectedSession?.id || sessionStorage.getItem('cursorSessionId');
       const sessionToActivate = effectiveSessionId || `new-session-${Date.now()}`;
+      runSessionIdRef.current = sessionToActivate;
 
       if (!effectiveSessionId && !selectedSession?.id) {
         if (typeof window !== 'undefined') {
@@ -688,6 +810,77 @@ export function useChatComposerState({
   useEffect(() => {
     handleSubmitRef.current = handleSubmit;
   }, [handleSubmit]);
+
+  useEffect(() => {
+    const wasLoading = prevIsLoadingRef.current;
+    if (wasLoading && !isLoading && runStartedAtRef.current) {
+      appendWorkedForMessage();
+    }
+    prevIsLoadingRef.current = isLoading;
+  }, [appendWorkedForMessage, isLoading]);
+
+  useEffect(() => {
+    if (!pendingWorkedForRef.current) {
+      return;
+    }
+    const pending = pendingWorkedForRef.current;
+    const activeViewSessionId = getActiveViewSessionId();
+    if (pending.sessionId && activeViewSessionId && pending.sessionId !== activeViewSessionId) {
+      return;
+    }
+    let attached = false;
+    setChatMessages((previous) => {
+      const targetIndex = findWorkedForTargetIndex(previous);
+      if (targetIndex < 0) {
+        return previous;
+      }
+      const updated = [...previous];
+      updated[targetIndex] = {
+        ...updated[targetIndex],
+        workedForSeconds: pending.elapsedSec,
+        isLocalTransient: true,
+      };
+      attached = true;
+      return updated;
+    });
+    if (attached) {
+      pendingWorkedForRef.current = null;
+    }
+  }, [chatMessages, findWorkedForTargetIndex, getActiveViewSessionId, setChatMessages]);
+
+  useEffect(() => {
+    const activeViewSessionId = getActiveViewSessionId();
+    if (!activeViewSessionId) {
+      return;
+    }
+    const cached = getCachedSessionWorkedForSeconds(activeViewSessionId);
+    if (typeof cached !== 'number') {
+      return;
+    }
+    setChatMessages((previous) => {
+      if (previous.some((message) => typeof message?.workedForSeconds === 'number')) {
+        return previous;
+      }
+      const targetIndex = findWorkedForTargetIndex(previous);
+      if (targetIndex < 0) {
+        return previous;
+      }
+      const updated = [...previous];
+      updated[targetIndex] = {
+        ...updated[targetIndex],
+        workedForSeconds: cached,
+      };
+      return updated;
+    });
+  }, [
+    chatMessages,
+    currentSessionId,
+    findWorkedForTargetIndex,
+    getActiveViewSessionId,
+    getCachedSessionWorkedForSeconds,
+    selectedSession?.id,
+    setChatMessages,
+  ]);
 
   useEffect(() => {
     inputValueRef.current = input;

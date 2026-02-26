@@ -43,7 +43,7 @@ type InteractiveOption = {
 type PermissionGrantState = 'idle' | 'granted' | 'error';
 
 const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFileOpen, onShowSettings, onGrantToolPermission, autoExpandTools, showRawParameters, showThinking, selectedProject, provider }: MessageComponentProps) => {
-  const { t } = useTranslation('chat');
+  const { t, i18n } = useTranslation('chat');
   const isGrouped = prevMessage && prevMessage.type === message.type &&
                    ((prevMessage.type === 'assistant') ||
                     (prevMessage.type === 'user') ||
@@ -86,6 +86,18 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
   }, [autoExpandTools, isExpanded, message.isToolUse]);
 
   const formattedTime = useMemo(() => new Date(message.timestamp).toLocaleTimeString(), [message.timestamp]);
+  const workedForInlineText = useMemo(() => {
+    if (typeof message?.workedForSeconds !== 'number') {
+      return '';
+    }
+    const totalSeconds = Math.max(0, Math.floor(message.workedForSeconds as number));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const isChinese = (i18n?.resolvedLanguage || i18n?.language || '').toLowerCase().startsWith('zh');
+    return isChinese
+      ? `工作用时 ${minutes}分${seconds}秒`
+      : `Worked for ${minutes}m ${seconds}s`;
+  }, [i18n?.language, i18n?.resolvedLanguage, message?.workedForSeconds]);
   const shouldHideThinkingMessage = Boolean(message.isThinking && !showThinking);
 
   if (shouldHideThinkingMessage) {
@@ -119,6 +131,7 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
             )}
             <div className="text-xs text-blue-100 mt-1 text-right">
               {formattedTime}
+              {workedForInlineText ? ` · ${workedForInlineText}` : ''}
             </div>
           </div>
           {!isGrouped && (
@@ -443,6 +456,7 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
             {!isGrouped && (
               <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
                 {formattedTime}
+                {workedForInlineText ? ` · ${workedForInlineText}` : ''}
               </div>
             )}
           </div>

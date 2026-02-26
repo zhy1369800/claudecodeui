@@ -2,31 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 
 function ClaudeStatus({ status, onAbort, isLoading, provider = 'claude' }) {
-  const [elapsedTime, setElapsedTime] = useState(0);
   const [animationPhase, setAnimationPhase] = useState(0);
-  const [fakeTokens, setFakeTokens] = useState(0);
-
-  // Update elapsed time every second
-  useEffect(() => {
-    if (!isLoading) {
-      setElapsedTime(0);
-      setFakeTokens(0);
-      return;
-    }
-
-    const startTime = Date.now();
-    // Calculate random token rate once (30-50 tokens per second)
-    const tokenRate = 30 + Math.random() * 20;
-
-    const timer = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      setElapsedTime(elapsed);
-      // Simulate token count increasing over time
-      setFakeTokens(Math.floor(elapsed * tokenRate));
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isLoading]);
 
   // Animate the status indicator
   useEffect(() => {
@@ -43,13 +19,9 @@ function ClaudeStatus({ status, onAbort, isLoading, provider = 'claude' }) {
   // Note: showThinking only controls the reasoning accordion in messages, not this processing indicator
   if (!isLoading) return null;
   
-  // Clever action words that cycle
-  const actionWords = ['Thinking', 'Processing', 'Analyzing', 'Working', 'Computing', 'Reasoning'];
-  const actionIndex = Math.floor(elapsedTime / 3) % actionWords.length;
-  
   // Parse status data
-  const statusText = status?.text || actionWords[actionIndex];
-  const tokens = status?.tokens || fakeTokens;
+  const statusText = status?.text || 'Processing';
+  const tokens = status?.tokens || 0;
   const canInterrupt = status?.can_interrupt !== false;
   
   // Animation characters
@@ -57,7 +29,7 @@ function ClaudeStatus({ status, onAbort, isLoading, provider = 'claude' }) {
   const currentSpinner = spinners[animationPhase];
   
   return (
-    <div className="w-full mb-3 sm:mb-6 animate-in slide-in-from-bottom duration-300">
+    <div className="hidden sm:block w-full mb-3 sm:mb-6 animate-in slide-in-from-bottom duration-300">
       <div className="flex items-center justify-between max-w-4xl mx-auto bg-gray-800 dark:bg-gray-900 text-white rounded-lg shadow-lg px-2.5 py-2 sm:px-4 sm:py-3 border border-gray-700 dark:border-gray-800">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -73,7 +45,6 @@ function ClaudeStatus({ status, onAbort, isLoading, provider = 'claude' }) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <span className="font-medium text-xs sm:text-sm truncate">{statusText}...</span>
-                <span className="text-gray-400 text-xs sm:text-sm flex-shrink-0">({elapsedTime}s)</span>
                 {tokens > 0 && (
                   <>
                     <span className="text-gray-500 hidden sm:inline">·</span>

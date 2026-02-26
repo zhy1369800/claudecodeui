@@ -165,6 +165,7 @@ function ChatInterface({
     handleInputFocusChange,
     isInputFocused,
   } = useChatComposerState({
+    chatMessages,
     selectedProject,
     selectedSession,
     currentSessionId,

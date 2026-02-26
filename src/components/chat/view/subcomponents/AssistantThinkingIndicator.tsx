@@ -1,6 +1,6 @@
+import { useEffect, useState } from 'react';
 import { SessionProvider } from '../../../../types/app';
 import SessionProviderLogo from '../../../SessionProviderLogo';
-import type { Provider } from '../../types/types';
 
 type AssistantThinkingIndicatorProps = {
   selectedProvider: SessionProvider;
@@ -8,6 +8,17 @@ type AssistantThinkingIndicatorProps = {
 
 
 export default function AssistantThinkingIndicator({ selectedProvider }: AssistantThinkingIndicatorProps) {
+  const [elapsedTime, setElapsedTime] = useState(0);
+
+  useEffect(() => {
+    setElapsedTime(0);
+    const startTime = Date.now();
+    const timer = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <div className="chat-message assistant">
       <div className="w-full">
@@ -28,7 +39,7 @@ export default function AssistantThinkingIndicator({ selectedProvider }: Assista
             <div className="animate-pulse" style={{ animationDelay: '0.4s' }}>
               .
             </div>
-            <span className="ml-2">Thinking...</span>
+            <span className="ml-2">Thinking ({elapsedTime}s)</span>
           </div>
         </div>
       </div>

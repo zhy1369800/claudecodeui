@@ -559,6 +559,8 @@ export function useChatRealtimeHandlers({
         break;
 
       case 'claude-error':
+        clearLoadingIndicators();
+        markSessionsAsCompleted(latestMessage.sessionId, currentSessionId, selectedSession?.id);
         setChatMessages((previous) => [
           ...previous,
           {
@@ -624,6 +626,8 @@ export function useChatRealtimeHandlers({
         break;
 
       case 'cursor-error':
+        clearLoadingIndicators();
+        markSessionsAsCompleted(latestMessage.sessionId, currentSessionId, selectedSession?.id);
         setChatMessages((previous) => [
           ...previous,
           {
@@ -907,8 +911,8 @@ export function useChatRealtimeHandlers({
       }
 
       case 'codex-error':
-        setIsLoading(false);
-        setCanAbortSession(false);
+        clearLoadingIndicators();
+        markSessionsAsCompleted(latestMessage.sessionId, currentSessionId, selectedSession?.id);
         setChatMessages((previous) => [
           ...previous,
           {

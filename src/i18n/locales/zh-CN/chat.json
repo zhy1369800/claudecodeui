@@ -91,7 +91,13 @@
       "bypassPermissions": "完全的系统访问，无限制。所有命令自动运行，具有完整的磁盘和网络访问权限。请谨慎使用。",
       "plan": "计划模式 - 不执行任何命令"
     },
-    "technicalDetails": "技术细节"
+    "technicalDetails": "技术细节",
+    "modes_mobile": {
+      "default": "默认",
+      "acceptEdits": "编辑",
+      "bypassPermissions": "自由",
+      "plan": "计划"
+    }
   },
   "input": {
     "placeholder": "输入 / 调用命令，@ 选择文件，或向 {{provider}} 提问...",

@@ -163,6 +163,20 @@ export default function ChatComposer({
   const hasQuestionPanel = pendingPermissionRequests.some(
     (r) => r.toolName === 'AskUserQuestion'
   );
+  const shouldShowExpandedInputUi = hasInput || isInputFocused;
+
+  const handleComposerSubmit = (
+    event: FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>
+  ) => {
+    onSubmit(event);
+    if (!input.trim() || isLoading) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      textareaRef.current?.blur();
+      onInputFocusChange?.(false);
+    });
+  };
 
   // On mobile, when input is focused, float the input box at the bottom
   const mobileFloatingClass = isInputFocused
@@ -188,25 +202,20 @@ export default function ChatComposer({
           handlePermissionDecision={handlePermissionDecision}
           handleGrantToolPermission={handleGrantToolPermission}
         />
-
-        {!hasQuestionPanel && <ChatInputControls
-          permissionMode={permissionMode}
-          onModeSwitch={onModeSwitch}
-          provider={provider}
-          thinkingMode={thinkingMode}
-          setThinkingMode={setThinkingMode}
-          tokenBudget={tokenBudget}
-          slashCommandsCount={slashCommandsCount}
-          onToggleCommandMenu={onToggleCommandMenu}
-          hasInput={hasInput}
-          onClearInput={onClearInput}
-          isUserScrolledUp={isUserScrolledUp}
-          hasMessages={hasMessages}
-          onScrollToBottom={onScrollToBottom}
-        />}
       </div>
 
-      {!hasQuestionPanel && <form onSubmit={onSubmit as (event: FormEvent<HTMLFormElement>) => void} className="relative max-w-4xl mx-auto">
+      {!hasQuestionPanel && <form
+        onSubmit={handleComposerSubmit as (event: FormEvent<HTMLFormElement>) => void}
+        onFocus={() => onInputFocusChange?.(true)}
+        onBlur={(event) => {
+          const nextFocused = event.relatedTarget as Node | null;
+          if (nextFocused && event.currentTarget.contains(nextFocused)) {
+            return;
+          }
+          onInputFocusChange?.(false);
+        }}
+        className="relative max-w-4xl mx-auto"
+      >
         {isDragActive && (
           <div className="absolute inset-0 bg-primary/15 border-2 border-dashed border-primary/50 rounded-2xl flex items-center justify-center z-50">
             <div className="bg-card rounded-xl p-4 shadow-lg border border-border/30">
@@ -284,7 +293,13 @@ export default function ChatComposer({
         >
           <input {...getInputProps()} />
           <div ref={inputHighlightRef} aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
-            <div className="chat-input-placeholder block w-full pl-12 pr-20 sm:pr-40 py-1.5 sm:py-4 text-transparent text-base leading-6 whitespace-pre-wrap break-words">
+            <div
+              className={`chat-input-placeholder block w-full pl-3 ${
+                shouldShowExpandedInputUi
+                  ? 'pr-4 sm:pr-6 pb-12 sm:pb-14 min-h-[96px] sm:min-h-[120px] pt-3'
+                  : 'pr-14 sm:pr-16 pb-2 min-h-[60px] sm:min-h-[56px] pt-2'
+              } text-transparent text-base leading-6 whitespace-pre-wrap break-words transition-all duration-200`}
+            >
               {renderInputWithMentions(input)}
             </div>
           </div>
@@ -298,55 +313,72 @@ export default function ChatComposer({
               onKeyDown={onTextareaKeyDown}
               onPaste={onTextareaPaste}
               onScroll={(event) => onTextareaScrollSync(event.target as HTMLTextAreaElement)}
-              onFocus={() => onInputFocusChange?.(true)}
-              onBlur={() => onInputFocusChange?.(false)}
               onInput={onTextareaInput}
               placeholder={placeholder}
               disabled={isLoading}
-              className="chat-input-placeholder block w-full pl-12 pr-20 sm:pr-40 py-1.5 sm:py-4 bg-transparent rounded-2xl focus:outline-none text-foreground placeholder-muted-foreground/50 disabled:opacity-50 resize-none min-h-[50px] sm:min-h-[80px] max-h-[40vh] sm:max-h-[300px] overflow-y-auto text-base leading-6 transition-all duration-200"
-              style={{ height: '50px' }}
+              className={`chat-input-placeholder block w-full pl-3 ${
+                shouldShowExpandedInputUi
+                  ? 'pr-4 sm:pr-6 pb-12 sm:pb-14 min-h-[96px] sm:min-h-[120px] pt-3'
+                  : 'pr-14 sm:pr-16 pb-2 h-[60px] sm:h-[56px] min-h-[60px] sm:min-h-[56px] pt-2'
+              } bg-transparent rounded-2xl focus:outline-none text-foreground placeholder-muted-foreground/50 disabled:opacity-50 resize-none max-h-[60vh] sm:max-h-[500px] overflow-y-auto text-base leading-6 transition-all duration-200`}
             />
-
-            <button
-              type="button"
-              onClick={openImagePicker}
-              className="absolute left-2 top-1/2 transform -translate-y-1/2 p-2 hover:bg-accent/60 rounded-xl transition-colors"
-              title={t('input.attachImages')}
-            >
-              <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-            </button>
 
             <div className="absolute right-16 sm:right-16 top-1/2 transform -translate-y-1/2" style={{ display: 'none' }}>
               <MicButton onTranscript={onTranscript} className="w-10 h-10 sm:w-10 sm:h-10" />
             </div>
 
-            <button
-              type="submit"
-              disabled={!input.trim() || isLoading}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                onSubmit(event);
-              }}
-              onTouchStart={(event) => {
-                event.preventDefault();
-                onSubmit(event);
-              }}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 sm:w-11 sm:h-11 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed rounded-xl flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-1 focus:ring-offset-background"
+            <div
+              className={`absolute left-2 right-2 flex items-center justify-between pointer-events-none ${
+                shouldShowExpandedInputUi ? 'bottom-2' : 'bottom-1'
+              }`}
             >
-              <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-primary-foreground transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            </button>
+              <div
+                className={`pointer-events-auto transition-all duration-200 origin-left ${
+                  shouldShowExpandedInputUi
+                    ? 'opacity-100 scale-100 w-auto bg-card/70 backdrop-blur-sm rounded-xl p-1'
+                    : 'opacity-0 scale-90 w-0 h-0 overflow-hidden'
+                }`}
+              >
+                <ChatInputControls
+                  permissionMode={permissionMode}
+                  onModeSwitch={onModeSwitch}
+                  provider={provider}
+                  thinkingMode={thinkingMode}
+                  setThinkingMode={setThinkingMode}
+                  tokenBudget={tokenBudget}
+                  slashCommandsCount={slashCommandsCount}
+                  onToggleCommandMenu={onToggleCommandMenu}
+                  hasInput={hasInput}
+                  onClearInput={onClearInput}
+                  isUserScrolledUp={isUserScrolledUp}
+                  hasMessages={hasMessages}
+                  onScrollToBottom={onScrollToBottom}
+                  openImagePicker={openImagePicker}
+                  inline
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={!input.trim() || isLoading}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  handleComposerSubmit(event);
+                }}
+                onTouchStart={(event) => {
+                  event.preventDefault();
+                  handleComposerSubmit(event);
+                }}
+                className="pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed rounded-xl flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-1 focus:ring-offset-background"
+              >
+                <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-primary-foreground transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </button>
+            </div>
 
             <div
-              className={`absolute bottom-1 left-12 right-14 sm:right-40 text-xs text-muted-foreground/50 pointer-events-none hidden sm:block transition-opacity duration-200 ${
+              className={`absolute bottom-4 right-14 sm:right-16 text-[10px] text-muted-foreground/50 pointer-events-none hidden sm:block transition-opacity duration-200 ${
                 input.trim() ? 'opacity-0' : 'opacity-100'
               }`}
             >

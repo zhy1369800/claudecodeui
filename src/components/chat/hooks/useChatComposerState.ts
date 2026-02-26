@@ -122,6 +122,7 @@ export function useChatComposerState({
   const [imageErrors, setImageErrors] = useState<Map<string, string>>(new Map());
   const [isTextareaExpanded, setIsTextareaExpanded] = useState(false);
   const [thinkingMode, setThinkingMode] = useState('none');
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const inputHighlightRef = useRef<HTMLDivElement>(null);
@@ -780,9 +781,19 @@ export function useChatComposerState({
         if ((event.ctrlKey || event.metaKey) && !event.shiftKey) {
           event.preventDefault();
           handleSubmit(event);
+          requestAnimationFrame(() => {
+            textareaRef.current?.blur();
+            setIsInputFocused(false);
+            onInputFocusChange?.(false);
+          });
         } else if (!event.shiftKey && !event.ctrlKey && !event.metaKey && !sendByCtrlEnter) {
           event.preventDefault();
           handleSubmit(event);
+          requestAnimationFrame(() => {
+            textareaRef.current?.blur();
+            setIsInputFocused(false);
+            onInputFocusChange?.(false);
+          });
         }
       }
     },
@@ -791,9 +802,12 @@ export function useChatComposerState({
       handleCommandMenuKeyDown,
       handleFileMentionsKeyDown,
       handleSubmit,
+      onInputFocusChange,
       sendByCtrlEnter,
+      setIsInputFocused,
       showCommandMenu,
       showFileDropdown,
+      textareaRef,
     ],
   );
 
@@ -928,8 +942,6 @@ export function useChatComposerState({
     },
     [sendMessage, setClaudeStatus, setPendingPermissionRequests],
   );
-
-  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const handleInputFocusChange = useCallback(
     (focused: boolean) => {

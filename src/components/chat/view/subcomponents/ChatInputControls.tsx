@@ -19,6 +19,7 @@ interface ChatInputControlsProps {
   hasMessages: boolean;
   onScrollToBottom: () => void;
   openImagePicker?: () => void;
+  onInternalPointerDown?: () => void;
   inline?: boolean;
 }
 
@@ -37,6 +38,7 @@ export default function ChatInputControls({
   hasMessages,
   onScrollToBottom,
   openImagePicker,
+  onInternalPointerDown,
   inline = false,
 }: ChatInputControlsProps) {
   const { t } = useTranslation('chat');
@@ -74,7 +76,11 @@ export default function ChatInputControls({
   const scrollIconSizeClass = inline ? 'w-4 h-4' : 'w-3.5 h-3.5 sm:w-4 sm:h-4';
 
   return (
-    <div className={containerClass}>
+    <div
+      className={containerClass}
+      onMouseDownCapture={onInternalPointerDown}
+      onTouchStartCapture={onInternalPointerDown}
+    >
       {openImagePicker && (
         <button
           type="button"

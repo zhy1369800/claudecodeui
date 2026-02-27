@@ -5,7 +5,7 @@ import ImageAttachment from './ImageAttachment';
 import PermissionRequestsBanner from './PermissionRequestsBanner';
 import ChatInputControls from './ChatInputControls';
 import { useTranslation } from 'react-i18next';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   ChangeEvent,
   ClipboardEvent,
@@ -155,6 +155,8 @@ export default function ChatComposer({
 }: ChatComposerProps) {
   const { t } = useTranslation('chat');
   const lastInternalTouchAtRef = useRef(0);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const [keepExpandedAfterInternalAction, setKeepExpandedAfterInternalAction] = useState(false);
   const AnyCommandMenu = CommandMenu as any;
   const textareaRect = textareaRef.current?.getBoundingClientRect();
   const commandMenuPosition = {
@@ -167,9 +169,37 @@ export default function ChatComposer({
   const hasQuestionPanel = pendingPermissionRequests.some(
     (r) => r.toolName === 'AskUserQuestion'
   );
-  const shouldShowExpandedInputUi = hasInput || isInputFocused;
+  const shouldShowExpandedInputUi = hasInput || isInputFocused || keepExpandedAfterInternalAction;
   const showStopOnInputButton =
     isLoading && canAbortSession && claudeStatus?.can_interrupt !== false;
+
+  useEffect(() => {
+    if (!keepExpandedAfterInternalAction) {
+      return;
+    }
+    const handlePointerDownOutside = (event: globalThis.MouseEvent | globalThis.TouchEvent) => {
+      const targetNode = event.target as Node | null;
+      if (!targetNode || !formRef.current) {
+        setKeepExpandedAfterInternalAction(false);
+        return;
+      }
+      if (!formRef.current.contains(targetNode)) {
+        setKeepExpandedAfterInternalAction(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDownOutside);
+    document.addEventListener('touchstart', handlePointerDownOutside);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDownOutside);
+      document.removeEventListener('touchstart', handlePointerDownOutside);
+    };
+  }, [keepExpandedAfterInternalAction]);
+
+  useEffect(() => {
+    if (keepExpandedAfterInternalAction && !hasInput && isLoading) {
+      setKeepExpandedAfterInternalAction(false);
+    }
+  }, [hasInput, isLoading, keepExpandedAfterInternalAction]);
 
   const handleComposerSubmit = (
     event: FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>
@@ -178,6 +208,7 @@ export default function ChatComposer({
     if (!input.trim() || isLoading) {
       return;
     }
+    setKeepExpandedAfterInternalAction(false);
     requestAnimationFrame(() => {
       textareaRef.current?.blur();
       onInputFocusChange?.(false);
@@ -213,17 +244,27 @@ export default function ChatComposer({
       </div>
 
       {!hasQuestionPanel && <form
+        ref={formRef}
         onSubmit={handleComposerSubmit as (event: FormEvent<HTMLFormElement>) => void}
         onTouchStartCapture={() => {
           lastInternalTouchAtRef.current = Date.now();
         }}
         onFocus={() => onInputFocusChange?.(true)}
         onBlur={(event) => {
+          const formElement = event.currentTarget;
           const nextFocused = event.relatedTarget as Node | null;
           if (nextFocused && event.currentTarget.contains(nextFocused)) {
             return;
           }
           if (!nextFocused && Date.now() - lastInternalTouchAtRef.current < 300) {
+            requestAnimationFrame(() => {
+              const activeElement = document.activeElement as Node | null;
+              if (activeElement && formElement.contains(activeElement)) {
+                onInputFocusChange?.(true);
+                return;
+              }
+              onInputFocusChange?.(false);
+            });
             return;
           }
           onInputFocusChange?.(false);
@@ -368,6 +409,7 @@ export default function ChatComposer({
                   hasMessages={hasMessages}
                   onScrollToBottom={onScrollToBottom}
                   openImagePicker={openImagePicker}
+                  onInternalPointerDown={() => setKeepExpandedAfterInternalAction(true)}
                   inline
                 />
               </div>

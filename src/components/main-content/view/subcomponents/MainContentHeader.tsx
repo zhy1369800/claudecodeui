@@ -11,6 +11,7 @@ export default function MainContentHeader({
   selectedProject,
   selectedSession,
   shouldShowTasksTab,
+  ws,
   isMobile,
   onMenuClick,
 }: MainContentHeaderProps) {
@@ -50,6 +51,7 @@ export default function MainContentHeader({
             selectedProject={selectedProject}
             selectedSession={selectedSession}
             shouldShowTasksTab={shouldShowTasksTab}
+            ws={ws}
           />
         </div>
 

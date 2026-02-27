@@ -104,6 +104,7 @@ function MainContent({
         selectedProject={selectedProject}
         selectedSession={selectedSession}
         shouldShowTasksTab={shouldShowTasksTab}
+        ws={ws}
         isMobile={isMobile}
         onMenuClick={onMenuClick}
       />

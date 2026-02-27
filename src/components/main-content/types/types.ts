@@ -75,6 +75,7 @@ export interface MainContentHeaderProps {
   selectedProject: Project;
   selectedSession: ProjectSession | null;
   shouldShowTasksTab: boolean;
+  ws: WebSocket | null;
   isMobile: boolean;
   onMenuClick: () => void;
 }

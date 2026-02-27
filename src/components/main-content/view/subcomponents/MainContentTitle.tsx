@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import SessionProviderLogo from '../../../SessionProviderLogo';
 import type { AppTab, Project, ProjectSession } from '../../../../types/app';
@@ -7,6 +8,7 @@ type MainContentTitleProps = {
   selectedProject: Project;
   selectedSession: ProjectSession | null;
   shouldShowTasksTab: boolean;
+  ws: WebSocket | null;
 };
 
 function getTabTitle(activeTab: AppTab, shouldShowTasksTab: boolean, t: (key: string) => string) {
@@ -38,11 +40,55 @@ export default function MainContentTitle({
   selectedProject,
   selectedSession,
   shouldShowTasksTab,
+  ws,
 }: MainContentTitleProps) {
   const { t } = useTranslation();
+  const [wsReadyState, setWsReadyState] = useState<number>(
+    ws ? ws.readyState : WebSocket.CLOSED,
+  );
+
+  useEffect(() => {
+    if (!ws) {
+      setWsReadyState(WebSocket.CLOSED);
+      return;
+    }
+
+    const syncState = () => setWsReadyState(ws.readyState);
+    syncState();
+
+    ws.addEventListener('open', syncState);
+    ws.addEventListener('close', syncState);
+    ws.addEventListener('error', syncState);
+
+    return () => {
+      ws.removeEventListener('open', syncState);
+      ws.removeEventListener('close', syncState);
+      ws.removeEventListener('error', syncState);
+    };
+  }, [ws]);
+
+  const connectionUi = useMemo(() => {
+    if (wsReadyState === WebSocket.OPEN) {
+      return {
+        dotClass: 'bg-green-500',
+        title: t('mainContent.connection.connected', { defaultValue: 'Connected' }),
+      };
+    }
+    if (wsReadyState === WebSocket.CONNECTING) {
+      return {
+        dotClass: 'bg-amber-500 animate-pulse',
+        title: t('mainContent.connection.connecting', { defaultValue: 'Connecting' }),
+      };
+    }
+    return {
+      dotClass: 'bg-red-500',
+      title: t('mainContent.connection.disconnected', { defaultValue: 'Disconnected' }),
+    };
+  }, [wsReadyState, t]);
 
   const showSessionIcon = activeTab === 'chat' && Boolean(selectedSession);
   const showChatNewSession = activeTab === 'chat' && !selectedSession;
+  const showConnectionIndicator = activeTab === 'chat';
 
   return (
     <div className="min-w-0 flex items-center gap-2 flex-1 overflow-x-auto scrollbar-hide">
@@ -58,19 +104,31 @@ export default function MainContentTitle({
             <h2 className="text-sm font-semibold text-foreground whitespace-nowrap overflow-x-auto scrollbar-hide leading-tight">
               {getSessionTitle(selectedSession)}
             </h2>
-            <div className="text-[11px] text-muted-foreground truncate leading-tight">{selectedProject.displayName}</div>
+            <div className="text-[11px] text-muted-foreground truncate leading-tight flex items-center gap-1.5">
+              {showConnectionIndicator && (
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${connectionUi.dotClass}`} title={connectionUi.title} />
+              )}
+              <span className="truncate">{selectedProject.displayName}</span>
+            </div>
           </div>
         ) : showChatNewSession ? (
           <div className="min-w-0">
             <h2 className="text-base font-semibold text-foreground leading-tight">{t('mainContent.newSession')}</h2>
-            <div className="text-xs text-muted-foreground truncate leading-tight">{selectedProject.displayName}</div>
+            <div className="text-xs text-muted-foreground truncate leading-tight flex items-center gap-1.5">
+              {showConnectionIndicator && (
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${connectionUi.dotClass}`} title={connectionUi.title} />
+              )}
+              <span className="truncate">{selectedProject.displayName}</span>
+            </div>
           </div>
         ) : (
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-foreground leading-tight">
               {getTabTitle(activeTab, shouldShowTasksTab, t)}
             </h2>
-            <div className="text-[11px] text-muted-foreground truncate leading-tight">{selectedProject.displayName}</div>
+            <div className="text-[11px] text-muted-foreground truncate leading-tight flex items-center gap-1.5">
+              <span className="truncate">{selectedProject.displayName}</span>
+            </div>
           </div>
         )}
       </div>

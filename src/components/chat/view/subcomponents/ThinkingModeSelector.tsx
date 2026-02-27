@@ -8,10 +8,17 @@ type ThinkingModeSelectorProps = {
   selectedMode: string;
   onModeChange: (modeId: string) => void;
   onClose?: () => void;
+  onKeepInputFocus?: () => void;
   className?: string;
 };
 
-function ThinkingModeSelector({ selectedMode, onModeChange, onClose, className = '' }: ThinkingModeSelectorProps) {
+function ThinkingModeSelector({
+  selectedMode,
+  onModeChange,
+  onClose,
+  onKeepInputFocus,
+  className = '',
+}: ThinkingModeSelectorProps) {
   const { t } = useTranslation('chat');
 
   // Mapping from mode ID to translation key
@@ -52,7 +59,10 @@ function ThinkingModeSelector({ selectedMode, onModeChange, onClose, className =
     <div className={`relative ${className}`} ref={dropdownRef}>
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          onKeepInputFocus?.();
+        }}
         className={`w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-200 ${selectedMode === 'none'
             ? 'hover:bg-gray-100 dark:hover:bg-gray-700'
             : 'bg-blue-100/50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50'
@@ -73,6 +83,7 @@ function ThinkingModeSelector({ selectedMode, onModeChange, onClose, className =
                 onClick={() => {
                   setIsOpen(false);
                   if (onClose) onClose();
+                  onKeepInputFocus?.();
                 }}
                 className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
               >
@@ -96,6 +107,7 @@ function ThinkingModeSelector({ selectedMode, onModeChange, onClose, className =
                     onModeChange(mode.id);
                     setIsOpen(false);
                     if (onClose) onClose();
+                    onKeepInputFocus?.();
                   }}
                   className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${isSelected ? 'bg-gray-50 dark:bg-gray-700' : ''
                     }`}

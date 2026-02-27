@@ -5,7 +5,7 @@ import ImageAttachment from './ImageAttachment';
 import PermissionRequestsBanner from './PermissionRequestsBanner';
 import ChatInputControls from './ChatInputControls';
 import { useTranslation } from 'react-i18next';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   ChangeEvent,
   ClipboardEvent,
@@ -200,6 +200,18 @@ export default function ChatComposer({
       setKeepExpandedAfterInternalAction(false);
     }
   }, [hasInput, isLoading, keepExpandedAfterInternalAction]);
+
+  const keepTextareaFocus = useCallback(() => {
+    if (!textareaRef.current) {
+      return;
+    }
+    try {
+      textareaRef.current.focus({ preventScroll: true });
+    } catch {
+      textareaRef.current.focus();
+    }
+    onInputFocusChange?.(true);
+  }, [onInputFocusChange, textareaRef]);
 
   const handleComposerSubmit = (
     event: FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>
@@ -410,6 +422,7 @@ export default function ChatComposer({
                   onScrollToBottom={onScrollToBottom}
                   openImagePicker={openImagePicker}
                   onInternalPointerDown={() => setKeepExpandedAfterInternalAction(true)}
+                  onKeepInputFocus={keepTextareaFocus}
                   inline
                 />
               </div>

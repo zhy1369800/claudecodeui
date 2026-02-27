@@ -20,6 +20,7 @@ interface ChatInputControlsProps {
   onScrollToBottom: () => void;
   openImagePicker?: () => void;
   onInternalPointerDown?: () => void;
+  onKeepInputFocus?: () => void;
   inline?: boolean;
 }
 
@@ -39,6 +40,7 @@ export default function ChatInputControls({
   onScrollToBottom,
   openImagePicker,
   onInternalPointerDown,
+  onKeepInputFocus,
   inline = false,
 }: ChatInputControlsProps) {
   const { t } = useTranslation('chat');
@@ -101,7 +103,10 @@ export default function ChatInputControls({
 
       <button
         type="button"
-        onClick={onModeSwitch}
+        onClick={() => {
+          onModeSwitch();
+          onKeepInputFocus?.();
+        }}
         className={`${permissionClass} ${
           permissionMode === 'default'
             ? inline
@@ -151,6 +156,7 @@ export default function ChatInputControls({
           selectedMode={thinkingMode}
           onModeChange={setThinkingMode}
           onClose={() => {}}
+          onKeepInputFocus={onKeepInputFocus}
           className={thinkingClass}
         />
       )}

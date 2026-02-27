@@ -30,7 +30,11 @@ function StandaloneShell({
   className = "",
   showHeader = true,
   compact = false,
-  minimal = false
+  minimal = false,
+  isMobile = false,
+  isSettingsOpen = false,
+  onToggleSettings = null,
+  onStatusChange = null
 }) {
   const [isCompleted, setIsCompleted] = useState(false);
 
@@ -96,6 +100,10 @@ function StandaloneShell({
           onProcessComplete={handleProcessComplete}
           minimal={minimal}
           autoConnect={minimal ? true : autoConnect}
+          isMobile={isMobile}
+          isSettingsOpen={isSettingsOpen}
+          onToggleSettings={onToggleSettings}
+          onStatusChange={onStatusChange}
         />
       </div>
     </div>

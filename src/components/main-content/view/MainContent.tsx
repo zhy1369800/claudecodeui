@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import ChatInterface from '../../chat/view/ChatInterface';
 import FileTree from '../../FileTree';
@@ -59,6 +59,11 @@ function MainContent({
 
   const { currentProject, setCurrentProject } = useTaskMaster() as TaskMasterContextValue;
   const { tasksEnabled, isTaskMasterInstalled } = useTasksSettings() as TasksSettingsContextValue;
+  const [shellSettingsOpen, setShellSettingsOpen] = useState(false);
+  const [isShellConnected, setIsShellConnected] = useState(false);
+  const handleToggleShellSettings = useCallback(() => {
+    setShellSettingsOpen((prev) => !prev);
+  }, []);
 
   const shouldShowTasksTab = Boolean(tasksEnabled && isTaskMasterInstalled);
 
@@ -107,6 +112,9 @@ function MainContent({
         ws={ws}
         isMobile={isMobile}
         onMenuClick={onMenuClick}
+        shellSettingsOpen={shellSettingsOpen}
+        isShellConnected={isShellConnected}
+        onToggleShellSettings={handleToggleShellSettings}
       />
 
       <div className="flex-1 flex min-h-0 overflow-hidden">
@@ -148,7 +156,15 @@ function MainContent({
 
           {activeTab === 'shell' && (
             <div className="h-full w-full overflow-hidden">
-              <AnyStandaloneShell project={selectedProject} session={selectedSession} showHeader={false} />
+              <AnyStandaloneShell
+                project={selectedProject}
+                session={selectedSession}
+                showHeader={false}
+                isMobile={isMobile}
+                isSettingsOpen={shellSettingsOpen}
+                onToggleSettings={setShellSettingsOpen}
+                onStatusChange={setIsShellConnected}
+              />
             </div>
           )}
 

@@ -14,6 +14,9 @@ export default function MainContentHeader({
   ws,
   isMobile,
   onMenuClick,
+  shellSettingsOpen,
+  isShellConnected,
+  onToggleShellSettings,
 }: MainContentHeaderProps) {
   const lastTouchEndTimeRef = useRef(0);
 
@@ -52,6 +55,9 @@ export default function MainContentHeader({
             selectedSession={selectedSession}
             shouldShowTasksTab={shouldShowTasksTab}
             ws={ws}
+            shellSettingsOpen={shellSettingsOpen}
+            isShellConnected={isShellConnected}
+            onToggleShellSettings={onToggleShellSettings}
           />
         </div>
 

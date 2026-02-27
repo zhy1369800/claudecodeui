@@ -57,7 +57,18 @@ function isCodexLoginCommand(command) {
   return typeof command === 'string' && /\bcodex\s+login\b/i.test(command);
 }
 
-function Shell({ selectedProject, selectedSession, initialCommand, isPlainShell = false, onProcessComplete, minimal = false, autoConnect = false }) {
+function Shell({
+  selectedProject,
+  selectedSession,
+  initialCommand,
+  isPlainShell = false,
+  onProcessComplete,
+  minimal = false,
+  autoConnect = false,
+  isMobile = false,
+  isSettingsOpen = false,
+  onStatusChange = null
+}) {
   const { t } = useTranslation('chat');
   const terminalRef = useRef(null);
   const terminal = useRef(null);
@@ -78,6 +89,20 @@ function Shell({ selectedProject, selectedSession, initialCommand, isPlainShell 
   const isPlainShellRef = useRef(isPlainShell);
   const onProcessCompleteRef = useRef(onProcessComplete);
   const authUrlRef = useRef('');
+
+  useEffect(() => {
+    if (typeof onStatusChange === 'function') {
+      onStatusChange(isConnected);
+    }
+  }, [isConnected, onStatusChange]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof onStatusChange === 'function') {
+        onStatusChange(false);
+      }
+    };
+  }, [onStatusChange]);
 
   useEffect(() => {
     selectedProjectRef.current = selectedProject;
@@ -585,54 +610,100 @@ function Shell({ selectedProject, selectedSession, initialCommand, isPlainShell 
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-900 w-full">
-      <div className="flex-shrink-0 bg-gray-800 border-b border-gray-700 px-4 py-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-            {selectedSession && (
-              <span className="text-xs text-blue-300">
-                ({sessionDisplayNameShort}...)
-              </span>
-            )}
-            {!selectedSession && (
-              <span className="text-xs text-gray-400">{t('shell.status.newSession')}</span>
-            )}
-            {!isInitialized && (
-              <span className="text-xs text-yellow-400">{t('shell.status.initializing')}</span>
-            )}
-            {isRestarting && (
-              <span className="text-xs text-blue-400">{t('shell.status.restarting')}</span>
-            )}
-          </div>
-          <div className="flex items-center space-x-3">
-            {isConnected && (
-              <button
-                onClick={disconnectFromShell}
-                className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 flex items-center space-x-1"
-                title={t('shell.actions.disconnectTitle')}
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                <span>{t('shell.actions.disconnect')}</span>
-              </button>
-            )}
+    <div className="h-full flex flex-col bg-gray-900 w-full relative">
+      {isMobile ? (
+        <div
+          className={`absolute top-0 left-0 right-0 z-20 transition-all duration-300 transform origin-top border-b border-gray-700 bg-gray-800/95 backdrop-blur-sm ${
+            isSettingsOpen
+              ? 'scale-y-100 opacity-100 translate-y-0'
+              : 'scale-y-95 opacity-0 -translate-y-2 pointer-events-none'
+          }`}
+        >
+          <div className="flex items-center justify-between p-2 px-3">
+            <div className="flex items-center space-x-2 pl-1">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+              {selectedSession && (
+                <span className="text-xs text-blue-300 whitespace-nowrap">
+                  ({sessionDisplayNameShort}...)
+                </span>
+              )}
+            </div>
 
-            <button
-              onClick={restartShell}
-              disabled={isRestarting || isConnected}
-              className="text-xs text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
-              title={t('shell.actions.restartTitle')}
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <span>{t('shell.actions.restart')}</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              {isConnected && (
+                <button
+                  onClick={disconnectFromShell}
+                  className="p-1.5 bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/30 transition-colors"
+                  title={t('shell.actions.disconnectTitle')}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+
+              <button
+                onClick={restartShell}
+                disabled={isRestarting || isConnected}
+                className="p-1.5 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors"
+                title={t('shell.actions.restartTitle')}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        isSettingsOpen && (
+          <div className="flex-shrink-0 bg-gray-800 border-b border-gray-700 px-3 py-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 pl-1">
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                {selectedSession && (
+                  <span className="text-xs text-blue-300 whitespace-nowrap">
+                    ({sessionDisplayNameShort}...)
+                  </span>
+                )}
+                {!selectedSession && (
+                  <span className="text-xs text-gray-400">{t('shell.status.newSession')}</span>
+                )}
+                {!isInitialized && (
+                  <span className="text-xs text-yellow-400">{t('shell.status.initializing')}</span>
+                )}
+                {isRestarting && (
+                  <span className="text-xs text-blue-400">{t('shell.status.restarting')}</span>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                {isConnected && (
+                  <button
+                    onClick={disconnectFromShell}
+                    className="p-1.5 bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/30 transition-colors"
+                    title={t('shell.actions.disconnectTitle')}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+
+                <button
+                  onClick={restartShell}
+                  disabled={isRestarting || isConnected}
+                  className="p-1.5 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title={t('shell.actions.restartTitle')}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      )}
 
       <div className="flex-1 p-2 overflow-hidden relative">
         <div ref={terminalRef} className="h-full w-full focus:outline-none" style={{ outline: 'none' }} />

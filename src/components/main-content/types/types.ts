@@ -78,6 +78,9 @@ export interface MainContentHeaderProps {
   ws: WebSocket | null;
   isMobile: boolean;
   onMenuClick: () => void;
+  shellSettingsOpen: boolean;
+  isShellConnected: boolean;
+  onToggleShellSettings: () => void;
 }
 
 export interface MainContentStateViewProps {

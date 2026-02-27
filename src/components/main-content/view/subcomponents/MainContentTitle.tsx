@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Settings2 } from 'lucide-react';
 import SessionProviderLogo from '../../../SessionProviderLogo';
 import type { AppTab, Project, ProjectSession } from '../../../../types/app';
 
@@ -9,6 +10,9 @@ type MainContentTitleProps = {
   selectedSession: ProjectSession | null;
   shouldShowTasksTab: boolean;
   ws: WebSocket | null;
+  shellSettingsOpen: boolean;
+  isShellConnected: boolean;
+  onToggleShellSettings: () => void;
 };
 
 function getTabTitle(activeTab: AppTab, shouldShowTasksTab: boolean, t: (key: string) => string) {
@@ -41,6 +45,9 @@ export default function MainContentTitle({
   selectedSession,
   shouldShowTasksTab,
   ws,
+  shellSettingsOpen,
+  isShellConnected,
+  onToggleShellSettings,
 }: MainContentTitleProps) {
   const { t } = useTranslation();
   const [wsReadyState, setWsReadyState] = useState<number>(
@@ -90,6 +97,8 @@ export default function MainContentTitle({
   const showChatNewSession = activeTab === 'chat' && !selectedSession;
   const showConnectionIndicator = activeTab === 'chat';
 
+  const showShellSettingsButton = activeTab === 'shell';
+
   return (
     <div className="min-w-0 flex items-center gap-2 flex-1 overflow-x-auto scrollbar-hide">
       {showSessionIcon && (
@@ -132,6 +141,26 @@ export default function MainContentTitle({
           </div>
         )}
       </div>
+
+      {showShellSettingsButton && (
+        <button
+          type="button"
+          onClick={onToggleShellSettings}
+          className={`p-1 rounded-md transition-all active:scale-95 ${
+            shellSettingsOpen
+              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+              : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+          }`}
+          title={t('shell.status.connection')}
+        >
+          <div className="relative">
+            <Settings2 className="w-3.5 h-3.5" />
+            {isShellConnected && (
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900" />
+            )}
+          </div>
+        </button>
+      )}
     </div>
   );
 }

@@ -15,9 +15,6 @@ interface ChatInputControlsProps {
   onToggleCommandMenu: () => void;
   hasInput: boolean;
   onClearInput: () => void;
-  isUserScrolledUp: boolean;
-  hasMessages: boolean;
-  onScrollToBottom: () => void;
   openImagePicker?: () => void;
   onInternalPointerDown?: () => void;
   onKeepInputFocus?: () => void;
@@ -35,9 +32,6 @@ export default function ChatInputControls({
   onToggleCommandMenu,
   hasInput,
   onClearInput,
-  isUserScrolledUp,
-  hasMessages,
-  onScrollToBottom,
   openImagePicker,
   onInternalPointerDown,
   onKeepInputFocus,
@@ -62,9 +56,6 @@ export default function ChatInputControls({
   const clearButtonClass = inline
     ? 'w-7 h-7 text-gray-400 hover:text-white hover:bg-red-500 rounded-lg flex items-center justify-center transition-all'
     : 'w-7 h-7 sm:w-8 sm:h-8 bg-card hover:bg-accent/60 border border-border/50 rounded-lg flex items-center justify-center transition-all duration-200 group shadow-sm';
-  const scrollButtonClass = inline
-    ? 'w-7 h-7 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg shadow-sm flex items-center justify-center transition-all duration-200 hover:scale-105'
-    : 'w-7 h-7 sm:w-8 sm:h-8 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg shadow-sm flex items-center justify-center transition-all duration-200 hover:scale-105';
   const permissionClass = inline
     ? 'px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200'
     : 'px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-sm font-medium border transition-all duration-200';
@@ -75,7 +66,6 @@ export default function ChatInputControls({
     : 'absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center';
   const iconSizeClass = inline ? 'w-4 h-4' : 'w-4 h-4 sm:w-5 sm:h-5';
   const clearIconSizeClass = inline ? 'w-4 h-4' : 'w-3.5 h-3.5 sm:w-4 sm:h-4';
-  const scrollIconSizeClass = inline ? 'w-4 h-4' : 'w-3.5 h-3.5 sm:w-4 sm:h-4';
 
   return (
     <div
@@ -207,17 +197,6 @@ export default function ChatInputControls({
         </button>
       )}
 
-      {isUserScrolledUp && hasMessages && (
-        <button
-          onClick={onScrollToBottom}
-          className={scrollButtonClass}
-          title={t('input.scrollToBottom', { defaultValue: 'Scroll to bottom' })}
-        >
-          <svg className={scrollIconSizeClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-          </svg>
-        </button>
-      )}
     </div>
   );
 }

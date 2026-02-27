@@ -283,6 +283,27 @@ export default function ChatComposer({
         }}
         className="relative max-w-4xl mx-auto"
       >
+        {isUserScrolledUp && hasMessages && (
+          <div className="absolute left-1/2 -translate-x-1/2 -top-14 sm:-top-13 z-20 pointer-events-none max-sm:fixed max-sm:left-1/2 max-sm:-translate-x-1/2 max-sm:top-auto max-sm:bottom-[calc(env(safe-area-inset-bottom,0px)+96px)]">
+            <button
+              type="button"
+              onMouseDown={(event) => {
+                event.preventDefault();
+              }}
+              onTouchStart={(event) => {
+                event.preventDefault();
+              }}
+              onClick={onScrollToBottom}
+              className="pointer-events-auto w-10 h-10 rounded-full border shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 bg-card text-foreground border-border hover:bg-accent focus:ring-primary/30"
+              title={t('input.scrollToBottom', { defaultValue: 'Scroll to bottom' })}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {isDragActive && (
           <div className="absolute inset-0 bg-primary/15 border-2 border-dashed border-primary/50 rounded-2xl flex items-center justify-center z-50">
             <div className="bg-card rounded-xl p-4 shadow-lg border border-border/30">
@@ -417,9 +438,6 @@ export default function ChatComposer({
                   onToggleCommandMenu={onToggleCommandMenu}
                   hasInput={hasInput}
                   onClearInput={onClearInput}
-                  isUserScrolledUp={isUserScrolledUp}
-                  hasMessages={hasMessages}
-                  onScrollToBottom={onScrollToBottom}
                   openImagePicker={openImagePicker}
                   onInternalPointerDown={() => setKeepExpandedAfterInternalAction(true)}
                   onKeepInputFocus={keepTextareaFocus}

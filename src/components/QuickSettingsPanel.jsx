@@ -33,7 +33,8 @@ const QuickSettingsPanel = () => {
   });
   const { isDarkMode } = useTheme();
 
-  const { isMobile } = useDeviceSettings({ trackPWA: false });
+  const { isMobile, isPWA } = useDeviceSettings();
+  const isMobilePwa = isMobile && isPWA;
 
   const { preferences, setPreference } = useUiPreferences();
   const { autoExpandTools, showRawParameters, showThinking, autoScrollToBottom, sendByCtrlEnter } = preferences;
@@ -240,6 +241,7 @@ const QuickSettingsPanel = () => {
         className={`fixed top-0 right-0 h-full w-64 bg-background border-l border-border shadow-xl transform transition-transform duration-150 ease-out z-40 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         } ${isMobile ? 'h-screen' : ''}`}
+        style={isMobilePwa ? { top: 'var(--header-total-padding)', height: 'calc(100vh - var(--header-total-padding))' } : undefined}
       >
         <div className="h-full flex flex-col">
           {/* Header */}

@@ -354,7 +354,7 @@ export default function ChatComposer({
 
         <div
           {...getRootProps()}
-          className={`relative bg-card/80 backdrop-blur-sm rounded-2xl shadow-sm border border-border/50 focus-within:shadow-md focus-within:border-primary/30 focus-within:ring-1 focus-within:ring-primary/15 transition-all duration-200 overflow-visible ${
+          className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-600 focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-500 focus-within:border-blue-500 transition-all duration-200 overflow-visible ${
             isTextareaExpanded ? 'chat-input-expanded' : ''
           }`}
         >
@@ -402,7 +402,7 @@ export default function ChatComposer({
               <div
                 className={`pointer-events-auto transition-all duration-200 origin-left ${
                   shouldShowExpandedInputUi
-                    ? 'opacity-100 scale-100 w-auto bg-card/70 backdrop-blur-sm rounded-xl p-1'
+                    ? 'opacity-100 scale-100 w-auto bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-1'
                     : 'opacity-0 scale-90 w-0 h-0 overflow-hidden'
                 }`}
               >

@@ -393,6 +393,7 @@ export const convertSessionMessages = (rawMessages: any[]): ChatMessage[] => {
 
       const shouldSkip =
         !content ||
+        content.startsWith('# AGENTS.md instructions for') ||
         content.startsWith('<command-name>') ||
         content.startsWith('<command-message>') ||
         content.startsWith('<command-args>') ||

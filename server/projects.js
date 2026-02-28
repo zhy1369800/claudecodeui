@@ -815,6 +815,7 @@ async function parseJsonlSessions(filePath) {
               }
 
               const isSystemMessage = typeof textContent === 'string' && (
+                textContent.startsWith('# AGENTS.md instructions for') ||
                 textContent.startsWith('<command-name>') ||
                 textContent.startsWith('<command-message>') ||
                 textContent.startsWith('<command-args>') ||

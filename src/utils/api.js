@@ -58,7 +58,12 @@ export const api = {
 
     let url;
     if (provider === 'codex') {
-      url = `/api/codex/sessions/${sessionId}/messages${queryString ? `?${queryString}` : ''}`;
+      const codexParams = new URLSearchParams(queryString);
+      if (projectName) {
+        codexParams.set('projectName', projectName);
+      }
+      const codexQueryString = codexParams.toString();
+      url = `/api/codex/sessions/${sessionId}/messages${codexQueryString ? `?${codexQueryString}` : ''}`;
     } else if (provider === 'cursor') {
       url = `/api/cursor/sessions/${sessionId}/messages${queryString ? `?${queryString}` : ''}`;
     } else if (provider === 'gemini') {

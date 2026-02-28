@@ -1570,7 +1570,7 @@ async function parseCodexSessionFile(filePath) {
 }
 
 // Get messages for a specific Codex session
-async function getCodexSessionMessages(sessionId, limit = null, offset = 0) {
+async function getCodexSessionMessages(sessionId, limit = null, offset = 0, projectName = null) {
   try {
     const codexSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
 
@@ -1608,21 +1608,52 @@ async function getCodexSessionMessages(sessionId, limit = null, offset = 0) {
       crlfDelay: Infinity
     });
 
-    // Helper to extract text from Codex content array
-    const extractText = (content) => {
-      if (!Array.isArray(content)) return content;
-      return content
-        .map(item => {
-          if (item.type === 'input_text' || item.type === 'output_text') {
-            return item.text;
+    // Helper to extract text and images from Codex content array
+    const extractContentData = (content) => {
+      let text = '';
+      const images = [];
+
+      if (!Array.isArray(content)) {
+        return { text: content || '', images };
+      }
+
+      content.forEach((item) => {
+        if (!item || typeof item !== 'object') {
+          return;
+        }
+
+        if (item.type === 'input_text' || item.type === 'output_text' || item.type === 'text') {
+          let itemText = item.text || '';
+          if (itemText.includes('Codex could not read the local image at')) {
+            itemText = itemText
+              .split('\n')
+              .filter((line) => !line.includes('Codex could not read the local image at'))
+              .join('\n');
           }
-          if (item.type === 'text') {
-            return item.text;
+          if (itemText) {
+            text += (text ? '\n' : '') + itemText;
           }
-          return '';
-        })
-        .filter(Boolean)
-        .join('\n');
+          return;
+        }
+
+        if (item.type === 'input_image' || item.type === 'local_image' || item.type === 'image') {
+          if (item.image_url) {
+            images.push({ data: item.image_url });
+            return;
+          }
+          if (item.url) {
+            images.push({ data: item.url });
+            return;
+          }
+          if (item.path && projectName) {
+            const pathValue = String(item.path);
+            const binaryUrl = `/api/projects/${encodeURIComponent(projectName)}/files/content?path=${encodeURIComponent(pathValue)}`;
+            images.push({ data: binaryUrl, path: pathValue });
+          }
+        }
+      });
+
+      return { text: text.trim(), images };
     };
 
     for await (const line of rl) {
@@ -1645,18 +1676,20 @@ async function getCodexSessionMessages(sessionId, limit = null, offset = 0) {
           if (entry.type === 'response_item' && entry.payload?.type === 'message') {
             const content = entry.payload.content;
             const role = entry.payload.role || 'assistant';
-            const textContent = extractText(content);
+            const contentData = extractContentData(content);
+            const textContent = contentData.text;
 
             // Skip system context messages (environment_context)
             if (textContent?.includes('<environment_context>')) {
               continue;
             }
 
-            // Only add if there's actual content
-            if (textContent?.trim()) {
+            // Only add if there's actual content or images
+            if (textContent?.trim() || contentData.images.length > 0) {
               messages.push({
                 type: role === 'user' ? 'user' : 'assistant',
                 timestamp: entry.timestamp,
+                images: contentData.images,
                 message: {
                   role: role,
                   content: textContent

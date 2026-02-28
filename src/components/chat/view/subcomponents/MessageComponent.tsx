@@ -1,4 +1,5 @@
 import React, { memo, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import SessionProviderLogo from '../../../llm-logo-provider/SessionProviderLogo';
 import type {
@@ -56,6 +57,7 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
   const permissionSuggestion = getClaudePermissionSuggestion(message, provider);
   const [permissionGrantState, setPermissionGrantState] = React.useState<PermissionGrantState>('idle');
   const [messageCopied, setMessageCopied] = React.useState(false);
+  const [previewImage, setPreviewImage] = React.useState<string | null>(null);
 
 
   React.useEffect(() => {
@@ -102,6 +104,7 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
       : `Worked for ${minutes}m ${seconds}s`;
   }, [i18n?.language, i18n?.resolvedLanguage, message?.workedForSeconds]);
   const shouldHideThinkingMessage = Boolean(message.isThinking && !showThinking);
+  const canUsePortal = typeof document !== 'undefined';
 
   if (shouldHideThinkingMessage) {
     return null;
@@ -126,8 +129,8 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
                     key={img.name || idx}
                     src={img.data}
                     alt={img.name}
-                    className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() => window.open(img.data, '_blank')}
+                    className="rounded-lg w-full max-h-44 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
+                    onClick={() => setPreviewImage(img.data)}
                   />
                 ))}
               </div>
@@ -498,6 +501,37 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
             )}
           </div>
         </div>
+      )}
+
+      {previewImage && canUsePortal && createPortal(
+        <div
+          className="fixed inset-0 z-[99999] bg-black/85 flex items-center justify-center p-4"
+          onClick={() => setPreviewImage(null)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+              setPreviewImage(null);
+            }
+          }}
+          aria-label="Close image preview"
+        >
+          <img
+            src={previewImage}
+            alt="Image preview"
+            className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          />
+          <button
+            type="button"
+            className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/20 text-white text-2xl leading-none"
+            onClick={() => setPreviewImage(null)}
+            aria-label="Close image preview"
+          >
+            ×
+          </button>
+        </div>,
+        document.body,
       )}
     </div>
   );

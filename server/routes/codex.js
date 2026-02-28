@@ -69,12 +69,13 @@ router.get('/sessions', async (req, res) => {
 router.get('/sessions/:sessionId/messages', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const { limit, offset } = req.query;
+    const { limit, offset, projectName } = req.query;
 
     const result = await getCodexSessionMessages(
       sessionId,
       limit ? parseInt(limit, 10) : null,
-      offset ? parseInt(offset, 10) : 0
+      offset ? parseInt(offset, 10) : 0,
+      typeof projectName === 'string' ? projectName : null,
     );
 
     res.json({ success: true, ...result });

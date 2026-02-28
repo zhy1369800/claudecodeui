@@ -427,6 +427,7 @@ export const convertSessionMessages = (rawMessages: any[]): ChatMessage[] => {
           converted.push({
             type: 'user',
             content: unescapeWithMathProtection(content),
+            images: Array.isArray(message.images) ? message.images : [],
             timestamp: message.timestamp || new Date().toISOString(),
           });
         }

@@ -55,6 +55,9 @@ function Sidebar({
     editingProject,
     showNewProject,
     editingName,
+    editingStartupScript,
+    availableScripts,
+    isLoadingScripts,
     loadingSessions,
     initialSessionsLoaded,
     currentTime,
@@ -68,6 +71,8 @@ function Sidebar({
     showVersionModal,
     filteredProjects,
     swipedProject,
+    runningProjects,
+    stoppingProjects,
     handleTouchClick,
     clearSwipedProject,
     handleProjectTouchStart,
@@ -88,10 +93,12 @@ function Sidebar({
     handleProjectSelect,
     refreshProjects,
     updateSessionSummary,
+    stopProject,
     collapseSidebar: handleCollapseSidebar,
     expandSidebar: handleExpandSidebar,
     setShowNewProject,
     setEditingName,
+    setEditingStartupScript,
     setEditingSession,
     setEditingSessionName,
     setSearchFilter,
@@ -142,8 +149,6 @@ function Sidebar({
     isLoading,
     loadingProgress,
     expandedProjects,
-    editingProject,
-    editingName,
     loadingSessions,
     initialSessionsLoaded,
     currentTime,
@@ -153,17 +158,14 @@ function Sidebar({
     swipedProject,
     tasksEnabled,
     mcpServerStatus,
+    runningProjects,
+    stoppingProjects,
     getProjectSessions,
     isProjectStarred,
-    onEditingNameChange: setEditingName,
     onToggleProject: toggleProject,
     onProjectSelect: handleProjectSelect,
     onToggleStarProject: toggleStarProject,
     onStartEditingProject: startEditing,
-    onCancelEditingProject: cancelEditing,
-    onSaveProjectName: (projectName) => {
-      void saveProjectName(projectName);
-    },
     onDeleteProject: requestProjectDelete,
     onSessionSelect: handleSessionClick,
     onDeleteSession: showDeleteSessionConfirmation,
@@ -187,6 +189,22 @@ function Sidebar({
     onClearSwipedProject: clearSwipedProject,
     onProjectTouchStart: handleProjectTouchStart,
     onProjectTouchMove: handleProjectTouchMove,
+    onRunProject: (project) => {
+      const startupScript = typeof project.startupScript === 'string' ? project.startupScript : '';
+      if (!startupScript) {
+        return;
+      }
+      onOpenShellTab({
+        project,
+        forcePlain: true,
+        clearSession: true,
+        initialCommand: startupScript,
+        closeSidebar: true,
+      });
+    },
+    onStopProject: (projectName) => {
+      void stopProject(projectName);
+    },
     t,
   };
 
@@ -197,14 +215,17 @@ function Sidebar({
         ? projects.find((project) => project.name === expandedProjectName) || null
         : null;
     const terminalProject = expandedProject || selectedProject || null;
+    const runningInfo = terminalProject?.name ? runningProjects[terminalProject.name] : null;
+    const runningInitialCommand =
+      runningInfo?.initialCommand ||
+      (typeof terminalProject?.startupScript === 'string' ? terminalProject.startupScript : null) ||
+      null;
 
     onOpenShellTab({
       project: terminalProject,
       forcePlain: true,
       clearSession: true,
-      // Running project tracking is not currently exposed in this sidebar architecture.
-      // Keep command null so terminal opens in plain interactive mode.
-      initialCommand: null,
+      initialCommand: runningInfo ? runningInitialCommand : null,
       closeSidebar: true,
     });
   };
@@ -219,6 +240,17 @@ function Sidebar({
         showNewProject={showNewProject}
         onCloseNewProject={() => setShowNewProject(false)}
         onProjectCreated={handleProjectCreated}
+        editingProject={editingProject}
+        editingName={editingName}
+        editingStartupScript={editingStartupScript}
+        availableScripts={availableScripts}
+        isLoadingScripts={isLoadingScripts}
+        onEditingNameChange={setEditingName}
+        onEditingStartupScriptChange={setEditingStartupScript}
+        onCancelEditingProject={cancelEditing}
+        onSaveProjectName={(projectName) => {
+          void saveProjectName(projectName);
+        }}
         deleteConfirmation={deleteConfirmation}
         onCancelDeleteProject={() => setDeleteConfirmation(null)}
         onConfirmDeleteProject={confirmDeleteProject}

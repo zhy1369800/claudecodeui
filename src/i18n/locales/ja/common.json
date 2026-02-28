@@ -121,6 +121,7 @@
     "steps": {
       "type": "種類",
       "configure": "設定",
+      "startup": "スタートアップ",
       "confirm": "確認"
     },
     "step1": {
@@ -175,6 +176,15 @@
       "newWithClone": "このフォルダからリポジトリがクローンされます。",
       "newEmpty": "ワークスペースがプロジェクト一覧に追加され、Claude/Cursorセッションで使用できるようになります。",
       "cloningRepository": "リポジトリをクローンしています..."
+    },
+    "startup": {
+      "title": "このプロジェクトの起動スクリプトを選択（任意）",
+      "scanning": "スクリプトをスキャン中...",
+      "noneFound": "このディレクトリで一般的な起動スクリプトは見つかりませんでした。",
+      "customLabel": "カスタム起動コマンド",
+      "customPlaceholder": "例: npm start, ./run.sh",
+      "customHelp": "Start ボタンを押すと、このコマンドがターミナルで実行されます。",
+      "summaryLabel": "起動スクリプト:"
     },
     "buttons": {
       "cancel": "キャンセル",

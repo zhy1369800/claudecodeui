@@ -434,6 +434,7 @@ async function getProjects(progressCallback = null) {
         path: actualProjectDir,
         displayName: customName || autoDisplayName,
         fullPath: fullPath,
+        startupScript: config[entry.name]?.startupScript || null,
         isCustomName: !!customName,
         sessions: [],
         geminiSessions: [],
@@ -549,6 +550,7 @@ async function getProjects(progressCallback = null) {
         path: actualProjectDir,
         displayName: projectConfig.displayName || await generateDisplayName(projectName, actualProjectDir),
         fullPath: actualProjectDir,
+        startupScript: projectConfig.startupScript || null,
         isCustomName: !!projectConfig.displayName,
         isManuallyAdded: true,
         sessions: [],
@@ -1066,17 +1068,28 @@ async function getSessionMessages(projectName, sessionId, limit = null, offset =
 }
 
 // Rename a project's display name
-async function renameProject(projectName, newDisplayName) {
+async function renameProject(projectName, newDisplayName, startupScript) {
   const config = await loadProjectConfig();
+  const existingConfig = config[projectName] || {};
 
   if (!newDisplayName || newDisplayName.trim() === '') {
-    // Remove custom name if empty, will fall back to auto-generated
+    delete existingConfig.displayName;
+  } else {
+    existingConfig.displayName = newDisplayName.trim();
+  }
+
+  if (startupScript !== undefined) {
+    if (startupScript === null || startupScript === '') {
+      delete existingConfig.startupScript;
+    } else {
+      existingConfig.startupScript = startupScript;
+    }
+  }
+
+  if (Object.keys(existingConfig).length === 0) {
     delete config[projectName];
   } else {
-    // Set custom display name
-    config[projectName] = {
-      displayName: newDisplayName.trim()
-    };
+    config[projectName] = existingConfig;
   }
 
   await saveProjectConfig(config);
@@ -1204,7 +1217,7 @@ async function deleteProject(projectName, force = false) {
 }
 
 // Add a project manually to the config (without creating folders)
-async function addProjectManually(projectPath, displayName = null) {
+async function addProjectManually(projectPath, displayName = null, startupScript = null) {
   const absolutePath = path.resolve(projectPath);
 
   try {
@@ -1237,6 +1250,9 @@ async function addProjectManually(projectPath, displayName = null) {
   if (displayName) {
     config[projectName].displayName = displayName;
   }
+  if (startupScript) {
+    config[projectName].startupScript = startupScript;
+  }
 
   await saveProjectConfig(config);
 
@@ -1246,6 +1262,7 @@ async function addProjectManually(projectPath, displayName = null) {
     path: absolutePath,
     fullPath: absolutePath,
     displayName: displayName || await generateDisplayName(projectName, absolutePath),
+    startupScript: startupScript,
     isManuallyAdded: true,
     sessions: [],
     cursorSessions: []

@@ -220,6 +220,8 @@ const PTY_SESSION_TIMEOUT = 30 * 60 * 1000;
 const SHELL_URL_PARSE_BUFFER_LIMIT = 32768;
 const ANSI_ESCAPE_SEQUENCE_REGEX = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\))/g;
 const TRAILING_URL_PUNCTUATION_REGEX = /[)\]}>.,;:!?]+$/;
+// Map<projectName, { pid, ports: number[], startTime, ptySessionKey, projectPath, initialCommand }>
+const runningProjectsMap = new Map();
 
 function stripAnsiSequences(value = '') {
     return value.replace(ANSI_ESCAPE_SEQUENCE_REGEX, '');
@@ -489,6 +491,117 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
     }
 });
 
+app.get('/api/projects/running', authenticateToken, (req, res) => {
+    try {
+        const running = [];
+        for (const [name, info] of runningProjectsMap.entries()) {
+            running.push({
+                name,
+                pid: info.pid,
+                ports: info.ports,
+                startTime: info.startTime,
+                initialCommand: info.initialCommand
+            });
+        }
+        res.json({ running });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/projects/stop/:projectName', authenticateToken, (req, res) => {
+    try {
+        const { projectName } = req.params;
+        const projectInfo = runningProjectsMap.get(projectName);
+
+        if (!projectInfo) {
+            return res.status(404).json({ error: 'Project is not running' });
+        }
+
+        const session = ptySessionsMap.get(projectInfo.ptySessionKey);
+        if (session && session.pty) {
+            if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+                session.ws.send(JSON.stringify({
+                    type: 'output',
+                    data: `\r\n\x1b[31m[System] Process stopped by user request.\x1b[0m\r\n`
+                }));
+            }
+
+            if (session.pty.kill) {
+                session.pty.kill();
+            } else {
+                process.kill(projectInfo.pid);
+            }
+
+            res.json({ success: true, message: 'Project stopped' });
+        } else {
+            runningProjectsMap.delete(projectName);
+            res.json({ success: true, message: 'Project record cleaned up (process was already gone)' });
+        }
+    } catch (error) {
+        console.error('Error stopping project:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/projects/scan-scripts', authenticateToken, async (req, res) => {
+    try {
+        const inputPath = typeof req.query.path === 'string' ? req.query.path.trim() : '';
+        if (!inputPath) {
+            return res.status(400).json({ error: 'Project path is required' });
+        }
+
+        const projectPath = path.resolve(inputPath);
+        const scripts = [];
+
+        // 1) package.json scripts
+        const packageJsonPath = path.join(projectPath, 'package.json');
+        try {
+            const packageRaw = await fsPromises.readFile(packageJsonPath, 'utf8');
+            const packageJson = JSON.parse(packageRaw);
+            const packageScripts = packageJson?.scripts || {};
+            Object.entries(packageScripts).forEach(([name, command]) => {
+                if (typeof command === 'string' && command.trim()) {
+                    scripts.push({
+                        name,
+                        command: `npm run ${name}`,
+                        type: 'npm'
+                    });
+                }
+            });
+        } catch {
+            // no package.json scripts
+        }
+
+        // 2) common startup files
+        const commonFiles = [
+            { file: 'docker-compose.yml', command: 'docker compose up', type: 'docker' },
+            { file: 'docker-compose.yaml', command: 'docker compose up', type: 'docker' },
+            { file: 'docker-compose.dev.yml', command: 'docker compose -f docker-compose.dev.yml up', type: 'docker' },
+            { file: 'Makefile', command: 'make run', type: 'make' },
+            { file: 'run.sh', command: './run.sh', type: 'shell' },
+            { file: 'start.sh', command: './start.sh', type: 'shell' },
+        ];
+
+        for (const item of commonFiles) {
+            try {
+                await fsPromises.access(path.join(projectPath, item.file), fs.constants.R_OK);
+                scripts.push({
+                    name: item.file,
+                    command: item.command,
+                    type: item.type
+                });
+            } catch {
+                // ignore missing file
+            }
+        }
+
+        res.json({ scripts });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.get('/api/projects/:projectName/sessions', authenticateToken, async (req, res) => {
     try {
         const { limit = 5, offset = 0 } = req.query;
@@ -527,8 +640,8 @@ app.get('/api/projects/:projectName/sessions/:sessionId/messages', authenticateT
 // Rename project endpoint
 app.put('/api/projects/:projectName/rename', authenticateToken, async (req, res) => {
     try {
-        const { displayName } = req.body;
-        await renameProject(req.params.projectName, displayName);
+        const { displayName, startupScript } = req.body;
+        await renameProject(req.params.projectName, displayName, startupScript);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -1086,6 +1199,7 @@ function handleShellConnection(ws) {
 
             if (data.type === 'init') {
                 const requestedProjectPath = data.projectPath || null;
+                const projectName = data.projectName || null;
                 const sessionId = data.sessionId;
                 const hasSession = data.hasSession;
                 const provider = data.provider || 'claude';
@@ -1142,6 +1256,17 @@ function handleShellConnection(ws) {
                     }
 
                     existingSession.ws = ws;
+
+                    if (isPlainShell && initialCommand && projectName && !runningProjectsMap.has(projectName)) {
+                        runningProjectsMap.set(projectName, {
+                            pid: shellProcess?.pid,
+                            ports: [],
+                            startTime: new Date().toISOString(),
+                            ptySessionKey,
+                            projectPath,
+                            initialCommand
+                        });
+                    }
 
                     return;
                 }
@@ -1302,8 +1427,21 @@ function handleShellConnection(ws) {
                         buffer: [],
                         timeoutId: null,
                         projectPath,
-                        sessionId
+                        sessionId,
+                        provider,
+                        isPlainShell
                     });
+
+                    if (isPlainShell && initialCommand && projectName) {
+                        runningProjectsMap.set(projectName, {
+                            pid: shellProcess.pid,
+                            ports: [],
+                            startTime: new Date().toISOString(),
+                            ptySessionKey,
+                            projectPath,
+                            initialCommand
+                        });
+                    }
 
                     // Handle data output
                     shellProcess.onData((data) => {
@@ -1362,6 +1500,40 @@ function handleShellConnection(ws) {
                                 emitAuthUrl(bestUrl, true);
                             }
 
+                            if (session.isPlainShell) {
+                                for (const [runningName, runningInfo] of runningProjectsMap.entries()) {
+                                    if (runningInfo.ptySessionKey !== ptySessionKey) {
+                                        continue;
+                                    }
+
+                                    const portPatterns = [
+                                        /(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d{2,5})/g,
+                                        /port\s+(\d{2,5})/gi,
+                                        /listening on.*?(\d{2,5})/gi,
+                                        /server.*?(\d{2,5})/gi,
+                                        /http:\/\/[^:]+:(\d{2,5})/g
+                                    ];
+
+                                    portPatterns.forEach((portPattern) => {
+                                        let portMatch;
+                                        while ((portMatch = portPattern.exec(data)) !== null) {
+                                            const port = Number.parseInt(portMatch[1], 10);
+                                            if (
+                                                Number.isFinite(port) &&
+                                                port >= 1024 &&
+                                                port <= 65535 &&
+                                                !runningInfo.ports.includes(port)
+                                            ) {
+                                                runningInfo.ports.push(port);
+                                            }
+                                        }
+                                    });
+
+                                    runningProjectsMap.set(runningName, runningInfo);
+                                    break;
+                                }
+                            }
+
                             // Send regular output
                             session.ws.send(JSON.stringify({
                                 type: 'output',
@@ -1373,6 +1545,12 @@ function handleShellConnection(ws) {
                     // Handle process exit
                     shellProcess.onExit((exitCode) => {
                         console.log('🔚 Shell process exited with code:', exitCode.exitCode, 'signal:', exitCode.signal);
+                        for (const [runningName, runningInfo] of runningProjectsMap.entries()) {
+                            if (runningInfo.ptySessionKey === ptySessionKey) {
+                                runningProjectsMap.delete(runningName);
+                                break;
+                            }
+                        }
                         const session = ptySessionsMap.get(ptySessionKey);
                         if (session && session.ws && session.ws.readyState === WebSocket.OPEN) {
                             session.ws.send(JSON.stringify({

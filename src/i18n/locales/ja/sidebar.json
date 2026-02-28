@@ -107,5 +107,16 @@
     "sessionCount": "このプロジェクトには{{count}}件の会話があります。",
     "allConversationsDeleted": "すべての会話が完全に削除されます。",
     "cannotUndo": "この操作は取り消せません。"
+  },
+  "projectEdit": {
+    "title": "プロジェクトを編集",
+    "subtitle": "プロジェクト名と起動スクリプトを変更",
+    "nameLabel": "プロジェクト名",
+    "namePlaceholder": "プロジェクト名を入力",
+    "startupLabel": "起動スクリプト（任意）",
+    "scanningScripts": "スクリプトをスキャン中...",
+    "customCommandLabel": "カスタム起動コマンド",
+    "customCommandPlaceholder": "例: npm start, ./run.sh",
+    "customCommandHelp": "Play ボタンを押すと、このコマンドがターミナルで実行されます。"
   }
 }

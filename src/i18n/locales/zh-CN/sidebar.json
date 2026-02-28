@@ -108,5 +108,16 @@
     "sessionCount_other": "此项目包含 {{count}} 个对话。",
     "allConversationsDeleted": "所有对话将被永久删除。",
     "cannotUndo": "此操作无法撤销。"
+  },
+  "projectEdit": {
+    "title": "编辑项目",
+    "subtitle": "修改项目名称和启动脚本",
+    "nameLabel": "项目名称",
+    "namePlaceholder": "输入项目名称",
+    "startupLabel": "启动脚本（可选）",
+    "scanningScripts": "扫描脚本中...",
+    "customCommandLabel": "自定义启动命令",
+    "customCommandPlaceholder": "例如: npm start, ./run.sh",
+    "customCommandHelp": "点击 Play 按钮时会在终端执行此命令。"
   }
 }

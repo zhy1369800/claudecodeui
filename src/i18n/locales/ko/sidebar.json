@@ -108,5 +108,16 @@
     "sessionCount_other": "이 프로젝트에는 {{count}}개의 대화가 있습니다.",
     "allConversationsDeleted": "모든 대화가 영구적으로 삭제됩니다.",
     "cannotUndo": "이 작업은 취소할 수 없습니다."
+  },
+  "projectEdit": {
+    "title": "프로젝트 편집",
+    "subtitle": "프로젝트 이름과 시작 스크립트 수정",
+    "nameLabel": "프로젝트 이름",
+    "namePlaceholder": "프로젝트 이름 입력",
+    "startupLabel": "시작 스크립트(선택 사항)",
+    "scanningScripts": "스크립트 스캔 중...",
+    "customCommandLabel": "사용자 지정 시작 명령",
+    "customCommandPlaceholder": "예: npm start, ./run.sh",
+    "customCommandHelp": "Play 버튼을 누르면 이 명령이 터미널에서 실행됩니다."
   }
 }

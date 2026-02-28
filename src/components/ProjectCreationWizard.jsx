@@ -17,6 +17,9 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
   const [selectedGithubToken, setSelectedGithubToken] = useState('');
   const [tokenMode, setTokenMode] = useState('stored'); // 'stored' | 'new' | 'none'
   const [newGithubToken, setNewGithubToken] = useState('');
+  const [startupScript, setStartupScript] = useState('');
+  const [availableScripts, setAvailableScripts] = useState([]);
+  const [isLoadingScripts, setIsLoadingScripts] = useState(false);
 
   // UI state
   const [isCreating, setIsCreating] = useState(false);
@@ -110,8 +113,32 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
         return;
       }
 
-      // No validation for GitHub token - it's optional (only needed for private repos)
+      const fetchScripts = async () => {
+        try {
+          setIsLoadingScripts(true);
+          const response = await api.scanScripts(workspacePath.trim());
+          const data = await response.json();
+          if (response.ok) {
+            const scripts = data.scripts || [];
+            setAvailableScripts(scripts);
+            if (!startupScript && scripts.length > 0) {
+              setStartupScript(scripts[0].command);
+            }
+          } else {
+            setAvailableScripts([]);
+          }
+        } catch (scanError) {
+          console.error('Error scanning scripts:', scanError);
+          setAvailableScripts([]);
+        } finally {
+          setIsLoadingScripts(false);
+        }
+      };
+      void fetchScripts();
+
       setStep(3);
+    } else if (step === 3) {
+      setStep(4);
     }
   };
 
@@ -136,6 +163,9 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
           params.append('githubTokenId', selectedGithubToken);
         } else if (tokenMode === 'new' && newGithubToken) {
           params.append('newGithubToken', newGithubToken.trim());
+        }
+        if (startupScript.trim()) {
+          params.append('startupScript', startupScript.trim());
         }
 
         const token = localStorage.getItem('auth-token');
@@ -177,6 +207,7 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
       const payload = {
         workspaceType,
         path: workspacePath.trim(),
+        startupScript: startupScript.trim() || null,
       };
 
       const response = await api.createWorkspace(payload);
@@ -283,7 +314,7 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
         {/* Progress Indicator */}
         <div className="px-6 pt-4 pb-2">
           <div className="flex items-center justify-between">
-            {[1, 2, 3].map((s) => (
+            {[1, 2, 3, 4].map((s) => (
               <React.Fragment key={s}>
                 <div className="flex items-center gap-2">
                   <div
@@ -298,10 +329,16 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
                     {s < step ? <Check className="w-4 h-4" /> : s}
                   </div>
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:inline">
-                    {s === 1 ? t('projectWizard.steps.type') : s === 2 ? t('projectWizard.steps.configure') : t('projectWizard.steps.confirm')}
+                    {s === 1
+                      ? t('projectWizard.steps.type')
+                      : s === 2
+                      ? t('projectWizard.steps.configure')
+                      : s === 3
+                      ? t('projectWizard.steps.startup')
+                      : t('projectWizard.steps.confirm')}
                   </span>
                 </div>
-                {s < 3 && (
+                {s < 4 && (
                   <div
                     className={`flex-1 h-1 mx-2 rounded ${
                       s < step ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'
@@ -578,11 +615,81 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
                   )}
                 </>
               )}
+
+              {/* Step 3: Startup Script */}
             </div>
           )}
 
-          {/* Step 3: Confirm */}
           {step === 3 && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('projectWizard.startup.title')}
+                </label>
+
+                {isLoadingScripts ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                    <span className="ml-2 text-sm text-gray-500">{t('projectWizard.startup.scanning')}</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {availableScripts.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto p-1">
+                        {availableScripts.map((script, index) => (
+                          <button
+                            type="button"
+                            key={`${script.command}-${index}`}
+                            onClick={() => setStartupScript(script.command)}
+                            className={`p-3 text-left border rounded-lg transition-all ${
+                              startupScript === script.command
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-sm text-gray-900 dark:text-white">{script.name}</span>
+                              {script.type && (
+                                <span className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
+                                  {script.type}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono truncate">
+                              {script.command}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm text-yellow-800 dark:text-yellow-200">
+                        {t('projectWizard.startup.noneFound')}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {t('projectWizard.startup.customLabel')}
+                      </label>
+                      <Input
+                        type="text"
+                        value={startupScript}
+                        onChange={(e) => setStartupScript(e.target.value)}
+                        placeholder={t('projectWizard.startup.customPlaceholder')}
+                        className="w-full font-mono text-sm"
+                      />
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {t('projectWizard.startup.customHelp')}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Confirm */}
+          {step === 4 && (
             <div className="space-y-4">
               <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
@@ -622,6 +729,14 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
                         </span>
                       </div>
                     </>
+                  )}
+                  {startupScript && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">{t('projectWizard.startup.summaryLabel')}</span>
+                      <span className="font-mono text-xs text-gray-900 dark:text-white break-all">
+                        {startupScript}
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -666,7 +781,7 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
           </Button>
 
           <Button
-            onClick={step === 3 ? handleCreate : handleNext}
+            onClick={step === 4 ? handleCreate : handleNext}
             disabled={isCreating || (step === 1 && !workspaceType)}
           >
             {isCreating ? (
@@ -674,7 +789,7 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 {githubUrl ? t('projectWizard.buttons.cloning', 'Cloning...') : t('projectWizard.buttons.creating')}
               </>
-            ) : step === 3 ? (
+            ) : step === 4 ? (
               <>
                 <Check className="w-4 h-4 mr-1" />
                 {t('projectWizard.buttons.createProject')}

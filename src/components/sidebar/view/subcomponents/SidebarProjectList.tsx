@@ -5,6 +5,7 @@ import type { LoadingProgress, Project, ProjectSession, SessionProvider } from '
 import type {
   LoadingSessionsByProject,
   MCPServerStatus,
+  RunningProjectInfo,
   SessionWithProvider,
   TouchHandlerFactory,
 } from '../../types/types';
@@ -19,8 +20,6 @@ export type SidebarProjectListProps = {
   isLoading: boolean;
   loadingProgress: LoadingProgress | null;
   expandedProjects: Set<string>;
-  editingProject: string | null;
-  editingName: string;
   loadingSessions: LoadingSessionsByProject;
   initialSessionsLoaded: Set<string>;
   currentTime: Date;
@@ -30,15 +29,14 @@ export type SidebarProjectListProps = {
   swipedProject: string | null;
   tasksEnabled: boolean;
   mcpServerStatus: MCPServerStatus;
+  runningProjects: Record<string, RunningProjectInfo>;
+  stoppingProjects: Set<string>;
   getProjectSessions: (project: Project) => SessionWithProvider[];
   isProjectStarred: (projectName: string) => boolean;
-  onEditingNameChange: (value: string) => void;
   onToggleProject: (projectName: string) => void;
   onProjectSelect: (project: Project) => void;
   onToggleStarProject: (projectName: string) => void;
   onStartEditingProject: (project: Project) => void;
-  onCancelEditingProject: () => void;
-  onSaveProjectName: (projectName: string) => void;
   onDeleteProject: (project: Project) => void;
   onSessionSelect: (session: SessionWithProvider, projectName: string) => void;
   onDeleteSession: (
@@ -57,6 +55,8 @@ export type SidebarProjectListProps = {
   onClearSwipedProject: () => void;
   onProjectTouchStart: (event: React.TouchEvent<HTMLElement>) => void;
   onProjectTouchMove: (event: React.TouchEvent<HTMLElement>, projectName: string) => void;
+  onRunProject: (project: Project) => void;
+  onStopProject: (projectName: string) => void;
   t: TFunction;
 };
 
@@ -68,8 +68,6 @@ export default function SidebarProjectList({
   isLoading,
   loadingProgress,
   expandedProjects,
-  editingProject,
-  editingName,
   loadingSessions,
   initialSessionsLoaded,
   currentTime,
@@ -79,15 +77,14 @@ export default function SidebarProjectList({
   swipedProject,
   tasksEnabled,
   mcpServerStatus,
+  runningProjects,
+  stoppingProjects,
   getProjectSessions,
   isProjectStarred,
-  onEditingNameChange,
   onToggleProject,
   onProjectSelect,
   onToggleStarProject,
   onStartEditingProject,
-  onCancelEditingProject,
-  onSaveProjectName,
   onDeleteProject,
   onSessionSelect,
   onDeleteSession,
@@ -101,6 +98,8 @@ export default function SidebarProjectList({
   onClearSwipedProject,
   onProjectTouchStart,
   onProjectTouchMove,
+  onRunProject,
+  onStopProject,
   t,
 }: SidebarProjectListProps) {
   const state = (
@@ -137,8 +136,6 @@ export default function SidebarProjectList({
               isExpanded={expandedProjects.has(project.name)}
               isDeleting={deletingProjects.has(project.name)}
               isStarred={isProjectStarred(project.name)}
-              editingProject={editingProject}
-              editingName={editingName}
               sessions={getProjectSessions(project)}
               initialSessionsLoaded={initialSessionsLoaded.has(project.name)}
               isLoadingSessions={Boolean(loadingSessions[project.name])}
@@ -147,14 +144,13 @@ export default function SidebarProjectList({
               editingSessionName={editingSessionName}
               tasksEnabled={tasksEnabled}
               mcpServerStatus={mcpServerStatus}
+              runningInfo={runningProjects[project.name] || null}
+              isStopping={stoppingProjects.has(project.name)}
               isSwiped={swipedProject === project.name}
-              onEditingNameChange={onEditingNameChange}
               onToggleProject={onToggleProject}
               onProjectSelect={onProjectSelect}
               onToggleStarProject={onToggleStarProject}
               onStartEditingProject={onStartEditingProject}
-              onCancelEditingProject={onCancelEditingProject}
-              onSaveProjectName={onSaveProjectName}
               onDeleteProject={onDeleteProject}
               onSessionSelect={onSessionSelect}
               onDeleteSession={onDeleteSession}
@@ -168,6 +164,8 @@ export default function SidebarProjectList({
               onClearSwipedProject={onClearSwipedProject}
               onProjectTouchStart={onProjectTouchStart}
               onProjectTouchMove={onProjectTouchMove}
+              onRunProject={onRunProject}
+              onStopProject={onStopProject}
               t={t}
             />
           ))}

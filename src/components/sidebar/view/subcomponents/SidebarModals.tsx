@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import ReactDOM from 'react-dom';
-import { AlertTriangle, Trash2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
 import ProjectCreationWizard from '../../../ProjectCreationWizard';
 import Settings from '../../../settings/view/Settings';
 import VersionUpgradeModal from '../modals/VersionUpgradeModal';
@@ -20,6 +21,15 @@ type SidebarModalsProps = {
   showNewProject: boolean;
   onCloseNewProject: () => void;
   onProjectCreated: () => void;
+  editingProject: string | null;
+  editingName: string;
+  editingStartupScript: string;
+  availableScripts: Array<{ name: string; command: string; type?: string }>;
+  isLoadingScripts: boolean;
+  onEditingNameChange: (value: string) => void;
+  onEditingStartupScriptChange: (value: string) => void;
+  onCancelEditingProject: () => void;
+  onSaveProjectName: (projectName: string) => void;
   deleteConfirmation: DeleteProjectConfirmation | null;
   onCancelDeleteProject: () => void;
   onConfirmDeleteProject: () => void;
@@ -56,6 +66,15 @@ export default function SidebarModals({
   showNewProject,
   onCloseNewProject,
   onProjectCreated,
+  editingProject,
+  editingName,
+  editingStartupScript,
+  availableScripts,
+  isLoadingScripts,
+  onEditingNameChange,
+  onEditingStartupScriptChange,
+  onCancelEditingProject,
+  onSaveProjectName,
   deleteConfirmation,
   onCancelDeleteProject,
   onConfirmDeleteProject,
@@ -95,6 +114,109 @@ export default function SidebarModals({
             projects={settingsProjects}
             initialTab={settingsInitialTab}
           />,
+          document.body,
+        )}
+
+      {editingProject &&
+        ReactDOM.createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-card border border-border rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-border">
+                <h3 className="text-lg font-semibold text-foreground">{t('projectEdit.title')}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{t('projectEdit.subtitle')}</p>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    {t('projectEdit.nameLabel')}
+                  </label>
+                  <Input
+                    type="text"
+                    value={editingName}
+                    onChange={(event) => onEditingNameChange(event.target.value)}
+                    placeholder={t('projectEdit.namePlaceholder')}
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    {t('projectEdit.startupLabel')}
+                  </label>
+
+                  {isLoadingScripts ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      <span className="ml-2 text-sm text-muted-foreground">
+                        {t('projectEdit.scanningScripts')}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {availableScripts.length > 0 && (
+                        <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto p-1">
+                          {availableScripts.map((script, index) => (
+                            <button
+                              type="button"
+                              key={`${script.command}-${index}`}
+                              onClick={() => onEditingStartupScriptChange(script.command)}
+                              className={`p-3 text-left border rounded-lg transition-all ${
+                                editingStartupScript === script.command
+                                  ? 'border-primary bg-primary/5'
+                                  : 'border-border hover:border-muted-foreground'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-sm text-foreground">{script.name}</span>
+                                {script.type && (
+                                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                                    {script.type}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1 font-mono truncate">
+                                {script.command}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-sm font-medium text-muted-foreground mb-2">
+                          {t('projectEdit.customCommandLabel')}
+                        </label>
+                        <Input
+                          type="text"
+                          value={editingStartupScript}
+                          onChange={(event) => onEditingStartupScriptChange(event.target.value)}
+                          placeholder={t('projectEdit.customCommandPlaceholder')}
+                          className="w-full font-mono text-sm"
+                        />
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t('projectEdit.customCommandHelp')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-3 p-4 bg-muted/30 border-t border-border">
+                <Button variant="outline" className="flex-1" onClick={onCancelEditingProject}>
+                  {t('actions.cancel')}
+                </Button>
+                <Button
+                  variant="default"
+                  className="flex-1"
+                  onClick={() => onSaveProjectName(editingProject)}
+                >
+                  {t('actions.save')}
+                </Button>
+              </div>
+            </div>
+          </div>,
           document.body,
         )}
 

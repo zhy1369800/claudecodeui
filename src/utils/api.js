@@ -68,10 +68,21 @@ export const api = {
     }
     return authenticatedFetch(url);
   },
-  renameProject: (projectName, displayName) =>
+  renameProject: (projectName, displayName, startupScript) =>
     authenticatedFetch(`/api/projects/${projectName}/rename`, {
       method: 'PUT',
-      body: JSON.stringify({ displayName }),
+      body: JSON.stringify({ displayName, startupScript }),
+    }),
+  scanScripts: (projectPath) => {
+    const params = new URLSearchParams();
+    params.append('path', projectPath);
+    return authenticatedFetch(`/api/projects/scan-scripts?${params}`);
+  },
+  getRunningProjects: () =>
+    authenticatedFetch('/api/projects/running'),
+  stopProject: (projectName) =>
+    authenticatedFetch(`/api/projects/stop/${projectName}`, {
+      method: 'POST',
     }),
   deleteSession: (projectName, sessionId) =>
     authenticatedFetch(`/api/projects/${projectName}/sessions/${sessionId}`, {

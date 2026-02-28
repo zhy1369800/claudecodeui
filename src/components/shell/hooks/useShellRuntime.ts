@@ -31,6 +31,14 @@ export function useShellRuntime({
   const onProcessCompleteRef = useRef(onProcessComplete);
   const authUrlRef = useRef('');
   const lastSessionIdRef = useRef<string | null>(selectedSession?.id ?? null);
+  const lastShellContextKeyRef = useRef<string>(
+    JSON.stringify({
+      projectPath: selectedProject?.fullPath || selectedProject?.path || '',
+      sessionId: selectedSession?.id ?? null,
+      initialCommand: initialCommand ?? null,
+      isPlainShell,
+    }),
+  );
 
   // Keep mutable values in refs so websocket handlers always read current data.
   useEffect(() => {
@@ -146,6 +154,29 @@ export function useShellRuntime({
 
     lastSessionIdRef.current = currentSessionId;
   }, [disconnectFromShell, isInitialized, selectedSession?.id]);
+
+  useEffect(() => {
+    const currentContextKey = JSON.stringify({
+      projectPath: selectedProject?.fullPath || selectedProject?.path || '',
+      sessionId: selectedSession?.id ?? null,
+      initialCommand: initialCommand ?? null,
+      isPlainShell,
+    });
+
+    if (lastShellContextKeyRef.current !== currentContextKey && isInitialized) {
+      disconnectFromShell();
+    }
+
+    lastShellContextKeyRef.current = currentContextKey;
+  }, [
+    disconnectFromShell,
+    initialCommand,
+    isInitialized,
+    isPlainShell,
+    selectedProject?.fullPath,
+    selectedProject?.path,
+    selectedSession?.id,
+  ]);
 
   return {
     terminalContainerRef,

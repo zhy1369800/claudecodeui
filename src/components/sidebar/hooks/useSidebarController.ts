@@ -8,6 +8,7 @@ import type {
   DeleteProjectConfirmation,
   LoadingSessionsByProject,
   ProjectSortOrder,
+  RunningProjectInfo,
   SessionDeleteConfirmation,
   SessionWithProvider,
 } from '../types/types';
@@ -38,6 +39,12 @@ type UseSidebarControllerArgs = {
   isMobileSidebarOpen: boolean;
 };
 
+type StartupScriptOption = {
+  name: string;
+  command: string;
+  type?: string;
+};
+
 export function useSidebarController({
   projects,
   selectedProject,
@@ -59,6 +66,9 @@ export function useSidebarController({
   const [editingProject, setEditingProject] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
   const [editingName, setEditingName] = useState('');
+  const [editingStartupScript, setEditingStartupScript] = useState('');
+  const [availableScripts, setAvailableScripts] = useState<StartupScriptOption[]>([]);
+  const [isLoadingScripts, setIsLoadingScripts] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState<LoadingSessionsByProject>({});
   const [additionalSessions, setAdditionalSessions] = useState<AdditionalSessionsByProject>({});
   const [initialSessionsLoaded, setInitialSessionsLoaded] = useState<Set<string>>(new Set());
@@ -75,9 +85,13 @@ export function useSidebarController({
   const [showVersionModal, setShowVersionModal] = useState(false);
   const [starredProjects, setStarredProjects] = useState<Set<string>>(() => loadStarredProjects());
   const [swipedProject, setSwipedProject] = useState<string | null>(null);
+  const [runningProjects, setRunningProjects] = useState<Record<string, RunningProjectInfo>>({});
+  const [stoppingProjects, setStoppingProjects] = useState<Set<string>>(new Set());
   const touchStartX = useRef<number | null>(null);
+  const runningFetchIdRef = useRef(0);
 
   const isSidebarCollapsed = !isMobile && !sidebarVisible;
+  const shouldPollRunningProjects = isMobile ? isMobileSidebarOpen : sidebarVisible;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -285,20 +299,38 @@ export function useSidebarController({
     [searchFilter, sortedProjects],
   );
 
-  const startEditing = useCallback((project: Project) => {
+  const startEditing = useCallback(async (project: Project) => {
     setEditingProject(project.name);
     setEditingName(project.displayName);
+    setEditingStartupScript(typeof project.startupScript === 'string' ? project.startupScript : '');
+    setAvailableScripts([]);
+    setIsLoadingScripts(true);
+
+    try {
+      const response = await api.scanScripts(project.fullPath);
+      if (response.ok) {
+        const payload = (await response.json()) as { scripts?: StartupScriptOption[] };
+        setAvailableScripts(payload.scripts || []);
+      }
+    } catch (error) {
+      console.error('Error scanning scripts:', error);
+    } finally {
+      setIsLoadingScripts(false);
+    }
   }, []);
 
   const cancelEditing = useCallback(() => {
     setEditingProject(null);
     setEditingName('');
+    setEditingStartupScript('');
+    setAvailableScripts([]);
+    setIsLoadingScripts(false);
   }, []);
 
   const saveProjectName = useCallback(
     async (projectName: string) => {
       try {
-        const response = await api.renameProject(projectName, editingName);
+        const response = await api.renameProject(projectName, editingName, editingStartupScript || null);
         if (response.ok) {
           if (window.refreshProjects) {
             await window.refreshProjects();
@@ -313,9 +345,12 @@ export function useSidebarController({
       } finally {
         setEditingProject(null);
         setEditingName('');
+        setEditingStartupScript('');
+        setAvailableScripts([]);
+        setIsLoadingScripts(false);
       }
     },
-    [editingName],
+    [editingName, editingStartupScript],
   );
 
   const showDeleteSessionConfirmation = useCallback(
@@ -483,12 +518,108 @@ export function useSidebarController({
     setSidebarVisible(true);
   }, [setSidebarVisible]);
 
+  const fetchRunningProjects = useCallback(async () => {
+    const requestId = ++runningFetchIdRef.current;
+    try {
+      const response = await api.getRunningProjects();
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = (await response.json()) as { running?: RunningProjectInfo[] };
+      if (requestId !== runningFetchIdRef.current) {
+        return;
+      }
+
+      const next: Record<string, RunningProjectInfo> = {};
+      for (const item of payload.running || []) {
+        if (!item?.name) {
+          continue;
+        }
+        next[item.name] = item;
+      }
+      setRunningProjects(next);
+    } catch (error) {
+      console.error('Error fetching running projects:', error);
+    }
+  }, []);
+
+  const stopProject = useCallback(
+    async (projectName: string) => {
+      setStoppingProjects((prev) => new Set([...prev, projectName]));
+      setRunningProjects((prev) => {
+        const next = { ...prev };
+        delete next[projectName];
+        return next;
+      });
+
+      try {
+        const response = await api.stopProject(projectName);
+        if (!response.ok) {
+          throw new Error(`Failed to stop project: ${response.status}`);
+        }
+      } catch (error) {
+        console.error('Error stopping project:', error);
+      } finally {
+        await fetchRunningProjects();
+        setStoppingProjects((prev) => {
+          const next = new Set(prev);
+          next.delete(projectName);
+          return next;
+        });
+      }
+    },
+    [fetchRunningProjects],
+  );
+
+  useEffect(() => {
+    if (!shouldPollRunningProjects) {
+      return;
+    }
+
+    let timer: number | null = null;
+    const pollIntervalMs = 12000;
+
+    const schedule = () => {
+      if (timer !== null) {
+        window.clearInterval(timer);
+      }
+      timer = window.setInterval(() => {
+        if (document.visibilityState !== 'visible') {
+          return;
+        }
+        void fetchRunningProjects();
+      }, pollIntervalMs);
+    };
+
+    void fetchRunningProjects();
+    schedule();
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchRunningProjects();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (timer !== null) {
+        window.clearInterval(timer);
+      }
+    };
+  }, [fetchRunningProjects, shouldPollRunningProjects]);
+
   return {
     isSidebarCollapsed,
     expandedProjects,
     editingProject,
     showNewProject,
     editingName,
+    editingStartupScript,
+    availableScripts,
+    isLoadingScripts,
     loadingSessions,
     additionalSessions,
     initialSessionsLoaded,
@@ -505,6 +636,8 @@ export function useSidebarController({
     starredProjects,
     filteredProjects,
     swipedProject,
+    runningProjects,
+    stoppingProjects,
     handleTouchClick,
     clearSwipedProject,
     handleProjectTouchStart,
@@ -525,10 +658,12 @@ export function useSidebarController({
     handleProjectSelect,
     refreshProjects,
     updateSessionSummary,
+    stopProject,
     collapseSidebar,
     expandSidebar,
     setShowNewProject,
     setEditingName,
+    setEditingStartupScript,
     setEditingSession,
     setEditingSessionName,
     setSearchFilter,

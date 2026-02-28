@@ -126,6 +126,7 @@
     "steps": {
       "type": "Type",
       "configure": "Configure",
+      "startup": "Startup",
       "confirm": "Confirm"
     },
     "step1": {
@@ -180,6 +181,15 @@
       "newWithClone": "The repository will be cloned from this folder.",
       "newEmpty": "The workspace will be added to your project list and will be available for Claude/Cursor sessions.",
       "cloningRepository": "Cloning repository..."
+    },
+    "startup": {
+      "title": "Select a startup script for this project (optional)",
+      "scanning": "Scanning for scripts...",
+      "noneFound": "No common startup scripts found in this directory.",
+      "customLabel": "Custom Startup Command",
+      "customPlaceholder": "e.g., npm start, ./run.sh",
+      "customHelp": "This command will be executed in the terminal when you click the Start button.",
+      "summaryLabel": "Startup Script:"
     },
     "buttons": {
       "cancel": "Cancel",

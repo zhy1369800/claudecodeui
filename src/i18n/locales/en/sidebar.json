@@ -108,5 +108,16 @@
     "sessionCount_other": "This project contains {{count}} conversations.",
     "allConversationsDeleted": "All conversations will be permanently deleted.",
     "cannotUndo": "This action cannot be undone."
+  },
+  "projectEdit": {
+    "title": "Edit Project",
+    "subtitle": "Update project name and startup script",
+    "nameLabel": "Project Name",
+    "namePlaceholder": "Enter project name",
+    "startupLabel": "Startup Script (Optional)",
+    "scanningScripts": "Scanning scripts...",
+    "customCommandLabel": "Custom Startup Command",
+    "customCommandPlaceholder": "e.g., npm start, ./run.sh",
+    "customCommandHelp": "This command will run in terminal when you click Play."
   }
 }

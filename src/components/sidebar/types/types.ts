@@ -69,3 +69,11 @@ export type TouchHandlerFactory = (
 ) => (event: React.TouchEvent<HTMLElement>) => void;
 
 export type SettingsProject = Pick<Project, 'name' | 'displayName' | 'fullPath' | 'path'>;
+
+export type RunningProjectInfo = {
+  name: string;
+  pid?: number;
+  ports?: number[];
+  startTime?: string;
+  initialCommand?: string | null;
+};

@@ -6,7 +6,7 @@ import type { AppTab, Project, ProjectSession } from '../../../../types/app';
 
 type MainContentTitleProps = {
   activeTab: AppTab;
-  selectedProject: Project;
+  selectedProject: Project | null;
   selectedSession: ProjectSession | null;
   shouldShowTasksTab: boolean;
   ws: WebSocket | null;
@@ -117,7 +117,7 @@ export default function MainContentTitle({
               {showConnectionIndicator && (
                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${connectionUi.dotClass}`} title={connectionUi.title} />
               )}
-              <span className="truncate">{selectedProject.displayName}</span>
+              <span className="truncate">{selectedProject?.displayName || 'System'}</span>
             </div>
           </div>
         ) : showChatNewSession ? (
@@ -127,7 +127,7 @@ export default function MainContentTitle({
               {showConnectionIndicator && (
                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${connectionUi.dotClass}`} title={connectionUi.title} />
               )}
-              <span className="truncate">{selectedProject.displayName}</span>
+              <span className="truncate">{selectedProject?.displayName || 'System'}</span>
             </div>
           </div>
         ) : (
@@ -136,7 +136,7 @@ export default function MainContentTitle({
               {getTabTitle(activeTab, shouldShowTasksTab, t)}
             </h2>
             <div className="text-[11px] text-muted-foreground truncate leading-tight flex items-center gap-1.5">
-              <span className="truncate">{selectedProject.displayName}</span>
+              <span className="truncate">{selectedProject?.displayName || 'System'}</span>
             </div>
           </div>
         )}

@@ -130,13 +130,13 @@ export function useShellRuntime({
   }, [disconnectFromShell, disposeTerminal, isRestarting]);
 
   useEffect(() => {
-    if (selectedProject) {
+    if (selectedProject || isPlainShell) {
       return;
     }
 
     disconnectFromShell();
     disposeTerminal();
-  }, [disconnectFromShell, disposeTerminal, selectedProject]);
+  }, [disconnectFromShell, disposeTerminal, isPlainShell, selectedProject]);
 
   useEffect(() => {
     const currentSessionId = selectedSession?.id ?? null;

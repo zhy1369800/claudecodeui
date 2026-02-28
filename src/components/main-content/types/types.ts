@@ -37,6 +37,8 @@ export type MainContentProps = {
   selectedSession: ProjectSession | null;
   activeTab: AppTab;
   setActiveTab: Dispatch<SetStateAction<AppTab>>;
+  forcePlainShell?: boolean;
+  initialShellCommand?: string | null;
   ws: WebSocket | null;
   sendMessage: (message: unknown) => void;
   latestMessage: unknown;
@@ -58,7 +60,7 @@ export type MainContentProps = {
 export type MainContentHeaderProps = {
   activeTab: AppTab;
   setActiveTab: Dispatch<SetStateAction<AppTab>>;
-  selectedProject: Project;
+  selectedProject: Project | null;
   selectedSession: ProjectSession | null;
   shouldShowTasksTab: boolean;
   ws: WebSocket | null;

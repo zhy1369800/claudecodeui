@@ -48,7 +48,7 @@ export default function StandaloneShell({
   // Keep `onToggleSettings` in the public API for compatibility with existing callers.
   void onToggleSettings;
 
-  const shouldUsePlainShell = isPlainShell !== null ? isPlainShell : command !== null;
+  const shouldUsePlainShell = isPlainShell !== null ? isPlainShell : command !== null || !project;
 
   const handleProcessComplete = useCallback(
     (exitCode: number) => {
@@ -58,7 +58,7 @@ export default function StandaloneShell({
     [onComplete],
   );
 
-  if (!project) {
+  if (!project && !shouldUsePlainShell) {
     return <StandaloneShellEmptyState className={className} />;
   }
 

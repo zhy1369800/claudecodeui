@@ -31,6 +31,7 @@ function Sidebar({
   loadingProgress,
   onRefresh,
   onShowSettings,
+  onOpenShellTab,
   showSettings,
   settingsInitialTab,
   onCloseSettings,
@@ -189,6 +190,25 @@ function Sidebar({
     t,
   };
 
+  const handleOpenMobileTerminal = () => {
+    const expandedProjectName = expandedProjects.size > 0 ? Array.from(expandedProjects)[0] : null;
+    const expandedProject =
+      expandedProjectName !== null
+        ? projects.find((project) => project.name === expandedProjectName) || null
+        : null;
+    const terminalProject = expandedProject || selectedProject || null;
+
+    onOpenShellTab({
+      project: terminalProject,
+      forcePlain: true,
+      clearSession: true,
+      // Running project tracking is not currently exposed in this sidebar architecture.
+      // Keep command null so terminal opens in plain interactive mode.
+      initialCommand: null,
+      closeSidebar: true,
+    });
+  };
+
   return (
     <>
       <SidebarModals
@@ -243,6 +263,7 @@ function Sidebar({
             latestVersion={latestVersion}
             onShowVersionModal={() => setShowVersionModal(true)}
             onShowSettings={onShowSettings}
+            onOpenTerminal={handleOpenMobileTerminal}
             onProjectListBackgroundInteraction={clearSwipedProject}
             projectListProps={projectListProps}
             t={t}

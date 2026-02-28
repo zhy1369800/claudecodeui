@@ -32,6 +32,8 @@ export default function AppContent() {
     selectedProject,
     selectedSession,
     activeTab,
+    forcePlainShell,
+    initialShellCommand,
     sidebarOpen,
     isLoadingProjects,
     isInputFocused,
@@ -112,6 +114,8 @@ export default function AppContent() {
           selectedSession={selectedSession}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
+          forcePlainShell={forcePlainShell}
+          initialShellCommand={initialShellCommand}
           ws={ws}
           sendMessage={sendMessage}
           latestMessage={latestMessage}

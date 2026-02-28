@@ -1,4 +1,4 @@
-import { Settings, ArrowUpCircle } from 'lucide-react';
+import { Settings, ArrowUpCircle, Terminal } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import type { ReleaseInfo } from '../../../../types/sharedTypes';
 
@@ -8,6 +8,7 @@ type SidebarFooterProps = {
   latestVersion: string | null;
   onShowVersionModal: () => void;
   onShowSettings: () => void;
+  onOpenTerminal: () => void;
   t: TFunction;
 };
 
@@ -17,6 +18,7 @@ export default function SidebarFooter({
   latestVersion,
   onShowVersionModal,
   onShowSettings,
+  onOpenTerminal,
   t,
 }: SidebarFooterProps) {
   return (
@@ -85,6 +87,16 @@ export default function SidebarFooter({
 
       {/* Mobile settings */}
       <div className="md:hidden p-3 pb-20">
+        <button
+          className="mb-3 w-full h-12 bg-muted/40 hover:bg-muted/60 rounded-xl flex items-center gap-3.5 px-4 active:scale-[0.98] transition-all"
+          onClick={onOpenTerminal}
+        >
+          <div className="w-8 h-8 rounded-xl bg-background/80 flex items-center justify-center">
+            <Terminal className="w-4.5 h-4.5 text-muted-foreground" />
+          </div>
+          <span className="text-base font-medium text-foreground">{t('navigation.terminal')}</span>
+        </button>
+
         <button
           className="w-full h-12 bg-muted/40 hover:bg-muted/60 rounded-xl flex items-center gap-3.5 px-4 active:scale-[0.98] transition-all"
           onClick={onShowSettings}

@@ -1085,12 +1085,13 @@ function handleShellConnection(ws) {
             console.log('📨 Shell message received:', data.type);
 
             if (data.type === 'init') {
-                const projectPath = data.projectPath || process.cwd();
+                const requestedProjectPath = data.projectPath || null;
                 const sessionId = data.sessionId;
                 const hasSession = data.hasSession;
                 const provider = data.provider || 'claude';
                 const initialCommand = data.initialCommand;
                 const isPlainShell = data.isPlainShell || (!!initialCommand && !hasSession) || provider === 'plain-shell';
+                const projectPath = requestedProjectPath || (isPlainShell ? os.homedir() : process.cwd());
                 urlDetectionBuffer = '';
                 announcedAuthUrls.clear();
 
@@ -1172,11 +1173,17 @@ function handleShellConnection(ws) {
                     // Prepare the shell command adapted to the platform and provider
                     let shellCommand;
                     if (isPlainShell) {
-                        // Plain shell mode - just run the initial command in the project directory
-                        if (os.platform() === 'win32') {
-                            shellCommand = `Set-Location -Path "${projectPath}"; ${initialCommand}`;
+                        // Plain shell mode:
+                        // - with initialCommand: run it in project directory
+                        // - without initialCommand: start an interactive shell in project directory
+                        if (initialCommand) {
+                            if (os.platform() === 'win32') {
+                                shellCommand = `Set-Location -Path "${projectPath}"; ${initialCommand}`;
+                            } else {
+                                shellCommand = `cd "${projectPath}" && ${initialCommand}`;
+                            }
                         } else {
-                            shellCommand = `cd "${projectPath}" && ${initialCommand}`;
+                            shellCommand = null;
                         }
                     } else if (provider === 'cursor') {
                         // Use cursor-agent command
@@ -1265,7 +1272,9 @@ function handleShellConnection(ws) {
 
                     // Use appropriate shell based on platform
                     const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
-                    const shellArgs = os.platform() === 'win32' ? ['-Command', shellCommand] : ['-c', shellCommand];
+                    const shellArgs = shellCommand
+                        ? (os.platform() === 'win32' ? ['-Command', shellCommand] : ['-c', shellCommand])
+                        : (os.platform() === 'win32' ? ['-NoLogo'] : []);
 
                     // Use terminal dimensions from client if provided, otherwise use defaults
                     const termCols = data.cols || 80;
@@ -1276,7 +1285,7 @@ function handleShellConnection(ws) {
                         name: 'xterm-256color',
                         cols: termCols,
                         rows: termRows,
-                        cwd: os.homedir(),
+                        cwd: projectPath || os.homedir(),
                         env: {
                             ...process.env,
                             TERM: 'xterm-256color',

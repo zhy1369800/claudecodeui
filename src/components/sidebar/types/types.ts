@@ -35,6 +35,13 @@ export type SidebarProps = {
   loadingProgress: LoadingProgress | null;
   onRefresh: () => Promise<void> | void;
   onShowSettings: () => void;
+  onOpenShellTab: (options: {
+    project?: Project | null;
+    clearSession?: boolean;
+    forcePlain?: boolean;
+    initialCommand?: string | null;
+    closeSidebar?: boolean;
+  }) => void;
   showSettings: boolean;
   settingsInitialTab: string;
   onCloseSettings: () => void;

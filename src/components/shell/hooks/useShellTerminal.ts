@@ -54,6 +54,7 @@ export function useShellTerminal({
   const resizeTimeoutRef = useRef<number | null>(null);
   const selectedProjectKey = selectedProject?.fullPath || selectedProject?.path || '';
   const hasSelectedProject = Boolean(selectedProject);
+  const canInitializeWithoutProject = isPlainShellRef.current;
 
   useEffect(() => {
     ensureXtermFocusStyles();
@@ -79,7 +80,7 @@ export function useShellTerminal({
   }, [fitAddonRef, terminalRef]);
 
   useEffect(() => {
-    if (!terminalContainerRef.current || !hasSelectedProject || isRestarting || terminalRef.current) {
+    if (!terminalContainerRef.current || (!hasSelectedProject && !canInitializeWithoutProject) || isRestarting || terminalRef.current) {
       return;
     }
 
@@ -231,6 +232,7 @@ export function useShellTerminal({
     isRestarting,
     minimal,
     hasSelectedProject,
+    canInitializeWithoutProject,
     selectedProjectKey,
     terminalContainerRef,
     terminalRef,

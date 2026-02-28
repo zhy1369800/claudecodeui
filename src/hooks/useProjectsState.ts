@@ -129,6 +129,8 @@ export function useProjectsState({
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedSession, setSelectedSession] = useState<ProjectSession | null>(null);
   const [activeTab, setActiveTab] = useState<AppTab>(readPersistedTab);
+  const [forcePlainShell, setForcePlainShell] = useState(false);
+  const [initialShellCommand, setInitialShellCommand] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -136,6 +138,15 @@ export function useProjectsState({
     } catch {
       // Silently ignore storage errors
     }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'shell') {
+      return;
+    }
+
+    setForcePlainShell(false);
+    setInitialShellCommand(null);
   }, [activeTab]);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -488,6 +499,40 @@ export function useProjectsState({
     [navigate, selectedProject?.name],
   );
 
+  const openShellTab = useCallback(
+    ({
+      project = null,
+      clearSession = true,
+      forcePlain = false,
+      initialCommand = null,
+      closeSidebar = true,
+    }: {
+      project?: Project | null;
+      clearSession?: boolean;
+      forcePlain?: boolean;
+      initialCommand?: string | null;
+      closeSidebar?: boolean;
+    }) => {
+      if (project !== undefined) {
+        setSelectedProject(project);
+      }
+
+      if (clearSession) {
+        setSelectedSession(null);
+      }
+
+      setForcePlainShell(forcePlain);
+      setInitialShellCommand(initialCommand);
+      setActiveTab('shell');
+      navigate('/');
+
+      if (isMobile && closeSidebar) {
+        setSidebarOpen(false);
+      }
+    },
+    [isMobile, navigate],
+  );
+
   const sidebarSharedProps = useMemo(
     () => ({
       projects,
@@ -507,6 +552,7 @@ export function useProjectsState({
       onCloseSettings: () => setShowSettings(false),
       isMobile,
       isMobileSidebarOpen: !isMobile || sidebarOpen,
+      onOpenShellTab: openShellTab,
     }),
     [
       handleNewSession,
@@ -517,6 +563,7 @@ export function useProjectsState({
       handleSidebarRefresh,
       isLoadingProjects,
       isMobile,
+      openShellTab,
       sidebarOpen,
       loadingProgress,
       projects,
@@ -532,6 +579,8 @@ export function useProjectsState({
     selectedProject,
     selectedSession,
     activeTab,
+    forcePlainShell,
+    initialShellCommand,
     sidebarOpen,
     isLoadingProjects,
     loadingProgress,
@@ -543,6 +592,7 @@ export function useProjectsState({
     setSidebarOpen,
     setIsInputFocused,
     setShowSettings,
+    openShellTab,
     openSettings,
     fetchProjects,
     sidebarSharedProps,

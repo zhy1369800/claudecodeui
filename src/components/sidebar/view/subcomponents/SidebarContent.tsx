@@ -23,6 +23,7 @@ type SidebarContentProps = {
   latestVersion: string | null;
   onShowVersionModal: () => void;
   onShowSettings: () => void;
+  onOpenTerminal: () => void;
   onProjectListBackgroundInteraction: () => void;
   projectListProps: SidebarProjectListProps;
   t: TFunction;
@@ -45,6 +46,7 @@ export default function SidebarContent({
   latestVersion,
   onShowVersionModal,
   onShowSettings,
+  onOpenTerminal,
   onProjectListBackgroundInteraction,
   projectListProps,
   t,
@@ -83,6 +85,7 @@ export default function SidebarContent({
         latestVersion={latestVersion}
         onShowVersionModal={onShowVersionModal}
         onShowSettings={onShowSettings}
+        onOpenTerminal={onOpenTerminal}
         t={t}
       />
     </div>

@@ -94,7 +94,7 @@ export default function Shell({
     }, SHELL_RESTART_DELAY_MS);
   }, []);
 
-  if (!selectedProject) {
+  if (!selectedProject && !isPlainShell) {
     return (
       <ShellEmptyState
         title={t('shell.selectProject.title')}
@@ -120,7 +120,7 @@ export default function Shell({
   const readyDescription = isPlainShell
     ? t('shell.runCommand', {
         command: initialCommand || t('shell.defaultCommand'),
-        projectName: selectedProject.displayName,
+        projectName: selectedProject?.displayName || t('shell.selectProject.title'),
       })
     : selectedSession
       ? t('shell.resumeSession', { displayName: sessionDisplayNameLong })
@@ -129,9 +129,9 @@ export default function Shell({
   const connectingDescription = isPlainShell
     ? t('shell.runCommand', {
         command: initialCommand || t('shell.defaultCommand'),
-        projectName: selectedProject.displayName,
+        projectName: selectedProject?.displayName || t('shell.selectProject.title'),
       })
-    : t('shell.startCli', { projectName: selectedProject.displayName });
+    : t('shell.startCli', { projectName: selectedProject?.displayName || t('shell.selectProject.title') });
 
   const overlayMode = !isInitialized ? 'loading' : isConnecting ? 'connecting' : !isConnected ? 'connect' : null;
   const overlayDescription = overlayMode === 'connecting' ? connectingDescription : readyDescription;

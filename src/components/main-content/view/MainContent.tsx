@@ -34,6 +34,8 @@ function MainContent({
   selectedSession,
   activeTab,
   setActiveTab,
+  forcePlainShell = false,
+  initialShellCommand = null,
   ws,
   sendMessage,
   latestMessage,
@@ -95,7 +97,7 @@ function MainContent({
     return <MainContentStateView mode="loading" isMobile={isMobile} onMenuClick={onMenuClick} />;
   }
 
-  if (!selectedProject) {
+  if (!selectedProject && activeTab !== 'shell') {
     return <MainContentStateView mode="empty" isMobile={isMobile} onMenuClick={onMenuClick} />;
   }
 
@@ -157,6 +159,8 @@ function MainContent({
               <StandaloneShell
                 project={selectedProject}
                 session={selectedSession}
+                command={initialShellCommand}
+                isPlainShell={forcePlainShell}
                 showHeader={false}
                 isMobile={isMobile}
                 isSettingsOpen={shellSettingsOpen}
@@ -187,7 +191,7 @@ function MainContent({
           onResizeStart={handleResizeStart}
           onCloseEditor={handleCloseEditor}
           onToggleEditorExpand={handleToggleEditorExpand}
-          projectPath={selectedProject.path}
+          projectPath={selectedProject?.path || ''}
           fillSpace={activeTab === 'files'}
         />
       </div>

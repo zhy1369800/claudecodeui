@@ -501,20 +501,27 @@ export function useChatSessionState({
           return convertedMessages;
         }
 
+        const normalizeUserContent = (value: unknown) =>
+          String(value || '')
+            .replace(/<image\b[^>]*>\s*/gi, '')
+            .replace(/\s*<\/image>/gi, '')
+            .trim();
+
+        const mergedMessages = [...convertedMessages];
         const remainingOptimisticUsers = optimisticUsers.filter((optimisticMessage) => {
-          const optimisticContent = String(optimisticMessage.content || '').trim();
+          const optimisticContent = normalizeUserContent(optimisticMessage.content);
           const optimisticSubmittedContent =
             typeof optimisticMessage.submittedContent === 'string'
-              ? optimisticMessage.submittedContent.trim()
+              ? normalizeUserContent(optimisticMessage.submittedContent)
               : '';
           const optimisticTimestamp = new Date(optimisticMessage.timestamp).getTime();
 
-          return !convertedMessages.some((convertedMessage) => {
+          const matchedIndex = mergedMessages.findIndex((convertedMessage) => {
             if (convertedMessage.type !== 'user') {
               return false;
             }
 
-            const convertedContent = String(convertedMessage.content || '').trim();
+            const convertedContent = normalizeUserContent(convertedMessage.content);
             const convertedTimestamp = new Date(convertedMessage.timestamp).getTime();
 
             const contentMatches =
@@ -530,20 +537,32 @@ export function useChatSessionState({
               return true;
             }
 
-            // Server/user clock serialization can drift; use a wider, directional window.
-            // Accept a converted user message as the same one if it is close to the optimistic send time.
             return (
               convertedTimestamp >= optimisticTimestamp - 30_000 &&
               convertedTimestamp <= optimisticTimestamp + 180_000
             );
           });
+
+          if (matchedIndex >= 0) {
+            const matchedMessage = mergedMessages[matchedIndex];
+            if (!matchedMessage.images && Array.isArray(optimisticMessage.images) && optimisticMessage.images.length > 0) {
+              mergedMessages[matchedIndex] = {
+                ...matchedMessage,
+                images: optimisticMessage.images,
+                isLocalTransient: true,
+              };
+            }
+            return false;
+          }
+
+          return true;
         });
 
         if (remainingOptimisticUsers.length === 0) {
-          return convertedMessages;
+          return mergedMessages;
         }
 
-        return [...convertedMessages, ...remainingOptimisticUsers];
+        return [...mergedMessages, ...remainingOptimisticUsers];
       });
     }
   }, [convertedMessages, sessionMessages.length]);

@@ -356,6 +356,12 @@ export const convertSessionMessages = (rawMessages: any[]): ChatMessage[] => {
     string,
     { content: unknown; isError: boolean; timestamp: Date; toolUseResult: unknown; subagentTools?: unknown[] }
   >();
+  const stripImageTags = (value: string) =>
+    value
+      .replace(/<image\b[^>]*>\s*/gi, '')
+      .replace(/\s*<\/image>/gi, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
 
   rawMessages.forEach((message) => {
     if (message.message?.role === 'user' && Array.isArray(message.message?.content)) {
@@ -384,11 +390,11 @@ export const convertSessionMessages = (rawMessages: any[]): ChatMessage[] => {
             textParts.push(decodeHtmlEntities(part.text));
           }
         });
-        content = textParts.join('\n');
+        content = stripImageTags(textParts.join('\n'));
       } else if (typeof message.message.content === 'string') {
-        content = decodeHtmlEntities(message.message.content);
+        content = stripImageTags(decodeHtmlEntities(message.message.content));
       } else {
-        content = decodeHtmlEntities(String(message.message.content));
+        content = stripImageTags(decodeHtmlEntities(String(message.message.content)));
       }
 
       const shouldSkip =

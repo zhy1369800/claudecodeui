@@ -758,6 +758,7 @@ export function useChatComposerState({
             resume: Boolean(effectiveSessionId),
             model: codexModel,
             permissionMode: permissionMode === 'plan' ? 'default' : permissionMode,
+            images: uploadedImages,
           },
         });
       } else if (provider === 'gemini') {

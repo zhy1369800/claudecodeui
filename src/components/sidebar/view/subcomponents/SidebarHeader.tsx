@@ -33,14 +33,14 @@ export default function SidebarHeader({
   onCollapseSidebar,
   t,
 }: SidebarHeaderProps) {
-  const LogoBlock = () => (
-    <div className="flex items-center gap-2.5 min-w-0">
-      <div className="w-7 h-7 bg-primary/90 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
-        <svg className="w-3.5 h-3.5 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+  const LogoBlock = ({ mobile = false }: { mobile?: boolean }) => (
+    <div className={`flex items-center min-w-0 ${mobile ? 'gap-3' : 'gap-2.5'}`}>
+      <div className={`${mobile ? 'w-9 h-9 rounded-xl' : 'w-7 h-7 rounded-lg'} bg-primary/90 flex items-center justify-center shadow-sm flex-shrink-0`}>
+        <svg className={`${mobile ? 'w-4 h-4' : 'w-3.5 h-3.5'} text-primary-foreground`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
       </div>
-      <h1 className="text-sm font-semibold text-foreground tracking-tight truncate">{t('app.title')}</h1>
+      <h1 className={`${mobile ? 'text-xl font-bold tracking-tight' : 'text-sm font-semibold tracking-tight'} text-foreground truncate leading-none`}>{t('app.title')}</h1>
     </div>
   );
 
@@ -138,10 +138,10 @@ export default function SidebarHeader({
               className="flex items-center gap-2.5 active:opacity-70 transition-opacity min-w-0"
               title={t('tooltips.viewEnvironments')}
             >
-              <LogoBlock />
+              <LogoBlock mobile />
             </a>
           ) : (
-            <LogoBlock />
+            <LogoBlock mobile />
           )}
 
           <div className="flex gap-1.5 flex-shrink-0">

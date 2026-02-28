@@ -45,7 +45,8 @@ type PermissionGrantState = 'idle' | 'granted' | 'error';
 
 const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFileOpen, onShowSettings, onGrantToolPermission, autoExpandTools, showRawParameters, showThinking, selectedProject, provider }: MessageComponentProps) => {
   const { t, i18n } = useTranslation('chat');
-  const isGrouped = prevMessage && prevMessage.type === message.type &&
+  const hasThinkingInPair = Boolean(message.isThinking || prevMessage?.isThinking);
+  const isGrouped = !hasThinkingInPair && prevMessage && prevMessage.type === message.type &&
     ((prevMessage.type === 'assistant') ||
       (prevMessage.type === 'user') ||
       (prevMessage.type === 'tool') ||

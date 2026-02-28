@@ -17,6 +17,10 @@ type StandaloneShellProps = {
   showHeader?: boolean;
   compact?: boolean;
   minimal?: boolean;
+  isMobile?: boolean;
+  isSettingsOpen?: boolean;
+  onToggleSettings?: ((value: boolean | ((previous: boolean) => boolean)) => void) | null;
+  onStatusChange?: ((isConnected: boolean) => void) | null;
 };
 
 export default function StandaloneShell({
@@ -32,11 +36,17 @@ export default function StandaloneShell({
   showHeader = true,
   compact = false,
   minimal = false,
+  isMobile = false,
+  isSettingsOpen = false,
+  onToggleSettings = null,
+  onStatusChange = null,
 }: StandaloneShellProps) {
   const [isCompleted, setIsCompleted] = useState(false);
 
   // Keep `compact` in the public API for compatibility with existing callers.
   void compact;
+  // Keep `onToggleSettings` in the public API for compatibility with existing callers.
+  void onToggleSettings;
 
   const shouldUsePlainShell = isPlainShell !== null ? isPlainShell : command !== null;
 
@@ -67,6 +77,9 @@ export default function StandaloneShell({
           onProcessComplete={handleProcessComplete}
           minimal={minimal}
           autoConnect={minimal ? true : autoConnect}
+          isMobile={isMobile}
+          isSettingsOpen={isSettingsOpen}
+          onStatusChange={onStatusChange}
         />
       </div>
     </div>

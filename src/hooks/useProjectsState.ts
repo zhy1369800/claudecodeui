@@ -38,7 +38,9 @@ const projectsHaveChanges = (
     const baseChanged =
       nextProject.name !== prevProject.name ||
       nextProject.displayName !== prevProject.displayName ||
+      nextProject.path !== prevProject.path ||
       nextProject.fullPath !== prevProject.fullPath ||
+      nextProject.startupScript !== prevProject.startupScript ||
       serialize(nextProject.sessionMeta) !== serialize(prevProject.sessionMeta) ||
       serialize(nextProject.sessions) !== serialize(prevProject.sessions) ||
       serialize(nextProject.taskmaster) !== serialize(prevProject.taskmaster);
@@ -110,6 +112,11 @@ const readPersistedTab = (): AppTab => {
   try {
     const stored = localStorage.getItem('activeTab');
     if (stored && VALID_TABS.has(stored)) {
+      // Never restore shell tab on app boot/login; default to chat so
+      // the empty-state ("choose project") is shown consistently.
+      if (stored === 'shell') {
+        return 'chat';
+      }
       return stored as AppTab;
     }
   } catch {

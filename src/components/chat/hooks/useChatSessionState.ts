@@ -492,7 +492,59 @@ export function useChatSessionState({
 
   useEffect(() => {
     if (sessionMessages.length > 0) {
-      setChatMessages(convertedMessages);
+      setChatMessages((previous) => {
+        const optimisticUsers = previous.filter(
+          (message) => message.type === 'user' && Boolean(message.isLocalTransient),
+        );
+
+        if (optimisticUsers.length === 0) {
+          return convertedMessages;
+        }
+
+        const remainingOptimisticUsers = optimisticUsers.filter((optimisticMessage) => {
+          const optimisticContent = String(optimisticMessage.content || '').trim();
+          const optimisticSubmittedContent =
+            typeof optimisticMessage.submittedContent === 'string'
+              ? optimisticMessage.submittedContent.trim()
+              : '';
+          const optimisticTimestamp = new Date(optimisticMessage.timestamp).getTime();
+
+          return !convertedMessages.some((convertedMessage) => {
+            if (convertedMessage.type !== 'user') {
+              return false;
+            }
+
+            const convertedContent = String(convertedMessage.content || '').trim();
+            const convertedTimestamp = new Date(convertedMessage.timestamp).getTime();
+
+            const contentMatches =
+              convertedContent === optimisticContent ||
+              (optimisticSubmittedContent.length > 0 &&
+                convertedContent === optimisticSubmittedContent);
+
+            if (!contentMatches) {
+              return false;
+            }
+
+            if (!Number.isFinite(optimisticTimestamp) || !Number.isFinite(convertedTimestamp)) {
+              return true;
+            }
+
+            // Server/user clock serialization can drift; use a wider, directional window.
+            // Accept a converted user message as the same one if it is close to the optimistic send time.
+            return (
+              convertedTimestamp >= optimisticTimestamp - 30_000 &&
+              convertedTimestamp <= optimisticTimestamp + 180_000
+            );
+          });
+        });
+
+        if (remainingOptimisticUsers.length === 0) {
+          return convertedMessages;
+        }
+
+        return [...convertedMessages, ...remainingOptimisticUsers];
+      });
     }
   }, [convertedMessages, sessionMessages.length]);
 

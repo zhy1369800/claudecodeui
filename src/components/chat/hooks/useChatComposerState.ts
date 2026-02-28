@@ -668,8 +668,10 @@ export function useChatComposerState({
       const userMessage: ChatMessage = {
         type: 'user',
         content: currentInput,
+        submittedContent: messageContent,
         images: uploadedImages as any,
         timestamp: new Date(),
+        isLocalTransient: true,
       };
 
       setChatMessages((previous) => [...previous, userMessage]);

@@ -21,7 +21,9 @@ export default function ClaudeStatus({
   isLoading,
   provider: _provider = 'claude',
 }: ClaudeStatusProps) {
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [animationPhase, setAnimationPhase] = useState(0);
+  const [fakeTokens, setFakeTokens] = useState(0);
 
   useEffect(() => {
     if (!isLoading) {
@@ -62,11 +64,6 @@ export default function ClaudeStatus({
   const actionIndex = Math.floor(elapsedTime / 3) % ACTION_WORDS.length;
   const statusText = status?.text || ACTION_WORDS[actionIndex];
   const tokens = status?.tokens || fakeTokens;
-  if (!isLoading) return null;
-  
-  // Parse status data
-  const statusText = status?.text || 'Processing';
-  const tokens = status?.tokens || 0;
   const canInterrupt = status?.can_interrupt !== false;
   const currentSpinner = SPINNER_CHARS[animationPhase];
 
@@ -119,5 +116,3 @@ export default function ClaudeStatus({
     </div>
   );
 }
-
-export default ClaudeStatus;

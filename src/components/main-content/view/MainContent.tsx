@@ -154,16 +154,7 @@ function MainContent({
 
           {activeTab === 'shell' && (
             <div className="h-full w-full overflow-hidden">
-              <StandaloneShell project={selectedProject} session={selectedSession} showHeader={false} />
-              <AnyStandaloneShell
-                project={selectedProject}
-                session={selectedSession}
-                showHeader={false}
-                isMobile={isMobile}
-                isSettingsOpen={shellSettingsOpen}
-                onToggleSettings={setShellSettingsOpen}
-                onStatusChange={setIsShellConnected}
-              />
+               <StandaloneShell project={selectedProject} session={selectedSession} showHeader={false} />
             </div>
           )}
 

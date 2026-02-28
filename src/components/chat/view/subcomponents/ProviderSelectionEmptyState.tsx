@@ -109,7 +109,6 @@ export default function ProviderSelectionEmptyState({
   const selectProvider = (next: SessionProvider) => {
     setProvider(next);
     localStorage.setItem('selected-provider', next);
-    setTimeout(() => textareaRef.current?.focus(), 100);
   };
 
   const handleModelChange = (value: string) => {

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import type React from 'react';
 import type { TFunction } from 'i18next';
 import type { LoadingProgress, Project, ProjectSession, SessionProvider } from '../../../../types/app';
 import type {
@@ -26,6 +27,7 @@ export type SidebarProjectListProps = {
   editingSession: string | null;
   editingSessionName: string;
   deletingProjects: Set<string>;
+  swipedProject: string | null;
   tasksEnabled: boolean;
   mcpServerStatus: MCPServerStatus;
   getProjectSessions: (project: Project) => SessionWithProvider[];
@@ -52,6 +54,9 @@ export type SidebarProjectListProps = {
   onCancelEditingSession: () => void;
   onSaveEditingSession: (projectName: string, sessionId: string, summary: string) => void;
   touchHandlerFactory: TouchHandlerFactory;
+  onClearSwipedProject: () => void;
+  onProjectTouchStart: (event: React.TouchEvent<HTMLElement>) => void;
+  onProjectTouchMove: (event: React.TouchEvent<HTMLElement>, projectName: string) => void;
   t: TFunction;
 };
 
@@ -71,6 +76,7 @@ export default function SidebarProjectList({
   editingSession,
   editingSessionName,
   deletingProjects,
+  swipedProject,
   tasksEnabled,
   mcpServerStatus,
   getProjectSessions,
@@ -92,6 +98,9 @@ export default function SidebarProjectList({
   onCancelEditingSession,
   onSaveEditingSession,
   touchHandlerFactory,
+  onClearSwipedProject,
+  onProjectTouchStart,
+  onProjectTouchMove,
   t,
 }: SidebarProjectListProps) {
   const state = (
@@ -138,6 +147,7 @@ export default function SidebarProjectList({
               editingSessionName={editingSessionName}
               tasksEnabled={tasksEnabled}
               mcpServerStatus={mcpServerStatus}
+              isSwiped={swipedProject === project.name}
               onEditingNameChange={onEditingNameChange}
               onToggleProject={onToggleProject}
               onProjectSelect={onProjectSelect}
@@ -155,6 +165,9 @@ export default function SidebarProjectList({
               onCancelEditingSession={onCancelEditingSession}
               onSaveEditingSession={onSaveEditingSession}
               touchHandlerFactory={touchHandlerFactory}
+              onClearSwipedProject={onClearSwipedProject}
+              onProjectTouchStart={onProjectTouchStart}
+              onProjectTouchMove={onProjectTouchMove}
               t={t}
             />
           ))}

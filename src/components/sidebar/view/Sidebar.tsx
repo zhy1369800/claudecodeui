@@ -35,6 +35,7 @@ function Sidebar({
   settingsInitialTab,
   onCloseSettings,
   isMobile,
+  isMobileSidebarOpen = true,
 }: SidebarProps) {
   const { t } = useTranslation(['sidebar', 'common']);
   const { isPWA } = useDeviceSettings({ trackMobile: false });
@@ -65,7 +66,11 @@ function Sidebar({
     sessionDeleteConfirmation,
     showVersionModal,
     filteredProjects,
+    swipedProject,
     handleTouchClick,
+    clearSwipedProject,
+    handleProjectTouchStart,
+    handleProjectTouchMove,
     toggleProject,
     handleSessionClick,
     toggleStarProject,
@@ -107,6 +112,7 @@ function Sidebar({
     setCurrentProject,
     setSidebarVisible: (visible) => setPreference('sidebarVisible', visible),
     sidebarVisible,
+    isMobileSidebarOpen,
   });
 
   useEffect(() => {
@@ -143,6 +149,7 @@ function Sidebar({
     editingSession,
     editingSessionName,
     deletingProjects,
+    swipedProject,
     tasksEnabled,
     mcpServerStatus,
     getProjectSessions,
@@ -176,6 +183,9 @@ function Sidebar({
       void updateSessionSummary(projectName, sessionId, summary);
     },
     touchHandlerFactory: handleTouchClick,
+    onClearSwipedProject: clearSwipedProject,
+    onProjectTouchStart: handleProjectTouchStart,
+    onProjectTouchMove: handleProjectTouchMove,
     t,
   };
 
@@ -233,6 +243,7 @@ function Sidebar({
             latestVersion={latestVersion}
             onShowVersionModal={() => setShowVersionModal(true)}
             onShowSettings={onShowSettings}
+            onProjectListBackgroundInteraction={clearSwipedProject}
             projectListProps={projectListProps}
             t={t}
           />

@@ -23,6 +23,7 @@ type SidebarContentProps = {
   latestVersion: string | null;
   onShowVersionModal: () => void;
   onShowSettings: () => void;
+  onProjectListBackgroundInteraction: () => void;
   projectListProps: SidebarProjectListProps;
   t: TFunction;
 };
@@ -44,6 +45,7 @@ export default function SidebarContent({
   latestVersion,
   onShowVersionModal,
   onShowSettings,
+  onProjectListBackgroundInteraction,
   projectListProps,
   t,
 }: SidebarContentProps) {
@@ -67,7 +69,11 @@ export default function SidebarContent({
         t={t}
       />
 
-      <ScrollArea className="flex-1 md:px-1.5 md:py-2 overflow-y-auto overscroll-contain">
+      <ScrollArea
+        className="flex-1 md:px-1.5 md:py-2 overflow-y-auto overscroll-contain"
+        onClick={onProjectListBackgroundInteraction}
+        onTouchStart={onProjectListBackgroundInteraction}
+      >
         <SidebarProjectList {...projectListProps} />
       </ScrollArea>
 

@@ -1,5 +1,6 @@
 import { Button } from '../../../ui/button';
 import { Check, ChevronDown, ChevronRight, Edit3, Folder, FolderOpen, Star, Trash2, X } from 'lucide-react';
+import type React from 'react';
 import type { TFunction } from 'i18next';
 import { cn } from '../../../../lib/utils';
 import TaskIndicator from '../../../TaskIndicator';
@@ -25,6 +26,7 @@ type SidebarProjectItemProps = {
   editingSessionName: string;
   tasksEnabled: boolean;
   mcpServerStatus: MCPServerStatus;
+  isSwiped: boolean;
   onEditingNameChange: (name: string) => void;
   onToggleProject: (projectName: string) => void;
   onProjectSelect: (project: Project) => void;
@@ -47,6 +49,9 @@ type SidebarProjectItemProps = {
   onCancelEditingSession: () => void;
   onSaveEditingSession: (projectName: string, sessionId: string, summary: string) => void;
   touchHandlerFactory: TouchHandlerFactory;
+  onClearSwipedProject: () => void;
+  onProjectTouchStart: (event: React.TouchEvent<HTMLElement>) => void;
+  onProjectTouchMove: (event: React.TouchEvent<HTMLElement>, projectName: string) => void;
   t: TFunction;
 };
 
@@ -76,6 +81,7 @@ export default function SidebarProjectItem({
   editingSessionName,
   tasksEnabled,
   mcpServerStatus,
+  isSwiped,
   onEditingNameChange,
   onToggleProject,
   onProjectSelect,
@@ -93,6 +99,9 @@ export default function SidebarProjectItem({
   onCancelEditingSession,
   onSaveEditingSession,
   touchHandlerFactory,
+  onClearSwipedProject,
+  onProjectTouchStart,
+  onProjectTouchMove,
   t,
 }: SidebarProjectItemProps) {
   const isSelected = selectedProject?.name === project.name;
@@ -109,6 +118,11 @@ export default function SidebarProjectItem({
     onSaveProjectName(project.name);
   };
 
+  const handleDeleteProjectFromSwipe = () => {
+    onDeleteProject(project);
+    onClearSwipedProject();
+  };
+
   const selectAndToggleProject = () => {
     if (selectedProject?.name !== project.name) {
       onProjectSelect(project);
@@ -121,151 +135,171 @@ export default function SidebarProjectItem({
     <div className={cn('md:space-y-1', isDeleting && 'opacity-50 pointer-events-none')}>
       <div className="group md:group">
         <div className="md:hidden">
-          <div
-            className={cn(
-              'p-3 mx-3 my-1 rounded-lg bg-card border border-border/50 active:scale-[0.98] transition-all duration-150',
-              isSelected && 'bg-primary/5 border-primary/20',
-              isStarred &&
-                !isSelected &&
-                'bg-yellow-50/50 dark:bg-yellow-900/5 border-yellow-200/30 dark:border-yellow-800/30',
+          <div className="mx-3 my-1 rounded-lg relative overflow-hidden">
+            {!isEditing && isSwiped && (
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 w-28 bg-red-600 flex items-center justify-center"
+                onTouchStart={(event) => {
+                  event.stopPropagation();
+                }}
+                onTouchEnd={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleDeleteProjectFromSwipe();
+                }}
+                onClick={handleDeleteProjectFromSwipe}
+              >
+                <Trash2 className="w-5 h-5 text-white" />
+              </button>
             )}
-            onClick={toggleProject}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div
-                  className={cn(
-                    'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
-                    isExpanded ? 'bg-primary/10' : 'bg-muted',
-                  )}
-                >
-                  {isExpanded ? (
-                    <FolderOpen className="w-4 h-4 text-primary" />
-                  ) : (
-                    <Folder className="w-4 h-4 text-muted-foreground" />
-                  )}
+
+            <div
+              className={cn(
+                'p-3 rounded-lg bg-card border border-border/50 active:scale-[0.98] transition-all duration-200 relative z-10',
+                isSelected && 'bg-primary/5 border-primary/20',
+                isStarred &&
+                  !isSelected &&
+                  'bg-yellow-50/50 dark:bg-yellow-900/5 border-yellow-200/30 dark:border-yellow-800/30',
+                !isEditing && (isSwiped ? '-translate-x-28' : 'translate-x-0'),
+              )}
+              onTouchStart={onProjectTouchStart}
+              onTouchMove={(event) => onProjectTouchMove(event, project.name)}
+              onClick={() => {
+                if (!isEditing && isSwiped) {
+                  onClearSwipedProject();
+                  return;
+                }
+
+                toggleProject();
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div
+                    className={cn(
+                      'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
+                      isExpanded ? 'bg-primary/10' : 'bg-muted',
+                    )}
+                  >
+                    {isExpanded ? (
+                      <FolderOpen className="w-4 h-4 text-primary" />
+                    ) : (
+                      <Folder className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editingName}
+                        onChange={(event) => onEditingNameChange(event.target.value)}
+                        className="w-full px-3 py-2 text-sm border-2 border-primary/40 focus:border-primary rounded-lg bg-background text-foreground shadow-sm focus:shadow-md transition-all duration-200 focus:outline-none"
+                        placeholder={t('projects.projectNamePlaceholder')}
+                        autoFocus
+                        autoComplete="off"
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            saveProjectName();
+                          }
+
+                          if (event.key === 'Escape') {
+                            onCancelEditingProject();
+                          }
+                        }}
+                        style={{
+                          fontSize: '16px',
+                          WebkitAppearance: 'none',
+                          borderRadius: '8px',
+                        }}
+                      />
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between min-w-0 flex-1">
+                          <h3 className="text-sm font-medium text-foreground truncate">{project.displayName}</h3>
+                          {tasksEnabled && (
+                            <TaskIndicator
+                              status={taskStatus}
+                              size="xs"
+                              className="hidden md:inline-flex flex-shrink-0 ml-2"
+                            />
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{sessionCountLabel}</p>
+                      </>
+                    )}
+                  </div>
                 </div>
 
-                <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1">
                   {isEditing ? (
-                    <input
-                      type="text"
-                      value={editingName}
-                      onChange={(event) => onEditingNameChange(event.target.value)}
-                      className="w-full px-3 py-2 text-sm border-2 border-primary/40 focus:border-primary rounded-lg bg-background text-foreground shadow-sm focus:shadow-md transition-all duration-200 focus:outline-none"
-                      placeholder={t('projects.projectNamePlaceholder')}
-                      autoFocus
-                      autoComplete="off"
-                      onClick={(event) => event.stopPropagation()}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
+                    <>
+                      <button
+                        className="w-8 h-8 rounded-lg bg-green-500 dark:bg-green-600 flex items-center justify-center active:scale-90 transition-all duration-150 shadow-sm active:shadow-none"
+                        onClick={(event) => {
+                          event.stopPropagation();
                           saveProjectName();
-                        }
-
-                        if (event.key === 'Escape') {
+                        }}
+                      >
+                        <Check className="w-4 h-4 text-white" />
+                      </button>
+                      <button
+                        className="w-8 h-8 rounded-lg bg-gray-500 dark:bg-gray-600 flex items-center justify-center active:scale-90 transition-all duration-150 shadow-sm active:shadow-none"
+                        onClick={(event) => {
+                          event.stopPropagation();
                           onCancelEditingProject();
-                        }
-                      }}
-                      style={{
-                        fontSize: '16px',
-                        WebkitAppearance: 'none',
-                        borderRadius: '8px',
-                      }}
-                    />
+                        }}
+                      >
+                        <X className="w-4 h-4 text-white" />
+                      </button>
+                    </>
                   ) : (
                     <>
-                      <div className="flex items-center justify-between min-w-0 flex-1">
-                        <h3 className="text-sm font-medium text-foreground truncate">{project.displayName}</h3>
-                        {tasksEnabled && (
-                          <TaskIndicator
-                            status={taskStatus}
-                            size="xs"
-                            className="hidden md:inline-flex flex-shrink-0 ml-2"
-                          />
+                      <button
+                        className={cn(
+                          'w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-all duration-150 border',
+                          isStarred
+                            ? 'bg-yellow-500/10 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800'
+                            : 'bg-gray-500/10 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800',
+                        )}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleStarProject();
+                        }}
+                        title={isStarred ? t('tooltips.removeFromFavorites') : t('tooltips.addToFavorites')}
+                      >
+                        <Star
+                          className={cn(
+                            'w-4 h-4 transition-colors',
+                            isStarred
+                              ? 'text-yellow-600 dark:text-yellow-400 fill-current'
+                              : 'text-gray-600 dark:text-gray-400',
+                          )}
+                        />
+                      </button>
+
+                      <button
+                        className="w-8 h-8 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center active:scale-90 border border-primary/20 dark:border-primary/30"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onStartEditingProject(project);
+                        }}
+                      >
+                        <Edit3 className="w-4 h-4 text-primary" />
+                      </button>
+
+                      <div className="w-6 h-6 rounded-md bg-muted/30 flex items-center justify-center">
+                        {isExpanded ? (
+                          <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="w-3 h-3 text-muted-foreground" />
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">{sessionCountLabel}</p>
                     </>
                   )}
                 </div>
-              </div>
-
-              <div className="flex items-center gap-1">
-                {isEditing ? (
-                  <>
-                    <button
-                      className="w-8 h-8 rounded-lg bg-green-500 dark:bg-green-600 flex items-center justify-center active:scale-90 transition-all duration-150 shadow-sm active:shadow-none"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        saveProjectName();
-                      }}
-                    >
-                      <Check className="w-4 h-4 text-white" />
-                    </button>
-                    <button
-                      className="w-8 h-8 rounded-lg bg-gray-500 dark:bg-gray-600 flex items-center justify-center active:scale-90 transition-all duration-150 shadow-sm active:shadow-none"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onCancelEditingProject();
-                      }}
-                    >
-                      <X className="w-4 h-4 text-white" />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-all duration-150 border',
-                        isStarred
-                          ? 'bg-yellow-500/10 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800'
-                          : 'bg-gray-500/10 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800',
-                      )}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleStarProject();
-                      }}
-                      title={isStarred ? t('tooltips.removeFromFavorites') : t('tooltips.addToFavorites')}
-                    >
-                      <Star
-                        className={cn(
-                          'w-4 h-4 transition-colors',
-                          isStarred
-                            ? 'text-yellow-600 dark:text-yellow-400 fill-current'
-                            : 'text-gray-600 dark:text-gray-400',
-                        )}
-                      />
-                    </button>
-
-                    <button
-                      className="w-8 h-8 rounded-lg bg-red-500/10 dark:bg-red-900/30 flex items-center justify-center active:scale-90 border border-red-200 dark:border-red-800"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onDeleteProject(project);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
-                    </button>
-
-                    <button
-                      className="w-8 h-8 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center active:scale-90 border border-primary/20 dark:border-primary/30"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onStartEditingProject(project);
-                      }}
-                    >
-                      <Edit3 className="w-4 h-4 text-primary" />
-                    </button>
-
-                    <div className="w-6 h-6 rounded-md bg-muted/30 flex items-center justify-center">
-                      {isExpanded ? (
-                        <ChevronDown className="w-3 h-3 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="w-3 h-3 text-muted-foreground" />
-                      )}
-                    </div>
-                  </>
-                )}
               </div>
             </div>
           </div>

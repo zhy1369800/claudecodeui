@@ -506,6 +506,7 @@ export function useProjectsState({
       settingsInitialTab,
       onCloseSettings: () => setShowSettings(false),
       isMobile,
+      isMobileSidebarOpen: !isMobile || sidebarOpen,
     }),
     [
       handleNewSession,
@@ -516,6 +517,7 @@ export function useProjectsState({
       handleSidebarRefresh,
       isLoadingProjects,
       isMobile,
+      sidebarOpen,
       loadingProgress,
       projects,
       settingsInitialTab,

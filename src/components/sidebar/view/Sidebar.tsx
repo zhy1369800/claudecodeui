@@ -214,7 +214,9 @@ function Sidebar({
       expandedProjectName !== null
         ? projects.find((project) => project.name === expandedProjectName) || null
         : null;
-    const terminalProject = expandedProject || selectedProject || null;
+    // Mobile bottom Terminal should follow explicit project expansion only.
+    // If no project is expanded, always open plain shell in user home directory.
+    const terminalProject = expandedProject || null;
     const runningInfo = terminalProject?.name ? runningProjects[terminalProject.name] : null;
     const runningInitialCommand =
       runningInfo?.initialCommand ||

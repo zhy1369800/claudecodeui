@@ -501,11 +501,22 @@ export function useChatSessionState({
           return convertedMessages;
         }
 
-        const normalizeUserContent = (value: unknown) =>
-          String(value || '')
-            .replace(/<image\b[^>]*>\s*/gi, '')
-            .replace(/\s*<\/image>/gi, '')
+        const normalizeUserContent = (value: unknown) => {
+          let raw = '';
+          if (typeof value === 'string') {
+            raw = value;
+          } else if (typeof value === 'number' || typeof value === 'boolean') {
+            raw = String(value);
+          } else {
+            return '';
+          }
+
+          // Only strip standalone image placeholder blocks to avoid deleting user-authored HTML/XML content.
+          return raw
+            .replace(/(?:^|\n)\s*<image\b[^>]*\bname=\[Image\s*#\d+\][^>]*>\s*<\/image>\s*(?=\n|$)/gi, '\n')
+            .replace(/\n{3,}/g, '\n\n')
             .trim();
+        };
 
         const mergedMessages = [...convertedMessages];
         const remainingOptimisticUsers = optimisticUsers.filter((optimisticMessage) => {
@@ -515,6 +526,9 @@ export function useChatSessionState({
               ? normalizeUserContent(optimisticMessage.submittedContent)
               : '';
           const optimisticTimestamp = new Date(optimisticMessage.timestamp).getTime();
+          const optimisticImageCount = Array.isArray(optimisticMessage.images)
+            ? optimisticMessage.images.length
+            : 0;
 
           const matchedIndex = mergedMessages.findIndex((convertedMessage) => {
             if (convertedMessage.type !== 'user') {
@@ -523,13 +537,20 @@ export function useChatSessionState({
 
             const convertedContent = normalizeUserContent(convertedMessage.content);
             const convertedTimestamp = new Date(convertedMessage.timestamp).getTime();
+            const convertedImageCount = Array.isArray(convertedMessage.images)
+              ? convertedMessage.images.length
+              : 0;
 
             const contentMatches =
               convertedContent === optimisticContent ||
               (optimisticSubmittedContent.length > 0 &&
                 convertedContent === optimisticSubmittedContent);
+            const imageProfileMatches =
+              optimisticImageCount === 0
+                ? convertedImageCount === 0
+                : convertedImageCount === 0 || convertedImageCount === optimisticImageCount;
 
-            if (!contentMatches) {
+            if (!contentMatches || !imageProfileMatches) {
               return false;
             }
 

@@ -358,8 +358,7 @@ export const convertSessionMessages = (rawMessages: any[]): ChatMessage[] => {
   >();
   const stripImageTags = (value: string) =>
     value
-      .replace(/<image\b[^>]*>\s*/gi, '')
-      .replace(/\s*<\/image>/gi, '')
+      .replace(/(?:^|\n)\s*<image\b[^>]*\bname=\[Image\s*#\d+\][^>]*>\s*<\/image>\s*(?=\n|$)/gi, '\n')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 

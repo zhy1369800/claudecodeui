@@ -109,8 +109,6 @@ const QuickSettingsPanel = () => {
       // Prevent body scroll on mobile during drag
       if (e.type.includes('touch')) {
         document.body.style.overflow = 'hidden';
-        document.body.style.position = 'fixed';
-        document.body.style.width = '100%';
       }
     }
 
@@ -151,8 +149,6 @@ const QuickSettingsPanel = () => {
 
     // Restore body scroll on mobile
     document.body.style.overflow = '';
-    document.body.style.position = '';
-    document.body.style.width = '';
   }, []);
 
   // Cleanup body styles on unmount in case component unmounts while dragging
@@ -161,8 +157,6 @@ const QuickSettingsPanel = () => {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
     };
   }, []);
 

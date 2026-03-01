@@ -723,7 +723,8 @@
     }
 
     body.pwa-mode .chat-composer-mobile:not(.chat-composer-mobile-floating) {
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6px) !important;
+      padding-bottom: 0px !important;
+      padding-bottom: max(0px, calc(env(safe-area-inset-bottom, 0px) - 6px)) !important;
     }
   }
 

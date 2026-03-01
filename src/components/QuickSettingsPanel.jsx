@@ -170,20 +170,36 @@ const QuickSettingsPanel = () => {
       // Touch events
       const handleTouchMove = (e) => handleDragMove(e);
       const handleTouchEnd = () => handleDragEnd();
+      const handleTouchCancel = () => handleDragEnd();
 
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       document.addEventListener('touchmove', handleTouchMove, { passive: false });
       document.addEventListener('touchend', handleTouchEnd);
+      document.addEventListener('touchcancel', handleTouchCancel);
 
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
         document.removeEventListener('touchmove', handleTouchMove);
         document.removeEventListener('touchend', handleTouchEnd);
+        document.removeEventListener('touchcancel', handleTouchCancel);
       };
     }
   }, [dragStartY, handleDragMove, handleDragEnd]);
+
+  useEffect(() => {
+    if (dragStartY === 0) return;
+
+    const forceEndDrag = () => handleDragEnd();
+    window.addEventListener('blur', forceEndDrag);
+    document.addEventListener('visibilitychange', forceEndDrag);
+
+    return () => {
+      window.removeEventListener('blur', forceEndDrag);
+      document.removeEventListener('visibilitychange', forceEndDrag);
+    };
+  }, [dragStartY, handleDragEnd]);
 
   const handleToggle = (e) => {
     // Don't toggle if user was dragging

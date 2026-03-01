@@ -173,15 +173,34 @@ export function useDraggableMobileNav({ enabled, autoHideDelayMs = 5000 }) {
 
     const onTouchMove = (event) => handleDragMove(event);
     const onTouchEnd = () => handleDragEnd();
+    const onTouchCancel = () => handleDragEnd();
 
     document.addEventListener('touchmove', onTouchMove, { passive: false });
     document.addEventListener('touchend', onTouchEnd);
+    document.addEventListener('touchcancel', onTouchCancel);
 
     return () => {
       document.removeEventListener('touchmove', onTouchMove);
       document.removeEventListener('touchend', onTouchEnd);
+      document.removeEventListener('touchcancel', onTouchCancel);
     };
   }, [enabled, dragStartY, handleDragEnd, handleDragMove]);
+
+  useEffect(() => {
+    if (!enabled || dragStartY === 0 || typeof window === 'undefined') {
+      return;
+    }
+
+    const forceEndDrag = () => handleDragEnd();
+
+    window.addEventListener('blur', forceEndDrag);
+    document.addEventListener('visibilitychange', forceEndDrag);
+
+    return () => {
+      window.removeEventListener('blur', forceEndDrag);
+      document.removeEventListener('visibilitychange', forceEndDrag);
+    };
+  }, [enabled, dragStartY, handleDragEnd]);
 
   return {
     positionPercent,

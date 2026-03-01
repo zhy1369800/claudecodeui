@@ -293,7 +293,7 @@ const ProjectCreationWizard = ({ onClose, onProjectCreated }) => {
     <div className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-0 sm:p-4">
       <div className="bg-white dark:bg-gray-800 rounded-none sm:rounded-lg shadow-xl w-full h-full sm:h-auto sm:max-w-2xl border-0 sm:border border-gray-200 dark:border-gray-700 overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 pb-4 pt-[max(1rem,calc(env(safe-area-inset-top,0px)+0.75rem))] sm:p-6">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-lg flex items-center justify-center">
               <FolderPlus className="w-4 h-4 text-blue-600 dark:text-blue-400" />

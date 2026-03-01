@@ -229,12 +229,16 @@ export default function ChatComposer({
 
   // On mobile, when input is focused, float the input box at the bottom
   const mobileFloatingClass = isInputFocused
-    ? 'max-sm:fixed max-sm:bottom-2 max-sm:left-0 max-sm:right-0 max-sm:z-50 max-sm:bg-background/90 max-sm:backdrop-blur-xl max-sm:shadow-[0_-8px_28px_rgba(0,0,0,0.24)]'
+    ? 'max-sm:fixed max-sm:bottom-1 max-sm:left-0 max-sm:right-0 max-sm:z-50 max-sm:bg-background/90 max-sm:backdrop-blur-xl max-sm:shadow-[0_-8px_28px_rgba(0,0,0,0.24)]'
     : '';
+
+  const mobileComposerBottomPaddingClass = isInputFocused
+    ? 'max-sm:pb-0'
+    : 'max-sm:pb-[max(10px,calc(env(safe-area-inset-bottom)-30px))]';
 
   return (
     <div
-      className={`chat-composer-mobile max-sm:px-1 max-sm:pt-0.5 max-sm:pb-[max(10px,calc(env(safe-area-inset-bottom)-30px))] px-2 pt-2 pb-[max(6px,calc(env(safe-area-inset-bottom)-6px))] sm:p-4 md:p-4 flex-shrink-0 sm:pb-4 md:pb-6 ${isInputFocused ? 'chat-composer-mobile-floating' : ''} ${mobileFloatingClass}`}
+      className={`chat-composer-mobile max-sm:px-1 max-sm:pt-0.5 ${mobileComposerBottomPaddingClass} px-2 pt-2 pb-[max(6px,calc(env(safe-area-inset-bottom)-6px))] sm:p-4 md:p-4 flex-shrink-0 sm:pb-4 md:pb-6 ${isInputFocused ? 'chat-composer-mobile-floating' : ''} ${mobileFloatingClass}`}
     >
       {!hasQuestionPanel && (
         <div className="flex-1">
@@ -284,7 +288,7 @@ export default function ChatComposer({
         className="relative max-w-4xl mx-auto"
       >
         {isUserScrolledUp && hasMessages && (
-          <div className="absolute left-1/2 -translate-x-1/2 -top-14 sm:-top-13 z-20 pointer-events-none max-sm:fixed max-sm:left-1/2 max-sm:-translate-x-1/2 max-sm:top-auto max-sm:bottom-[calc(env(safe-area-inset-bottom,0px)+96px)]">
+          <div className="absolute left-1/2 -translate-x-1/2 -top-14 sm:-top-13 z-20 pointer-events-none">
             <button
               type="button"
               onMouseDown={(event) => {

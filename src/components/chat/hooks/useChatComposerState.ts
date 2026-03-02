@@ -850,6 +850,24 @@ export function useChatComposerState({
   }, [appendWorkedForMessage, isLoading]);
 
   useEffect(() => {
+    if (typeof window === 'undefined' || isLoading) {
+      return;
+    }
+
+    const activeElement = document.activeElement;
+    const isTextareaActuallyFocused = Boolean(
+      textareaRef.current &&
+      activeElement &&
+      activeElement === textareaRef.current,
+    );
+
+    if (!isTextareaActuallyFocused && isInputFocused) {
+      setIsInputFocused(false);
+      onInputFocusChange?.(false);
+    }
+  }, [isInputFocused, isLoading, onInputFocusChange]);
+
+  useEffect(() => {
     if (!pendingWorkedForRef.current) {
       return;
     }

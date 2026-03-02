@@ -113,12 +113,22 @@ export async function validateWorkspacePath(requestedPath) {
     // Resolve the workspace root to its real path
     const resolvedWorkspaceRoot = await fs.realpath(WORKSPACES_ROOT);
 
+    const isWindows = process.platform === 'win32';
+    const rootDrive = path.parse(resolvedWorkspaceRoot).root.toLowerCase();
+    const isWithinRoot = (candidatePath) =>
+      candidatePath.startsWith(resolvedWorkspaceRoot + path.sep) ||
+      candidatePath === resolvedWorkspaceRoot;
+    const isSameDriveAsRoot = (candidatePath) =>
+      path.parse(candidatePath).root.toLowerCase() === rootDrive;
+
     // Ensure the resolved path is contained within the allowed workspace root
-    if (!realPath.startsWith(resolvedWorkspaceRoot + path.sep) &&
-        realPath !== resolvedWorkspaceRoot) {
+    // On Windows: only enforce this restriction for the system drive (usually C:\)
+    if ((!isWindows || isSameDriveAsRoot(realPath)) && !isWithinRoot(realPath)) {
       return {
         valid: false,
-        error: `Workspace path must be within the allowed workspace root: ${WORKSPACES_ROOT}`
+        error: isWindows
+          ? `Workspace path must be within the allowed workspace root on the system drive: ${WORKSPACES_ROOT}`
+          : `Workspace path must be within the allowed workspace root: ${WORKSPACES_ROOT}`
       };
     }
 
@@ -133,8 +143,7 @@ export async function validateWorkspacePath(requestedPath) {
         const resolvedTarget = path.resolve(path.dirname(absolutePath), linkTarget);
         const realTarget = await fs.realpath(resolvedTarget);
 
-        if (!realTarget.startsWith(resolvedWorkspaceRoot + path.sep) &&
-            realTarget !== resolvedWorkspaceRoot) {
+        if ((!isWindows || isSameDriveAsRoot(realTarget)) && !isWithinRoot(realTarget)) {
           return {
             valid: false,
             error: 'Symlink target is outside the allowed workspace root'

@@ -386,7 +386,12 @@
     "description": {
       "claude": "Model Context Protocol 서버는 Claude에 추가 도구와 데이터 소스를 제공합니다",
       "cursor": "Model Context Protocol 서버는 Cursor에 추가 도구와 데이터 소스를 제공합니다",
-      "codex": "Model Context Protocol 서버는 Codex에 추가 도구와 데이터 소스를 제공합니다"
+      "codex": "Model Context Protocol 서버는 Codex에 추가 도구와 데이터 소스를 제공합니다",
+      "gemini": "Model Context Protocol 서버는 Gemini에 추가 도구와 데이터 소스를 제공합니다"
+    },
+    "gemini": {
+      "noticeTitle": "Gemini MCP는 앱 외부에서 설정됩니다",
+      "noticeDescription": "Gemini CLI는 로컬 설정(예: ~/.gemini.json)에서 MCP 설정을 읽습니다. 현재 설정 화면에서는 해당 값을 편집할 수 없습니다."
     },
     "addButton": "MCP 서버 추가",
     "empty": "설정된 MCP 서버 없음",

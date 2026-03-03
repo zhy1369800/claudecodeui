@@ -386,7 +386,12 @@
     "description": {
       "claude": "Model Context Protocol 服务器为 Claude 提供额外的工具和数据源",
       "cursor": "Model Context Protocol 服务器为 Cursor 提供额外的工具和数据源",
-      "codex": "Model Context Protocol 服务器为 Codex 提供额外的工具和数据源"
+      "codex": "Model Context Protocol 服务器为 Codex 提供额外的工具和数据源",
+      "gemini": "Model Context Protocol 服务器为 Gemini 提供额外的工具和数据源"
+    },
+    "gemini": {
+      "noticeTitle": "Gemini MCP 在应用外配置",
+      "noticeDescription": "Gemini CLI 会从本地配置（例如 ~/.gemini.json）读取 MCP 设置。当前设置页不支持直接编辑这些配置。"
     },
     "addButton": "添加 MCP 服务器",
     "empty": "未配置 MCP 服务器",

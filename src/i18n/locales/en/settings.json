@@ -386,7 +386,12 @@
     "description": {
       "claude": "Model Context Protocol servers provide additional tools and data sources to Claude",
       "cursor": "Model Context Protocol servers provide additional tools and data sources to Cursor",
-      "codex": "Model Context Protocol servers provide additional tools and data sources to Codex"
+      "codex": "Model Context Protocol servers provide additional tools and data sources to Codex",
+      "gemini": "Model Context Protocol servers provide additional tools and data sources to Gemini"
+    },
+    "gemini": {
+      "noticeTitle": "Gemini MCP is configured outside the app",
+      "noticeDescription": "Gemini CLI reads MCP settings from your local configuration (for example, ~/.gemini.json). The settings screen currently does not edit those values."
     },
     "addButton": "Add MCP Server",
     "empty": "No MCP servers configured",

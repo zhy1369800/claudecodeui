@@ -367,7 +367,36 @@ function CodexMcpServers({ servers, onAdd, onEdit, onDelete, deleteError }: Omit
   );
 }
 
-type McpServersContentProps = ClaudeMcpServersProps | CursorMcpServersProps | CodexMcpServersProps;
+type GeminiMcpServersProps = {
+  agent: 'gemini';
+};
+
+function GeminiMcpServers() {
+  const { t } = useTranslation('settings');
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <Server className="w-5 h-5 text-indigo-500" />
+        <h3 className="text-lg font-medium text-foreground">{t('mcpServers.title')}</h3>
+      </div>
+      <p className="text-sm text-muted-foreground">{t('mcpServers.description.gemini')}</p>
+
+      <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900 dark:border-indigo-800/60 dark:bg-indigo-900/20 dark:text-indigo-100">
+        <div className="font-medium">{t('mcpServers.gemini.noticeTitle')}</div>
+        <div className="mt-1 text-indigo-800/90 dark:text-indigo-200">
+          {t('mcpServers.gemini.noticeDescription')}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type McpServersContentProps =
+  | ClaudeMcpServersProps
+  | CursorMcpServersProps
+  | CodexMcpServersProps
+  | GeminiMcpServersProps;
 
 export default function McpServersContent(props: McpServersContentProps) {
   if (props.agent === 'claude') {
@@ -376,6 +405,10 @@ export default function McpServersContent(props: McpServersContentProps) {
 
   if (props.agent === 'cursor') {
     return <CursorMcpServers {...props} />;
+  }
+
+  if (props.agent === 'gemini') {
+    return <GeminiMcpServers />;
   }
 
   return <CodexMcpServers {...props} />;

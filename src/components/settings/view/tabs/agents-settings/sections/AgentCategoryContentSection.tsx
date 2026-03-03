@@ -84,6 +84,14 @@ export default function AgentCategoryContentSection({
         />
       )}
 
+      {selectedCategory === 'permissions' && selectedAgent === 'gemini' && (
+        <PermissionsContent
+          agent="gemini"
+          permissionMode={geminiPermissionMode}
+          onPermissionModeChange={onGeminiPermissionModeChange}
+        />
+      )}
+
       {selectedCategory === 'mcp' && selectedAgent === 'claude' && (
         <McpServersContent
           agent="claude"
@@ -119,6 +127,10 @@ export default function AgentCategoryContentSection({
           onDelete={(serverId) => onDeleteCodexMcpServer(serverId)}
           deleteError={deleteError}
         />
+      )}
+
+      {selectedCategory === 'mcp' && selectedAgent === 'gemini' && (
+        <McpServersContent agent="gemini" />
       )}
     </div>
   );

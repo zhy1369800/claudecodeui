@@ -11,8 +11,6 @@ import { getIntrinsicMessageKey } from '../../utils/messageKeys';
 
 interface ChatMessagesPaneProps {
   scrollContainerRef: RefObject<HTMLDivElement>;
-  onWheel: () => void;
-  onTouchMove: () => void;
   isLoadingSessionMessages: boolean;
   chatMessages: ChatMessage[];
   selectedSession: ProjectSession | null;
@@ -57,8 +55,6 @@ interface ChatMessagesPaneProps {
 
 export default function ChatMessagesPane({
   scrollContainerRef,
-  onWheel,
-  onTouchMove,
   isLoadingSessionMessages,
   chatMessages,
   selectedSession,
@@ -132,8 +128,6 @@ export default function ChatMessagesPane({
   return (
     <div
       ref={scrollContainerRef}
-      onWheel={onWheel}
-      onTouchMove={onTouchMove}
       className="flex-1 overflow-y-auto overflow-x-hidden px-0 py-3 sm:p-4 space-y-3 sm:space-y-4 relative"
     >
       {isLoadingSessionMessages && chatMessages.length === 0 ? (

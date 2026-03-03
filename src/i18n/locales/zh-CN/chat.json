@@ -104,6 +104,24 @@
       "plan": "计划"
     }
   },
+  "gemini": {
+    "permissionMode": "Gemini 权限模式",
+    "description": "控制 Gemini CLI 如何处理操作审批。",
+    "modes": {
+      "default": {
+        "title": "标准（请求审批）",
+        "description": "Gemini 在执行命令、写入文件和获取网页资源前会请求审批。"
+      },
+      "autoEdit": {
+        "title": "自动编辑（跳过文件审批）",
+        "description": "Gemini 会自动批准文件编辑与网页获取，但仍会对 Shell 命令请求审批。"
+      },
+      "yolo": {
+        "title": "YOLO（跳过所有审批）",
+        "description": "Gemini 将不请求审批直接执行所有操作。请谨慎使用。"
+      }
+    }
+  },
   "input": {
     "placeholder": "输入 / 调用命令，@ 选择文件，或向 {{provider}} 提问...",
     "placeholderDefault": "输入您的消息...",

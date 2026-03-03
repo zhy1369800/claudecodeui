@@ -97,6 +97,24 @@
     },
     "technicalDetails": "技術的な詳細"
   },
+  "gemini": {
+    "permissionMode": "Gemini 権限モード",
+    "description": "Gemini CLI の操作承認の扱いを制御します。",
+    "modes": {
+      "default": {
+        "title": "標準（承認を要求）",
+        "description": "Gemini はコマンド実行、ファイル書き込み、Web リソース取得の前に承認を求めます。"
+      },
+      "autoEdit": {
+        "title": "自動編集（ファイル承認を省略）",
+        "description": "Gemini はファイル編集と Web 取得を自動承認しますが、Shell コマンドは引き続き承認を求めます。"
+      },
+      "yolo": {
+        "title": "YOLO（すべて承認を省略）",
+        "description": "Gemini は承認なしですべての操作を実行します。注意して使用してください。"
+      }
+    }
+  },
   "input": {
     "placeholder": "/ でコマンド、@ でファイル指定、または {{provider}} に何でも聞いてください...",
     "placeholderDefault": "メッセージを入力...",

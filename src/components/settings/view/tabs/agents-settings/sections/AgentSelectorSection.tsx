@@ -2,7 +2,7 @@ import type { AgentProvider } from '../../../../types/types';
 import AgentListItem from '../AgentListItem';
 import type { AgentSelectorSectionProps } from '../types';
 
-const AGENT_PROVIDERS: AgentProvider[] = ['claude', 'cursor', 'codex'];
+const AGENT_PROVIDERS: AgentProvider[] = ['claude', 'cursor', 'codex', 'gemini'];
 
 export default function AgentSelectorSection({
   selectedAgent,

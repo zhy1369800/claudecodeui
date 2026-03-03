@@ -587,7 +587,7 @@ type GeminiPermissionsProps = {
 
 // Gemini Permissions
 function GeminiPermissions({ permissionMode, onPermissionModeChange }: Omit<GeminiPermissionsProps, 'agent'>) {
-  const { t } = useTranslation(['settings', 'chat']);
+  const { t } = useTranslation('chat');
   return (
     <div className="space-y-6">
       <div className="space-y-4">

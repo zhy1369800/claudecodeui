@@ -78,6 +78,7 @@ export function useSidebarController({
   const [projectHasMoreOverrides, setProjectHasMoreOverrides] = useState<Record<string, boolean>>({});
   const [editingSession, setEditingSession] = useState<string | null>(null);
   const [editingSessionName, setEditingSessionName] = useState('');
+  const [deletedSessionKeys, setDeletedSessionKeys] = useState<Set<string>>(new Set());
   const [searchFilter, setSearchFilter] = useState('');
   const [deletingProjects, setDeletingProjects] = useState<Set<string>>(new Set());
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteProjectConfirmation | null>(null);
@@ -107,6 +108,7 @@ export function useSidebarController({
     setAdditionalSessions({});
     setInitialSessionsLoaded(new Set());
     setProjectHasMoreOverrides({});
+    setDeletedSessionKeys(new Set());
   }, [projects]);
 
   useEffect(() => {
@@ -301,6 +303,11 @@ export function useSidebarController({
     [onSessionSelect],
   );
 
+  const getSessionKey = useCallback(
+    (projectName: string, provider: SessionProvider, sessionId: string) => `${projectName}:${provider}:${sessionId}`,
+    [],
+  );
+
   const toggleStarProject = useCallback((projectName: string) => {
     setStarredProjects((prev) => {
       const next = new Set(prev);
@@ -321,8 +328,17 @@ export function useSidebarController({
   );
 
   const getProjectSessions = useCallback(
-    (project: Project) => getAllSessions(project, additionalSessions),
-    [additionalSessions],
+    (project: Project) => {
+      const sessions = getAllSessions(project, additionalSessions);
+      if (deletedSessionKeys.size === 0) {
+        return sessions;
+      }
+
+      return sessions.filter(
+        (session) => !deletedSessionKeys.has(getSessionKey(project.name, session.__provider, session.id)),
+      );
+    },
+    [additionalSessions, deletedSessionKeys, getSessionKey],
   );
 
   const projectsWithSessionMeta = useMemo(
@@ -436,6 +452,33 @@ export function useSidebarController({
       }
 
       if (response.ok) {
+        const deletedSessionKey = getSessionKey(projectName, provider, sessionId);
+        setAdditionalSessions((prev) => {
+          const projectSessions = prev[projectName];
+          if (!projectSessions?.length) {
+            return prev;
+          }
+
+          const nextProjectSessions = projectSessions.filter((session) => session.id !== sessionId);
+          if (nextProjectSessions.length === projectSessions.length) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            [projectName]: nextProjectSessions,
+          };
+        });
+        setDeletedSessionKeys((prev) => {
+          if (prev.has(deletedSessionKey)) {
+            return prev;
+          }
+
+          const next = new Set(prev);
+          next.add(deletedSessionKey);
+          return next;
+        });
+        setSwipedSession((prev) => (prev === null ? prev : null));
         onSessionDelete?.(sessionId);
       } else {
         const errorText = await response.text();
@@ -449,7 +492,7 @@ export function useSidebarController({
       console.error('[Sidebar] Error deleting session:', error);
       alert(t('messages.deleteSessionError'));
     }
-  }, [onSessionDelete, sessionDeleteConfirmation, t]);
+  }, [getSessionKey, onSessionDelete, sessionDeleteConfirmation, t]);
 
   const requestProjectDelete = useCallback(
     (project: Project) => {
@@ -506,8 +549,10 @@ export function useSidebarController({
 
       try {
         const currentSessionCount =
-          (project.sessions?.length || 0) + (additionalSessions[project.name]?.length || 0);
-        const response = await api.sessions(project.name, 5, currentSessionCount);
+          (project.sessions?.length || 0) +
+          (additionalSessions[project.name]?.length || 0) -
+          Array.from(deletedSessionKeys).filter((key) => key.startsWith(`${project.name}:`)).length;
+        const response = await api.sessions(project.name, 5, Math.max(0, currentSessionCount));
 
         if (!response.ok) {
           return;
@@ -533,7 +578,7 @@ export function useSidebarController({
         setLoadingSessions((prev) => ({ ...prev, [project.name]: false }));
       }
     },
-    [additionalSessions, loadingSessions, projectHasMoreOverrides],
+    [additionalSessions, deletedSessionKeys, loadingSessions, projectHasMoreOverrides],
   );
 
   const handleProjectSelect = useCallback(

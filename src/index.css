@@ -618,14 +618,33 @@
       -webkit-touch-callout: default !important;
     }
     
-    /* Fix mobile scrolling */
+    /* Fix mobile scrolling - overscroll-behavior-y:contain prevents iOS PWA scroll leaking to body */
     .overflow-y-auto {
       touch-action: pan-y;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
     }
     
-    .chat-message {
+    /* Pure content elements allow pan-y so scroll can start on text/code/lists.
+       Excludes div intentionally to avoid mis-affecting clickable containers. */
+    .chat-message,
+    .chat-message p,
+    .chat-message li,
+    .chat-message pre,
+    .chat-message code,
+    .chat-message blockquote {
       touch-action: pan-y;
+    }
+    
+    /* Interactive elements inside scroll containers keep manipulation */
+    .overflow-y-auto button,
+    .overflow-y-auto a,
+    .overflow-y-auto [role="button"],
+    .overflow-y-auto label,
+    .overflow-y-auto input,
+    .overflow-y-auto select,
+    .overflow-y-auto textarea {
+      touch-action: manipulation;
     }
     
     /* Fix hover states on mobile */

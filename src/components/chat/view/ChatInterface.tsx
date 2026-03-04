@@ -278,8 +278,6 @@ function ChatInterface({
       <div className="h-full flex flex-col">
         <ChatMessagesPane
           scrollContainerRef={scrollContainerRef}
-          onWheel={handleScroll}
-          onTouchMove={handleScroll}
           isLoadingSessionMessages={isLoadingSessionMessages}
           chatMessages={chatMessages}
           selectedSession={selectedSession}

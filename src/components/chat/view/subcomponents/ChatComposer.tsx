@@ -227,9 +227,17 @@ export default function ChatComposer({
     });
   };
 
-  // On mobile, when input is focused, float the input box at the bottom
+  // On mobile, when input is focused, float the input box at the bottom.
+  // IMPORTANT: The outer wrapper must use pointer-events-none when it becomes a
+  // full-width fixed overlay, otherwise its transparent area silently swallows all
+  // touch/click events on the chat messages behind it (the PWA click-freeze bug).
+  // Visual styles (background, blur, shadow) are moved to the form element below.
   const mobileFloatingClass = isInputFocused
-    ? 'max-sm:fixed max-sm:bottom-1 max-sm:left-0 max-sm:right-0 max-sm:z-50 max-sm:bg-background/90 max-sm:backdrop-blur-xl max-sm:shadow-[0_-8px_28px_rgba(0,0,0,0.24)]'
+    ? 'max-sm:fixed max-sm:bottom-1 max-sm:left-0 max-sm:right-0 max-sm:z-50 max-sm:pointer-events-none'
+    : '';
+
+  const mobileFormFloatingClass = isInputFocused
+    ? 'max-sm:pointer-events-auto max-sm:bg-background/90 max-sm:backdrop-blur-xl max-sm:shadow-[0_-8px_28px_rgba(0,0,0,0.24)] max-sm:mx-1 max-sm:rounded-2xl'
     : '';
 
   const mobileComposerBottomPaddingClass = isInputFocused
@@ -241,7 +249,7 @@ export default function ChatComposer({
       className={`chat-composer-mobile max-sm:px-1 max-sm:pt-0.5 ${mobileComposerBottomPaddingClass} px-2 pt-2 pb-[max(6px,calc(env(safe-area-inset-bottom)-6px))] sm:p-4 md:p-4 flex-shrink-0 sm:pb-4 md:pb-6 ${isInputFocused ? 'chat-composer-mobile-floating' : ''} ${mobileFloatingClass}`}
     >
       {!hasQuestionPanel && (
-        <div className="flex-1">
+        <div className="flex-1 max-sm:pointer-events-auto">
           <ClaudeStatus
             status={claudeStatus}
             isLoading={isLoading}
@@ -251,7 +259,7 @@ export default function ChatComposer({
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto mb-3">
+      <div className="max-w-4xl mx-auto mb-3 max-sm:pointer-events-auto">
         <PermissionRequestsBanner
           pendingPermissionRequests={pendingPermissionRequests}
           handlePermissionDecision={handlePermissionDecision}
@@ -285,7 +293,7 @@ export default function ChatComposer({
           }
           onInputFocusChange?.(false);
         }}
-        className="relative max-w-4xl mx-auto"
+        className={`relative max-w-4xl mx-auto ${mobileFormFloatingClass}`}
       >
         {isUserScrolledUp && hasMessages && (
           <div className="absolute left-1/2 -translate-x-1/2 -top-14 sm:-top-13 z-20 pointer-events-none">
@@ -345,11 +353,10 @@ export default function ChatComposer({
             {filteredFiles.map((file, index) => (
               <div
                 key={file.path}
-                className={`px-4 py-3 cursor-pointer border-b border-border/30 last:border-b-0 touch-manipulation ${
-                  index === selectedFileIndex
-                    ? 'bg-primary/8 text-primary'
-                    : 'hover:bg-accent/50 text-foreground'
-                }`}
+                className={`px-4 py-3 cursor-pointer border-b border-border/30 last:border-b-0 touch-manipulation ${index === selectedFileIndex
+                  ? 'bg-primary/8 text-primary'
+                  : 'hover:bg-accent/50 text-foreground'
+                  }`}
                 onMouseDown={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -379,18 +386,16 @@ export default function ChatComposer({
 
         <div
           {...getRootProps()}
-          className={`relative bg-white dark:bg-gray-800 rounded-2xl max-sm:rounded-[34px] shadow-lg border border-gray-200 dark:border-gray-600 max-sm:border-blue-400/25 max-sm:shadow-[0_0_0_1px_rgba(96,165,250,0.18),0_10px_24px_rgba(2,12,27,0.38)] focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-500 focus-within:border-blue-500 transition-all duration-200 overflow-visible ${
-            isTextareaExpanded ? 'chat-input-expanded' : ''
-          }`}
+          className={`relative bg-white dark:bg-gray-800 rounded-2xl max-sm:rounded-[34px] shadow-lg border border-gray-200 dark:border-gray-600 max-sm:border-blue-400/25 max-sm:shadow-[0_0_0_1px_rgba(96,165,250,0.18),0_10px_24px_rgba(2,12,27,0.38)] focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-500 focus-within:border-blue-500 transition-all duration-200 overflow-visible ${isTextareaExpanded ? 'chat-input-expanded' : ''
+            }`}
         >
           <input {...getInputProps()} />
           <div ref={inputHighlightRef} aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl max-sm:rounded-[34px]">
             <div
-              className={`chat-input-placeholder block w-full pl-3 ${
-                shouldShowExpandedInputUi
-                  ? 'pr-4 sm:pr-6 pb-12 sm:pb-14 min-h-[96px] sm:min-h-[120px] pt-3'
-                  : 'pr-14 sm:pr-16 pb-2 max-sm:pb-1 max-sm:min-h-[48px] min-h-[60px] sm:min-h-[56px] pt-2 max-sm:pt-1'
-              } text-transparent text-base leading-6 whitespace-pre-wrap break-words transition-all duration-200`}
+              className={`chat-input-placeholder block w-full pl-3 ${shouldShowExpandedInputUi
+                ? 'pr-4 sm:pr-6 pb-12 sm:pb-14 min-h-[96px] sm:min-h-[120px] pt-3'
+                : 'pr-14 sm:pr-16 pb-2 max-sm:pb-1 max-sm:min-h-[48px] min-h-[60px] sm:min-h-[56px] pt-2 max-sm:pt-1'
+                } text-transparent text-base leading-6 whitespace-pre-wrap break-words transition-all duration-200`}
             >
               {renderInputWithMentions(input)}
             </div>
@@ -408,11 +413,10 @@ export default function ChatComposer({
               onInput={onTextareaInput}
               placeholder={placeholder}
               disabled={isLoading}
-              className={`chat-input-placeholder block w-full pl-3 ${
-                shouldShowExpandedInputUi
-                  ? 'pr-4 sm:pr-6 pb-12 sm:pb-14 min-h-[96px] sm:min-h-[120px] pt-3'
-                  : 'pr-14 sm:pr-16 pb-2 max-sm:pb-1 max-sm:h-[48px] h-[60px] sm:h-[56px] max-sm:min-h-[48px] min-h-[60px] sm:min-h-[56px] pt-2 max-sm:pt-1'
-              } bg-transparent rounded-2xl max-sm:rounded-[34px] focus:outline-none text-foreground placeholder-muted-foreground/50 disabled:opacity-50 resize-none max-h-[60vh] sm:max-h-[500px] overflow-y-auto text-base leading-6 transition-all duration-200`}
+              className={`chat-input-placeholder block w-full pl-3 ${shouldShowExpandedInputUi
+                ? 'pr-4 sm:pr-6 pb-12 sm:pb-14 min-h-[96px] sm:min-h-[120px] pt-3'
+                : 'pr-14 sm:pr-16 pb-2 max-sm:pb-1 max-sm:h-[48px] h-[60px] sm:h-[56px] max-sm:min-h-[48px] min-h-[60px] sm:min-h-[56px] pt-2 max-sm:pt-1'
+                } bg-transparent rounded-2xl max-sm:rounded-[34px] focus:outline-none text-foreground placeholder-muted-foreground/50 disabled:opacity-50 resize-none max-h-[60vh] sm:max-h-[500px] overflow-y-auto text-base leading-6 transition-all duration-200`}
             />
 
             <div className="absolute right-16 sm:right-16 top-1/2 transform -translate-y-1/2" style={{ display: 'none' }}>
@@ -420,16 +424,14 @@ export default function ChatComposer({
             </div>
 
             <div
-              className={`absolute left-2 right-2 flex items-center justify-between pointer-events-none ${
-                shouldShowExpandedInputUi ? 'bottom-2 max-sm:bottom-1.5' : 'bottom-1 max-sm:bottom-1'
-              }`}
+              className={`absolute left-2 right-2 flex items-center justify-between pointer-events-none ${shouldShowExpandedInputUi ? 'bottom-2 max-sm:bottom-1.5' : 'bottom-1 max-sm:bottom-1'
+                }`}
             >
               <div
-                className={`pointer-events-auto transition-all duration-200 origin-left ${
-                  shouldShowExpandedInputUi
-                    ? 'opacity-100 scale-100 w-auto bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-1'
-                    : 'opacity-0 scale-90 w-0 h-0 overflow-hidden'
-                }`}
+                className={`pointer-events-auto transition-all duration-200 origin-left ${shouldShowExpandedInputUi
+                  ? 'opacity-100 scale-100 w-auto bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-1'
+                  : 'opacity-0 scale-90 w-0 h-0 overflow-hidden'
+                  }`}
               >
                 <ChatInputControls
                   permissionMode={permissionMode}
@@ -468,11 +470,10 @@ export default function ChatComposer({
                   }
                   handleComposerSubmit(event);
                 }}
-                className={`pointer-events-auto max-sm:w-9 max-sm:h-9 w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-background ${
-                  showStopOnInputButton
-                    ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500/30'
-                    : 'bg-primary max-sm:bg-sky-500 hover:bg-primary/90 max-sm:hover:bg-sky-400 focus:ring-primary/30 max-sm:focus:ring-sky-400/30 disabled:bg-muted max-sm:disabled:bg-slate-700/80 disabled:text-muted-foreground max-sm:disabled:text-slate-300 disabled:cursor-not-allowed'
-                }`}
+                className={`pointer-events-auto max-sm:w-9 max-sm:h-9 w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-background ${showStopOnInputButton
+                  ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500/30'
+                  : 'bg-primary max-sm:bg-sky-500 hover:bg-primary/90 max-sm:hover:bg-sky-400 focus:ring-primary/30 max-sm:focus:ring-sky-400/30 disabled:bg-muted max-sm:disabled:bg-slate-700/80 disabled:text-muted-foreground max-sm:disabled:text-slate-300 disabled:cursor-not-allowed'
+                  }`}
               >
                 {showStopOnInputButton ? (
                   <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -487,9 +488,8 @@ export default function ChatComposer({
             </div>
 
             <div
-              className={`absolute bottom-4 right-14 sm:right-16 text-[10px] text-muted-foreground/50 pointer-events-none hidden sm:block transition-opacity duration-200 ${
-                input.trim() ? 'opacity-0' : 'opacity-100'
-              }`}
+              className={`absolute bottom-4 right-14 sm:right-16 text-[10px] text-muted-foreground/50 pointer-events-none hidden sm:block transition-opacity duration-200 ${input.trim() ? 'opacity-0' : 'opacity-100'
+                }`}
             >
               {sendByCtrlEnter ? t('input.hintText.ctrlEnter') : t('input.hintText.enter')}
             </div>

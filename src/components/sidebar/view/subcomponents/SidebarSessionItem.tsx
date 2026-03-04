@@ -136,21 +136,77 @@ export default function SidebarSessionItem({
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-medium truncate text-foreground">{sessionView.sessionName}</div>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <Clock className="w-2.5 h-2.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">
-                    {formatTimeAgo(sessionView.sessionTime, currentTime, t)}
-                  </span>
-                  {sessionView.messageCount > 0 && (
-                    <Badge variant="secondary" className="text-xs px-1 py-0 ml-auto">
-                      {sessionView.messageCount}
-                    </Badge>
-                  )}
-                  <span className="ml-1 opacity-70">
-                    <SessionProviderLogo provider={session.__provider} className="w-3 h-3" />
-                  </span>
-                </div>
+                {editingSession === session.id ? (
+                  <input
+                    type="text"
+                    value={editingSessionName}
+                    onChange={(event) => onEditingSessionNameChange(event.target.value)}
+                    onKeyDown={(event) => {
+                      event.stopPropagation();
+                      if (event.key === 'Enter') {
+                        saveEditedSession();
+                      } else if (event.key === 'Escape') {
+                        onCancelEditingSession();
+                      }
+                    }}
+                    onClick={(event) => event.stopPropagation()}
+                    className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    autoFocus
+                  />
+                ) : (
+                  <>
+                    <div className="text-xs font-medium truncate text-foreground">{sessionView.sessionName}</div>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <Clock className="w-2.5 h-2.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">
+                        {formatTimeAgo(sessionView.sessionTime, currentTime, t)}
+                      </span>
+                      {sessionView.messageCount > 0 && (
+                        <Badge variant="secondary" className="text-xs px-1 py-0 ml-auto">
+                          {sessionView.messageCount}
+                        </Badge>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1 ml-2">
+                {editingSession === session.id ? (
+                  <>
+                    <button
+                      className="w-5 h-5 rounded-md bg-green-50 dark:bg-green-900/20 flex items-center justify-center active:scale-95 transition-transform"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        saveEditedSession();
+                      }}
+                      title={t('tooltips.save')}
+                    >
+                      <Check className="w-2.5 h-2.5 text-green-600 dark:text-green-400" />
+                    </button>
+                    <button
+                      className="w-5 h-5 rounded-md bg-gray-50 dark:bg-gray-900/20 flex items-center justify-center active:scale-95 transition-transform"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onCancelEditingSession();
+                      }}
+                      title={t('tooltips.cancel')}
+                    >
+                      <X className="w-2.5 h-2.5 text-gray-600 dark:text-gray-400" />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="w-5 h-5 rounded-md bg-gray-50 dark:bg-gray-900/20 flex items-center justify-center active:scale-95 transition-transform opacity-80"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onStartEditingSession(session.id, sessionView.sessionName);
+                    }}
+                    title={t('tooltips.editSessionName')}
+                  >
+                    <Edit2 className="w-2.5 h-2.5 text-gray-600 dark:text-gray-400" />
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -180,6 +180,8 @@ export function useShellRuntime({
 
   return {
     terminalContainerRef,
+    terminalRef,
+    wsRef,
     isConnected,
     isInitialized,
     isConnecting,

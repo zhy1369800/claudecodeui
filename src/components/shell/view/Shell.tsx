@@ -8,6 +8,7 @@ import { getSessionDisplayName } from '../utils/auth';
 import ShellConnectionOverlay from './subcomponents/ShellConnectionOverlay';
 import ShellEmptyState from './subcomponents/ShellEmptyState';
 import ShellMinimalView from './subcomponents/ShellMinimalView';
+import TerminalShortcutsPanel from './subcomponents/TerminalShortcutsPanel';
 
 type ShellProps = {
   selectedProject?: Project | null;
@@ -47,6 +48,8 @@ export default function Shell({
 
   const {
     terminalContainerRef,
+    terminalRef,
+    wsRef,
     isConnected,
     isInitialized,
     isConnecting,
@@ -247,6 +250,12 @@ export default function Shell({
           />
         )}
       </div>
+
+      <TerminalShortcutsPanel
+        wsRef={wsRef}
+        terminalRef={terminalRef}
+        isConnected={isConnected}
+      />
     </div>
   );
 }

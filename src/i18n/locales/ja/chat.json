@@ -112,6 +112,10 @@
       "yolo": {
         "title": "YOLO（すべての承認を省略）",
         "description": "Gemini は承認なしですべての操作を実行します。注意して使用してください。"
+      },
+      "plan": {
+        "title": "Plan（実行しない）",
+        "description": "Gemini は分析と計画のみ行い、ツール操作は実行しません。"
       }
     }
   },

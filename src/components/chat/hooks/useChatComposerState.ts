@@ -762,6 +762,14 @@ export function useChatComposerState({
           },
         });
       } else if (provider === 'gemini') {
+        const geminiPermissionMode =
+          permissionMode === 'default' ||
+          permissionMode === 'auto_edit' ||
+          permissionMode === 'yolo' ||
+          permissionMode === 'plan'
+            ? permissionMode
+            : 'default';
+
         sendMessage({
           type: 'gemini-command',
           command: messageContent,
@@ -772,7 +780,7 @@ export function useChatComposerState({
             sessionId: effectiveSessionId,
             resume: Boolean(effectiveSessionId),
             model: geminiModel,
-            permissionMode,
+            permissionMode: geminiPermissionMode,
             toolsSettings,
           },
         });

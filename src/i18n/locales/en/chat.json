@@ -119,6 +119,10 @@
       "yolo": {
         "title": "YOLO (Bypass All Permissions)",
         "description": "Gemini will execute all operations without asking for approval. Exercise caution."
+      },
+      "plan": {
+        "title": "Plan (No Execution)",
+        "description": "Gemini will analyze and plan, but will not execute tool operations."
       }
     }
   },

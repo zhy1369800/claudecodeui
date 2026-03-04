@@ -87,6 +87,8 @@ export function useChatProviderState({ selectedSession }: UseChatProviderStateAr
     const modes: PermissionMode[] =
       provider === 'codex'
         ? ['default', 'acceptEdits', 'bypassPermissions']
+        : provider === 'gemini'
+        ? ['default', 'auto_edit', 'yolo', 'plan']
         : ['default', 'acceptEdits', 'bypassPermissions', 'plan'];
 
     const currentIndex = modes.indexOf(permissionMode);

@@ -43,9 +43,14 @@ export default function ChatInputControls({
       ? 'acceptEdits'
       : permissionMode === 'bypassPermissions'
       ? 'bypassPermissions'
+      : permissionMode === 'auto_edit'
+      ? 'autoEdit'
+      : permissionMode === 'yolo'
+      ? 'yolo'
       : permissionMode === 'plan'
       ? 'plan'
       : 'default';
+  const isGemini = provider === 'gemini';
 
   const containerClass = inline
     ? 'flex items-center gap-1.5'
@@ -130,12 +135,14 @@ export default function ChatInputControls({
           />
           <span>
             <span className="sm:hidden">
-              {t(`codex.modes_mobile.${modeKey}`, {
-                defaultValue: t(`codex.modes.${modeKey}`),
-              })}
+              {isGemini
+                ? t(`gemini.modes.${modeKey}.title`)
+                : t(`codex.modes_mobile.${modeKey}`, {
+                    defaultValue: t(`codex.modes.${modeKey}`),
+                  })}
             </span>
             <span className="hidden sm:inline">
-              {t(`codex.modes.${modeKey}`)}
+              {isGemini ? t(`gemini.modes.${modeKey}.title`) : t(`codex.modes.${modeKey}`)}
             </span>
           </span>
         </div>

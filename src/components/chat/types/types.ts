@@ -2,7 +2,13 @@ import type { Project, ProjectSession, SessionProvider } from '../../../types/ap
 
 export type Provider = SessionProvider;
 
-export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
+export type PermissionMode =
+  | 'default'
+  | 'acceptEdits'
+  | 'bypassPermissions'
+  | 'plan'
+  | 'auto_edit'
+  | 'yolo';
 
 export interface ChatImage {
   data: string;

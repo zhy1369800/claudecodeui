@@ -113,6 +113,10 @@
       "yolo": {
         "title": "YOLO(모든 승인 생략)",
         "description": "Gemini가 승인 없이 모든 작업을 실행합니다. 주의해서 사용하세요."
+      },
+      "plan": {
+        "title": "Plan(실행 안 함)",
+        "description": "Gemini는 분석과 계획만 수행하고, 도구 작업은 실행하지 않습니다."
       }
     }
   },

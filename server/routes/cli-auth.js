@@ -313,57 +313,53 @@ async function checkGeminiCredentials() {
     const content = await fs.readFile(credsPath, 'utf8');
     const creds = JSON.parse(content);
 
-    if (creds.access_token) {
-      let email = 'OAuth Session';
+    if (!creds.access_token && !creds.refresh_token) {
+      return {
+        authenticated: false,
+        email: null,
+        error: 'No valid tokens found in oauth_creds'
+      };
+    }
 
+    let resolvedEmail = null;
+
+    // Prefer local account identity file to avoid false-positive "OAuth Session" labels.
+    try {
+      const accPath = path.join(os.homedir(), '.gemini', 'google_accounts.json');
+      const accContent = await fs.readFile(accPath, 'utf8');
+      const accounts = JSON.parse(accContent);
+      if (typeof accounts.active === 'string' && accounts.active.trim()) {
+        resolvedEmail = accounts.active.trim();
+      }
+    } catch (error) {
+      // ignore and try tokeninfo fallback
+    }
+
+    if (!resolvedEmail && creds.access_token) {
       try {
-        // Validate token against Google API
         const tokenRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${creds.access_token}`);
         if (tokenRes.ok) {
           const tokenInfo = await tokenRes.json();
-          if (tokenInfo.email) {
-            email = tokenInfo.email;
+          if (typeof tokenInfo.email === 'string' && tokenInfo.email.trim()) {
+            resolvedEmail = tokenInfo.email.trim();
           }
-        } else if (!creds.refresh_token) {
-          // Token invalid and no refresh token available
-          return {
-            authenticated: false,
-            email: null,
-            error: 'Access token invalid and no refresh token found'
-          };
-        } else {
-          // Token might be expired but we have a refresh token, so CLI will refresh it
-          try {
-            const accPath = path.join(os.homedir(), '.gemini', 'google_accounts.json');
-            const accContent = await fs.readFile(accPath, 'utf8');
-            const accounts = JSON.parse(accContent);
-            if (accounts.active) {
-              email = accounts.active;
-            }
-          } catch (e) { }
         }
-      } catch (e) {
-        // Network error, fallback to checking local accounts file
-        try {
-          const accPath = path.join(os.homedir(), '.gemini', 'google_accounts.json');
-          const accContent = await fs.readFile(accPath, 'utf8');
-          const accounts = JSON.parse(accContent);
-          if (accounts.active) {
-            email = accounts.active;
-          }
-        } catch (err) { }
+      } catch (error) {
+        // ignore and keep unresolved
       }
+    }
 
+    if (!resolvedEmail) {
       return {
-        authenticated: true,
-        email: email
+        authenticated: false,
+        email: null,
+        error: 'Gemini account identity not found'
       };
     }
 
     return {
-      authenticated: false,
-      email: null,
-      error: 'No valid tokens found in oauth_creds'
+      authenticated: true,
+      email: resolvedEmail
     };
   } catch (error) {
     return {

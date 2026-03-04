@@ -1,6 +1,7 @@
 import { Badge } from '../../../ui/badge';
 import { Button } from '../../../ui/button';
 import { Check, Clock, Edit2, Trash2, X } from 'lucide-react';
+import type React from 'react';
 import type { TFunction } from 'i18next';
 import { cn } from '../../../../lib/utils';
 import { formatTimeAgo } from '../../../../utils/dateUtils';
@@ -12,6 +13,7 @@ import SessionProviderLogo from '../../../llm-logo-provider/SessionProviderLogo'
 type SidebarSessionItemProps = {
   project: Project;
   session: SessionWithProvider;
+  isSwiped: boolean;
   selectedSession: ProjectSession | null;
   currentTime: Date;
   editingSession: string | null;
@@ -29,12 +31,16 @@ type SidebarSessionItemProps = {
     provider: SessionProvider,
   ) => void;
   touchHandlerFactory: TouchHandlerFactory;
+  onClearSwipedSession: () => void;
+  onSessionTouchStart: (event: React.TouchEvent<HTMLElement>) => void;
+  onSessionTouchMove: (event: React.TouchEvent<HTMLElement>, sessionKey: string) => void;
   t: TFunction;
 };
 
 export default function SidebarSessionItem({
   project,
   session,
+  isSwiped,
   selectedSession,
   currentTime,
   editingSession,
@@ -47,10 +53,14 @@ export default function SidebarSessionItem({
   onSessionSelect,
   onDeleteSession,
   touchHandlerFactory,
+  onClearSwipedSession,
+  onSessionTouchStart,
+  onSessionTouchMove,
   t,
 }: SidebarSessionItemProps) {
   const sessionView = createSessionViewModel(session, currentTime, t);
   const isSelected = selectedSession?.id === session.id;
+  const sessionSwipeKey = `${project.name}:${session.__provider}:${session.id}`;
 
   const selectMobileSession = () => {
     onProjectSelect(project);
@@ -65,6 +75,12 @@ export default function SidebarSessionItem({
     onDeleteSession(project.name, session.id, sessionView.sessionName, session.__provider);
   };
 
+  const handleDeleteSessionFromSwipe = () => {
+    requestDeleteSession();
+    onClearSwipedSession();
+  };
+  const handleDeleteSessionTouch = touchHandlerFactory(handleDeleteSessionFromSwipe);
+
   return (
     <div className="group relative">
       {sessionView.isActive && (
@@ -74,55 +90,69 @@ export default function SidebarSessionItem({
       )}
 
       <div className="md:hidden">
-        <div
-          className={cn(
-            'p-2 mx-3 my-0.5 rounded-md bg-card border active:scale-[0.98] transition-all duration-150 relative',
-            isSelected ? 'bg-primary/5 border-primary/20' : '',
-            !isSelected && sessionView.isActive
-              ? 'border-green-500/30 bg-green-50/5 dark:bg-green-900/5'
-              : 'border-border/30',
-          )}
-          onClick={selectMobileSession}
-        >
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                'w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0',
-                isSelected ? 'bg-primary/10' : 'bg-muted/50',
-              )}
+        <div className="mx-3 my-0.5 rounded-md relative overflow-hidden">
+          {!sessionView.isCursorSession && isSwiped && (
+            <button
+              type="button"
+              className="absolute inset-y-0 right-0 w-20 bg-red-600 flex items-center justify-center"
+              onTouchStart={(event) => {
+                event.stopPropagation();
+              }}
+              onTouchEnd={handleDeleteSessionTouch}
+              onClick={handleDeleteSessionFromSwipe}
             >
-              <SessionProviderLogo provider={session.__provider} className="w-3 h-3" />
-            </div>
+              <Trash2 className="w-4 h-4 text-white" />
+            </button>
+          )}
 
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-medium truncate text-foreground">{sessionView.sessionName}</div>
-              <div className="flex items-center gap-1 mt-0.5">
-                <Clock className="w-2.5 h-2.5 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
-                  {formatTimeAgo(sessionView.sessionTime, currentTime, t)}
-                </span>
-                {sessionView.messageCount > 0 && (
-                  <Badge variant="secondary" className="text-xs px-1 py-0 ml-auto">
-                    {sessionView.messageCount}
-                  </Badge>
+          <div
+            className={cn(
+              'p-2 rounded-md bg-card border active:scale-[0.98] transition-all duration-150 relative z-10',
+              isSelected ? 'bg-primary/5 border-primary/20' : '',
+              !isSelected && sessionView.isActive
+                ? 'border-green-500/30 bg-green-50/5 dark:bg-green-900/5'
+                : 'border-border/30',
+              !sessionView.isCursorSession && isSwiped ? '-translate-x-20' : 'translate-x-0',
+            )}
+            onTouchStart={onSessionTouchStart}
+            onTouchMove={(event) => onSessionTouchMove(event, sessionSwipeKey)}
+            onClick={() => {
+              if (isSwiped) {
+                onClearSwipedSession();
+                return;
+              }
+
+              selectMobileSession();
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  'w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0',
+                  isSelected ? 'bg-primary/10' : 'bg-muted/50',
                 )}
-                <span className="ml-1 opacity-70">
-                  <SessionProviderLogo provider={session.__provider} className="w-3 h-3" />
-                </span>
+              >
+                <SessionProviderLogo provider={session.__provider} className="w-3 h-3" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-medium truncate text-foreground">{sessionView.sessionName}</div>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <Clock className="w-2.5 h-2.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">
+                    {formatTimeAgo(sessionView.sessionTime, currentTime, t)}
+                  </span>
+                  {sessionView.messageCount > 0 && (
+                    <Badge variant="secondary" className="text-xs px-1 py-0 ml-auto">
+                      {sessionView.messageCount}
+                    </Badge>
+                  )}
+                  <span className="ml-1 opacity-70">
+                    <SessionProviderLogo provider={session.__provider} className="w-3 h-3" />
+                  </span>
+                </div>
               </div>
             </div>
-
-            {!sessionView.isCursorSession && (
-              <button
-                className="w-5 h-5 rounded-md bg-red-50 dark:bg-red-900/20 flex items-center justify-center active:scale-95 transition-transform opacity-70 ml-1"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  requestDeleteSession();
-                }}
-              >
-                <Trash2 className="w-2.5 h-2.5 text-red-600 dark:text-red-400" />
-              </button>
-            )}
           </div>
         </div>
       </div>

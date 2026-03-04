@@ -85,9 +85,11 @@ export function useSidebarController({
   const [showVersionModal, setShowVersionModal] = useState(false);
   const [starredProjects, setStarredProjects] = useState<Set<string>>(() => loadStarredProjects());
   const [swipedProject, setSwipedProject] = useState<string | null>(null);
+  const [swipedSession, setSwipedSession] = useState<string | null>(null);
   const [runningProjects, setRunningProjects] = useState<Record<string, RunningProjectInfo>>({});
   const [stoppingProjects, setStoppingProjects] = useState<Set<string>>(new Set());
-  const touchStartX = useRef<number | null>(null);
+  const projectTouchStartX = useRef<number | null>(null);
+  const sessionTouchStartX = useRef<number | null>(null);
   const runningFetchIdRef = useRef(0);
 
   const isSidebarCollapsed = !isMobile && !sidebarVisible;
@@ -122,11 +124,13 @@ export function useSidebarController({
 
   useEffect(() => {
     setSwipedProject((prev) => (prev === null ? prev : null));
+    setSwipedSession((prev) => (prev === null ? prev : null));
   }, [projects, sidebarVisible]);
 
   useEffect(() => {
     if (!isMobileSidebarOpen) {
       setSwipedProject((prev) => (prev === null ? prev : null));
+      setSwipedSession((prev) => (prev === null ? prev : null));
     }
   }, [isMobileSidebarOpen]);
 
@@ -186,6 +190,11 @@ export function useSidebarController({
 
   const clearSwipedProject = useCallback(() => {
     setSwipedProject((prev) => (prev === null ? prev : null));
+    setSwipedSession((prev) => (prev === null ? prev : null));
+  }, []);
+
+  const clearSwipedSession = useCallback(() => {
+    setSwipedSession((prev) => (prev === null ? prev : null));
   }, []);
 
   const handleProjectTouchStart = useCallback((event: React.TouchEvent<HTMLElement>) => {
@@ -197,22 +206,22 @@ export function useSidebarController({
       target?.closest('a') ||
       target?.closest('[role="button"]')
     ) {
-      touchStartX.current = null;
+      projectTouchStartX.current = null;
       return;
     }
 
     const pointX = event.touches[0]?.clientX;
     if (typeof pointX !== 'number') {
-      touchStartX.current = null;
+      projectTouchStartX.current = null;
       return;
     }
 
-    touchStartX.current = pointX;
+    projectTouchStartX.current = pointX;
   }, []);
 
   const handleProjectTouchMove = useCallback(
     (event: React.TouchEvent<HTMLElement>, projectName: string) => {
-      if (touchStartX.current === null) {
+      if (projectTouchStartX.current === null) {
         return;
       }
 
@@ -221,16 +230,59 @@ export function useSidebarController({
         return;
       }
 
-      const diff = touchStartX.current - pointX;
+      const diff = projectTouchStartX.current - pointX;
 
       if (diff > 40) {
         setSwipedProject((prev) => (prev === projectName ? prev : projectName));
+        setSwipedSession((prev) => (prev === null ? prev : null));
       } else if (diff < -40) {
         setSwipedProject((prev) => (prev === null ? prev : null));
       }
     },
     [],
   );
+
+  const handleSessionTouchStart = useCallback((event: React.TouchEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.closest('button') ||
+      target?.closest('input') ||
+      target?.closest('textarea') ||
+      target?.closest('a') ||
+      target?.closest('[role="button"]')
+    ) {
+      sessionTouchStartX.current = null;
+      return;
+    }
+
+    const pointX = event.touches[0]?.clientX;
+    if (typeof pointX !== 'number') {
+      sessionTouchStartX.current = null;
+      return;
+    }
+
+    sessionTouchStartX.current = pointX;
+  }, []);
+
+  const handleSessionTouchMove = useCallback((event: React.TouchEvent<HTMLElement>, sessionKey: string) => {
+    if (sessionTouchStartX.current === null) {
+      return;
+    }
+
+    const pointX = event.touches[0]?.clientX;
+    if (typeof pointX !== 'number') {
+      return;
+    }
+
+    const diff = sessionTouchStartX.current - pointX;
+
+    if (diff > 40) {
+      setSwipedSession((prev) => (prev === sessionKey ? prev : sessionKey));
+      setSwipedProject((prev) => (prev === null ? prev : null));
+    } else if (diff < -40) {
+      setSwipedSession((prev) => (prev === null ? prev : null));
+    }
+  }, []);
 
   const toggleProject = useCallback((projectName: string) => {
     setExpandedProjects((prev) => {
@@ -654,12 +706,16 @@ export function useSidebarController({
     starredProjects,
     filteredProjects,
     swipedProject,
+    swipedSession,
     runningProjects,
     stoppingProjects,
     handleTouchClick,
     clearSwipedProject,
+    clearSwipedSession,
     handleProjectTouchStart,
     handleProjectTouchMove,
+    handleSessionTouchStart,
+    handleSessionTouchMove,
     toggleProject,
     handleSessionClick,
     toggleStarProject,

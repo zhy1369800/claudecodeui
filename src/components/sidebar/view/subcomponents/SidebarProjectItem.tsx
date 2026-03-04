@@ -27,6 +27,7 @@ type SidebarProjectItemProps = {
   runningInfo: RunningProjectInfo | null;
   isStopping: boolean;
   isSwiped: boolean;
+  swipedSession: string | null;
   onToggleProject: (projectName: string) => void;
   onProjectSelect: (project: Project) => void;
   onToggleStarProject: (projectName: string) => void;
@@ -47,8 +48,11 @@ type SidebarProjectItemProps = {
   onSaveEditingSession: (projectName: string, sessionId: string, summary: string, provider: SessionProvider) => void;
   touchHandlerFactory: TouchHandlerFactory;
   onClearSwipedProject: () => void;
+  onClearSwipedSession: () => void;
   onProjectTouchStart: (event: React.TouchEvent<HTMLElement>) => void;
   onProjectTouchMove: (event: React.TouchEvent<HTMLElement>, projectName: string) => void;
+  onSessionTouchStart: (event: React.TouchEvent<HTMLElement>) => void;
+  onSessionTouchMove: (event: React.TouchEvent<HTMLElement>, sessionKey: string) => void;
   onRunProject: (project: Project) => void;
   onStopProject: (projectName: string) => void;
   t: TFunction;
@@ -81,6 +85,7 @@ export default function SidebarProjectItem({
   runningInfo,
   isStopping,
   isSwiped,
+  swipedSession,
   onToggleProject,
   onProjectSelect,
   onToggleStarProject,
@@ -96,8 +101,11 @@ export default function SidebarProjectItem({
   onSaveEditingSession,
   touchHandlerFactory,
   onClearSwipedProject,
+  onClearSwipedSession,
   onProjectTouchStart,
   onProjectTouchMove,
+  onSessionTouchStart,
+  onSessionTouchMove,
   onRunProject,
   onStopProject,
   t,
@@ -413,6 +421,10 @@ export default function SidebarProjectItem({
         onLoadMoreSessions={onLoadMoreSessions}
         onNewSession={onNewSession}
         touchHandlerFactory={touchHandlerFactory}
+        swipedSession={swipedSession}
+        onClearSwipedSession={onClearSwipedSession}
+        onSessionTouchStart={onSessionTouchStart}
+        onSessionTouchMove={onSessionTouchMove}
         t={t}
       />
     </div>

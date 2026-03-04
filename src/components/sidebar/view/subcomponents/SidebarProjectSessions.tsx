@@ -1,4 +1,5 @@
 import { ChevronDown, Plus } from 'lucide-react';
+import type React from 'react';
 import type { TFunction } from 'i18next';
 import { Button } from '../../../ui/button';
 import type { Project, ProjectSession, SessionProvider } from '../../../../types/app';
@@ -30,6 +31,10 @@ type SidebarProjectSessionsProps = {
   onLoadMoreSessions: (project: Project) => void;
   onNewSession: (project: Project) => void;
   touchHandlerFactory: TouchHandlerFactory;
+  swipedSession: string | null;
+  onClearSwipedSession: () => void;
+  onSessionTouchStart: (event: React.TouchEvent<HTMLElement>) => void;
+  onSessionTouchMove: (event: React.TouchEvent<HTMLElement>, sessionKey: string) => void;
   t: TFunction;
 };
 
@@ -71,6 +76,10 @@ export default function SidebarProjectSessions({
   onLoadMoreSessions,
   onNewSession,
   touchHandlerFactory,
+  swipedSession,
+  onClearSwipedSession,
+  onSessionTouchStart,
+  onSessionTouchMove,
   t,
 }: SidebarProjectSessionsProps) {
   if (!isExpanded) {
@@ -94,6 +103,7 @@ export default function SidebarProjectSessions({
             key={session.id}
             project={project}
             session={session}
+            isSwiped={swipedSession === `${project.name}:${session.__provider}:${session.id}`}
             selectedSession={selectedSession}
             currentTime={currentTime}
             editingSession={editingSession}
@@ -106,6 +116,9 @@ export default function SidebarProjectSessions({
             onSessionSelect={onSessionSelect}
             onDeleteSession={onDeleteSession}
             touchHandlerFactory={touchHandlerFactory}
+            onClearSwipedSession={onClearSwipedSession}
+            onSessionTouchStart={onSessionTouchStart}
+            onSessionTouchMove={onSessionTouchMove}
             t={t}
           />
         ))

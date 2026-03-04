@@ -27,6 +27,7 @@ export type SidebarProjectListProps = {
   editingSessionName: string;
   deletingProjects: Set<string>;
   swipedProject: string | null;
+  swipedSession: string | null;
   tasksEnabled: boolean;
   mcpServerStatus: MCPServerStatus;
   runningProjects: Record<string, RunningProjectInfo>;
@@ -53,8 +54,11 @@ export type SidebarProjectListProps = {
   onSaveEditingSession: (projectName: string, sessionId: string, summary: string, provider: SessionProvider) => void;
   touchHandlerFactory: TouchHandlerFactory;
   onClearSwipedProject: () => void;
+  onClearSwipedSession: () => void;
   onProjectTouchStart: (event: React.TouchEvent<HTMLElement>) => void;
   onProjectTouchMove: (event: React.TouchEvent<HTMLElement>, projectName: string) => void;
+  onSessionTouchStart: (event: React.TouchEvent<HTMLElement>) => void;
+  onSessionTouchMove: (event: React.TouchEvent<HTMLElement>, sessionKey: string) => void;
   onRunProject: (project: Project) => void;
   onStopProject: (projectName: string) => void;
   t: TFunction;
@@ -75,6 +79,7 @@ export default function SidebarProjectList({
   editingSessionName,
   deletingProjects,
   swipedProject,
+  swipedSession,
   tasksEnabled,
   mcpServerStatus,
   runningProjects,
@@ -96,8 +101,11 @@ export default function SidebarProjectList({
   onSaveEditingSession,
   touchHandlerFactory,
   onClearSwipedProject,
+  onClearSwipedSession,
   onProjectTouchStart,
   onProjectTouchMove,
+  onSessionTouchStart,
+  onSessionTouchMove,
   onRunProject,
   onStopProject,
   t,
@@ -147,6 +155,7 @@ export default function SidebarProjectList({
               runningInfo={runningProjects[project.name] || null}
               isStopping={stoppingProjects.has(project.name)}
               isSwiped={swipedProject === project.name}
+              swipedSession={swipedSession}
               onToggleProject={onToggleProject}
               onProjectSelect={onProjectSelect}
               onToggleStarProject={onToggleStarProject}
@@ -162,8 +171,11 @@ export default function SidebarProjectList({
               onSaveEditingSession={onSaveEditingSession}
               touchHandlerFactory={touchHandlerFactory}
               onClearSwipedProject={onClearSwipedProject}
+              onClearSwipedSession={onClearSwipedSession}
               onProjectTouchStart={onProjectTouchStart}
               onProjectTouchMove={onProjectTouchMove}
+              onSessionTouchStart={onSessionTouchStart}
+              onSessionTouchMove={onSessionTouchMove}
               onRunProject={onRunProject}
               onStopProject={onStopProject}
               t={t}

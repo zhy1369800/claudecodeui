@@ -511,8 +511,18 @@ export function useChatSessionState({
 
 
   useEffect(() => {
-    if (sessionMessages.length > 0) {
-      setChatMessages((previous) => {
+
+    // Only sync sessionMessages to chatMessages when:
+    // 1. Not currently loading (to avoid overwriting user's just-sent message)
+    // 2. SessionMessages actually changed (including from non-empty to empty)
+    // 3. Either it's initial load OR sessionMessages increased (new messages from server)
+    if (
+      sessionMessages.length !== prevSessionMessagesLengthRef.current &&
+      !isLoading
+    ) {
+      // Only update if this is initial load, sessionMessages grew, or was cleared to empty
+      if (isInitialLoadRef.current || sessionMessages.length === 0 || sessionMessages.length > prevSessionMessagesLengthRef.current) {
+         setChatMessages((previous) => {
         const optimisticUsers = previous.filter(
           (message) => message.type === 'user' && Boolean(message.isLocalTransient),
         );
@@ -605,6 +615,9 @@ export function useChatSessionState({
 
         return [...mergedMessages, ...remainingOptimisticUsers];
       });
+        isInitialLoadRef.current = false;
+      }
+      prevSessionMessagesLengthRef.current = sessionMessages.length;
     }
   }, [convertedMessages, sessionMessages.length, isLoading, setChatMessages]);
 

@@ -253,4 +253,4 @@ export const api = {
     method: 'DELETE',
     ...options,
   }),
-};};
+};

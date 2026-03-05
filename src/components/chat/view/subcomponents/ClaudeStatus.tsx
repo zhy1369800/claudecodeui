@@ -122,14 +122,7 @@ export default function ClaudeStatus({
                   {isLoading && (
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70" />
                   )}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="font-medium text-xs sm:text-sm truncate">{statusText}...</span>
-                {tokens > 0 && (
-                  <>
-                    <span className="text-gray-500 hidden sm:inline">|</span>
-                    <span className="text-gray-300 text-xs sm:text-sm hidden sm:inline flex-shrink-0">
-                      tokens {tokens.toLocaleString()}
+            
                   <span
                     className={cn(
                       'relative inline-flex h-2.5 w-2.5 rounded-full',

@@ -675,7 +675,7 @@ export function useChatComposerState({
       };
 
       setChatMessages((previous) => [...previous, userMessage]);
-      setIsLoading(true);
+      setIsLoading(true); // Processing banner starts
       setCanAbortSession(true);
       setClaudeStatus({
         text: 'Processing',
